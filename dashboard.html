@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>รายการอุปกรณ์ - MMD BORROW</title>
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600&family=Poppins:wght@400;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="style.css">
 </head>
@@ -31,6 +32,7 @@
                 <input type="text" placeholder="ค้นหาอุปกรณ์..." onkeyup="searchItem(this.value)">
             </div>
         </div>
+        
         <div id="itemGrid" class="item-grid"></div>
     </div>
 
@@ -42,10 +44,13 @@
             <form id="borrowForm">
                 <label style="color:#888; font-size:12px;">ชื่อผู้ยืม</label>
                 <input type="text" id="borrowerName" readonly style="color:#666; cursor:not-allowed;">
+                
                 <label style="color:#888; font-size:12px;">วันที่คืน</label>
                 <input type="date" required>
+                
                 <label style="color:#888; font-size:12px;">เหตุผลการยืม</label>
                 <textarea rows="3" placeholder="เช่น ใช้ถ่ายงานวิชา..."></textarea>
+                
                 <div class="modal-actions" style="display:flex; gap:10px; margin-top:15px;">
                     <button type="button" onclick="closeModal()" class="btn-cancel">ยกเลิก</button>
                     <button type="submit" class="btn-confirm">ยืนยันการจอง</button>
@@ -55,9 +60,9 @@
     </div>
 
     <div id="historyModal" class="modal">
-        <div class="modal-content" style="width: 600px;">
-            <span class="close" onclick="closeHistoryModal()">&times;</span>
+        <div class="modal-content" style="width: 700px;"> <span class="close" onclick="closeHistoryModal()">&times;</span>
             <h3 style="color:var(--theme-primary); margin-top:0;"><i class="fas fa-history"></i> ประวัติการจองของฉัน</h3>
+            
             <div class="table-responsive">
                 <table class="data-table" style="width:100%; color:white; font-size:14px;">
                     <thead>
@@ -65,11 +70,14 @@
                             <th style="border-bottom:1px solid var(--theme-primary);">อุปกรณ์</th>
                             <th style="border-bottom:1px solid var(--theme-primary);">วันที่</th>
                             <th style="border-bottom:1px solid var(--theme-primary);">สถานะ</th>
+                            <th style="border-bottom:1px solid var(--theme-primary);">หลักฐาน</th>
                         </tr>
                     </thead>
-                    <tbody id="historyTableBody"></tbody>
+                    <tbody id="historyTableBody">
+                        </tbody>
                 </table>
             </div>
+            
             <div style="margin-top:20px; text-align:right;">
                 <button onclick="closeHistoryModal()" class="btn-cancel">ปิดหน้าต่าง</button>
             </div>
