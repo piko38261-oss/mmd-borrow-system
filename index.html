@@ -10,6 +10,7 @@
 </head>
 <body>
     <div class="bg-animate"></div>
+
     <div class="login-wrapper">
         <div class="glass-card">
             <div class="logo-area">
@@ -17,6 +18,7 @@
                 <h2>MMD <span style="color:var(--theme-primary)">BORROW</span></h2>
                 <p>ระบบยืม-คืนครุภัณฑ์ สาขามัลติมีเดีย</p>
             </div>
+
             <form id="loginForm">
                 <div class="input-group">
                     <i class="fas fa-user"></i>
@@ -31,9 +33,10 @@
                 <button type="submit" class="btn-glow">เข้าสู่ระบบ</button>
                 <div class="footer-links">
                     <a href="#">ลืมรหัสผ่าน?</a>
-                    <span style="color:#666">ยังไม่มีบัญชี? <a class="register-link" onclick="toggleForm()">สมัครสมาชิก</a></span>
+                    <span style="color:#888">ยังไม่มีบัญชี? <a class="register-link" onclick="toggleForm()">สมัครสมาชิก</a></span>
                 </div>
             </form>
+
             <form id="registerForm" class="hidden">
                 <div class="input-group">
                     <i class="fas fa-id-card"></i>
@@ -50,13 +53,14 @@
                     <input type="password" id="regPass" required>
                     <label>ตั้งรหัสผ่าน (Password)</label>
                 </div>
-                <button type="submit" class="btn-glow" style="filter: grayscale(1);">ยืนยันการสมัคร</button>
+                <button type="submit" class="btn-glow" style="filter: hue-rotate(45deg);">ยืนยันการสมัคร</button>
                 <div class="footer-links" style="justify-content: center;">
                     <a class="register-link" onclick="toggleForm()"><i class="fas fa-arrow-left"></i> กลับไปหน้าเข้าสู่ระบบ</a>
                 </div>
             </form>
         </div>
     </div>
-    <script src="script.js"></script>
+
+    <script type="module" src="script.js"></script>
 </body>
 </html>
