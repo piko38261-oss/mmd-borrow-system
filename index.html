@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MMD BORROW - เข้าสู่ระบบ</title>
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600&family=Poppins:wght@400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="bg-animate"></div>
+    <div class="login-wrapper">
+        <div class="glass-card">
+            <div class="logo-area">
+                <div class="icon-circle"><i class="fas fa-layer-group"></i></div>
+                <h2>MMD <span style="color:var(--theme-primary)">BORROW</span></h2>
+                <p>ระบบยืม-คืนครุภัณฑ์ สาขามัลติมีเดีย</p>
+            </div>
+            <form id="loginForm">
+                <div class="input-group">
+                    <i class="fas fa-user"></i>
+                    <input type="text" id="username" required>
+                    <label>รหัสนักศึกษา / ชื่อผู้ใช้</label>
+                </div>
+                <div class="input-group">
+                    <i class="fas fa-lock"></i>
+                    <input type="password" id="password" required>
+                    <label>รหัสผ่าน</label>
+                </div>
+                <button type="submit" class="btn-glow">เข้าสู่ระบบ</button>
+                <div class="footer-links">
+                    <a href="#">ลืมรหัสผ่าน?</a>
+                    <span style="color:#666">ยังไม่มีบัญชี? <a class="register-link" onclick="toggleForm()">สมัครสมาชิก</a></span>
+                </div>
+            </form>
+            <form id="registerForm" class="hidden">
+                <div class="input-group">
+                    <i class="fas fa-id-card"></i>
+                    <input type="text" id="regName" required>
+                    <label>ชื่อ-นามสกุล</label>
+                </div>
+                <div class="input-group">
+                    <i class="fas fa-user-plus"></i>
+                    <input type="text" id="regUser" required>
+                    <label>ตั้งชื่อผู้ใช้ (Username)</label>
+                </div>
+                <div class="input-group">
+                    <i class="fas fa-key"></i>
+                    <input type="password" id="regPass" required>
+                    <label>ตั้งรหัสผ่าน (Password)</label>
+                </div>
+                <button type="submit" class="btn-glow" style="filter: grayscale(1);">ยืนยันการสมัคร</button>
+                <div class="footer-links" style="justify-content: center;">
+                    <a class="register-link" onclick="toggleForm()"><i class="fas fa-arrow-left"></i> กลับไปหน้าเข้าสู่ระบบ</a>
+                </div>
+            </form>
+        </div>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>
