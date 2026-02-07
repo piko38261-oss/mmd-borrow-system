@@ -1,5 +1,5 @@
 /* =========================================
-   script.js - MMD BORROW SYSTEM (FINAL COMPLETE EDITION)
+   script.js - MMD BORROW SYSTEM (LATEST FIRST + DELETE EDITION)
    ========================================= */
 
 // 1. นำเข้า Firebase
@@ -28,7 +28,7 @@ let items = [];
 let borrowRequests = [];
 let users = [];
 
-/* --- Helper 1: ระบบย่อรูป (Resize Image to Base64) --- */
+/* --- Helper 1: ระบบย่อรูป --- */
 function resizeImage(file) {
     return new Promise((resolve) => {
         const reader = new FileReader();
@@ -38,7 +38,7 @@ function resizeImage(file) {
             img.src = event.target.result;
             img.onload = () => {
                 const canvas = document.createElement('canvas');
-                const maxWidth = 800; // กำหนดความกว้างสูงสุด
+                const maxWidth = 800; 
                 let width = img.width;
                 let height = img.height;
                 if (width > maxWidth) {
@@ -49,13 +49,13 @@ function resizeImage(file) {
                 canvas.height = height;
                 const ctx = canvas.getContext('2d');
                 ctx.drawImage(img, 0, 0, width, height);
-                resolve(canvas.toDataURL('image/jpeg', 0.7)); // คืนค่าเป็นรหัสข้อความ
+                resolve(canvas.toDataURL('image/jpeg', 0.7)); 
             };
         };
     });
 }
 
-/* --- Helper 2: ระบบ Popup ดูรูป (Lightbox) --- */
+/* --- Helper 2: ระบบ Popup ดูรูป --- */
 const lightbox = document.createElement('div');
 lightbox.id = 'lightbox-modal';
 lightbox.style.cssText = 'display:none; position:fixed; z-index:99999; left:0; top:0; width:100%; height:100%; background:rgba(0,0,0,0.9); justify-content:center; align-items:center; cursor:pointer; flex-direction:column;';
@@ -66,7 +66,6 @@ lightbox.innerHTML = `
 lightbox.onclick = () => lightbox.style.display = 'none';
 document.body.appendChild(lightbox);
 
-// ฟังก์ชันเรียกใช้ Popup
 window.viewPhoto = function(reqId) {
     const req = borrowRequests.find(r => r.id === reqId);
     if (req && req.proofPhoto) {
@@ -78,8 +77,6 @@ window.viewPhoto = function(reqId) {
 }
 
 /* --- PART 1: Data Logic --- */
-async function seedDatabase() { /* ... */ }
-
 function listenToData() {
     onSnapshot(collection(db, "items"), (snapshot) => {
         items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -158,17 +155,47 @@ if(window.location.pathname.includes('dashboard.html')) {
             grid.innerHTML += `<div class="card"><div class="card-img"><img src="${item.image}"><div class="status-badge ${status}">${status==='available'?'ว่าง':'ถูกยืม'}</div></div><div class="card-body"><h4>${item.name}</h4><span class="category-tag">${item.category.toUpperCase()}</span><button class="${btnClass}" onclick="${btnAction}">${btnText}</button></div></div>`;
         });
     }
-    window.openModal = (n, id) => { document.getElementById('modalItemName').innerText = n; document.getElementById('modalItemName').dataset.id = id; document.getElementById('borrowerName').value = currentUser.name; document.getElementById('borrowModal').style.display = 'flex'; }
+    window.openModal = (n, id) => { 
+        document.getElementById('modalItemName').innerText = n; 
+        document.getElementById('modalItemName').dataset.id = id; 
+        document.getElementById('borrowerName').value = currentUser.name; 
+        document.getElementById('borrowModal').style.display = 'flex'; 
+    }
     window.closeModal = () => document.getElementById('borrowModal').style.display = 'none';
+
     document.getElementById('borrowForm').onsubmit = async (e) => {
         e.preventDefault();
-        try { await addDoc(collection(db, "requests"), { user: currentUser.name, userId: currentUser.id, item: document.getElementById('modalItemName').innerText, date: document.querySelector('input[type="date"]').value, status: "pending", timestamp: new Date() }); alert("✅ ส่งคำขอเรียบร้อย!"); closeModal(); } catch(e) { alert("Error"); }
+        const itemName = document.getElementById('modalItemName').innerText;
+        const date = document.querySelector('input[type="date"]').value;
+        const fileInput = document.getElementById('borrowProof');
+
+        try {
+            alert("⏳ กำลังส่งคำขอ...");
+            let photoBase64 = null;
+            if (fileInput.files.length > 0) { photoBase64 = await resizeImage(fileInput.files[0]); }
+
+            await addDoc(collection(db, "requests"), { 
+                user: currentUser.name, userId: currentUser.id, item: itemName, date: date, 
+                status: "pending", 
+                proofPhoto: photoBase64,
+                timestamp: new Date() 
+            });
+            
+            alert("✅ ส่งคำขอจองเรียบร้อย!"); 
+            closeModal();
+            fileInput.value = ''; 
+        } catch(e) { alert("Error: " + e.message); }
     };
 
-    // --- History Modal (User View) ---
     window.openHistoryModal = () => {
         const tbody = document.getElementById('historyTableBody'); tbody.innerHTML = '';
-        const myReqs = borrowRequests.filter(r => r.user === currentUser.name).sort((a,b) => b.timestamp - a.timestamp);
+        // เรียงประวัติ User: ใหม่ -> เก่า
+        const myReqs = borrowRequests.filter(r => r.user === currentUser.name).sort((a,b) => {
+             const tA = a.timestamp && a.timestamp.seconds ? a.timestamp.seconds : 0;
+             const tB = b.timestamp && b.timestamp.seconds ? b.timestamp.seconds : 0;
+             return tB - tA;
+        });
+
         if (myReqs.length === 0) tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:20px;">ไม่มีประวัติ</td></tr>';
         else myReqs.forEach(r => {
             let badge = r.status==='pending'?'⏳ รอตรวจสอบ':r.status==='approved'?'✅ อนุมัติแล้ว':r.status==='returned'?'↩️ คืนแล้ว':'❌ ไม่ผ่าน';
@@ -187,37 +214,68 @@ if(window.location.pathname.includes('admin.html')) {
     listenToData(); window.onload = () => { checkAuth(); updateDashboardStats(); document.getElementById('section-requests').style.display = 'block'; }
     window.switchTab = (t) => { document.querySelectorAll('.content-section').forEach(e => e.style.display = 'none'); document.querySelectorAll('.sidebar-menu a').forEach(e => e.classList.remove('active')); document.getElementById(`section-${t}`).style.display = 'block'; document.getElementById(`menu-${t}`).classList.add('active'); if(t==='requests') renderRequests(); if(t==='inventory') renderInventory(); if(t==='users') renderUsers(); }
 
-    // --- Render Requests (Admin View) ---
+    // ✅ ฟังก์ชันแสดงรายการคำขอ (ปรับปรุงใหม่: เรียงล่าสุด + ปุ่มลบ)
     window.renderRequests = () => {
         const tbody = document.getElementById('requestTableBody'); if(!tbody) return; tbody.innerHTML = '';
-        [...borrowRequests].sort((a,b) => (a.status === 'pending' ? -1 : 1)).forEach(r => {
-            let badge, btns;
-            
-            // ปุ่มดูรูป (สำหรับช่องหลักฐาน)
-            let photoBtn = r.proofPhoto ? `<button onclick="viewPhoto('${r.id}')" style="background:none; border:none; color:#ff6600; cursor:pointer; font-weight:bold; text-decoration:underline;">📷 ดูรูป</button>` : '-';
+        
+        // เรียงลำดับ: ใหม่ล่าสุด -> เก่าสุด (Latest First)
+        const sortedReqs = [...borrowRequests].sort((a,b) => {
+             const tA = a.timestamp && a.timestamp.seconds ? a.timestamp.seconds : 0;
+             const tB = b.timestamp && b.timestamp.seconds ? b.timestamp.seconds : 0;
+             return tB - tA; // มากไปน้อย
+        });
+
+        sortedReqs.forEach(r => {
+            let badge, btns, photoDisplay;
+
+            if (r.proofPhoto) {
+                photoDisplay = `<button onclick="viewPhoto('${r.id}')" style="background:none; border:none; color:#ff6600; cursor:pointer; font-weight:bold; text-decoration:underline;">📷 รูปแนบ</button>`;
+            } else {
+                photoDisplay = '-';
+            }
 
             if(r.status === 'pending') {
                 badge = '<span class="badge status-pending">รอตรวจสอบ</span>';
-                btns = `<input type="file" id="file-${r.id}" style="display:none;" onchange="uploadProof(this, '${r.id}')" accept="image/*">
-                    <button class="btn-action" style="background:#444;" onclick="document.getElementById('file-${r.id}').click()"><i class="fas fa-camera"></i> ถ่ายรูป/อนุมัติ</button>
-                    <button class="btn-action btn-reject" onclick="updateStatus('${r.id}','rejected')">ปฏิเสธ</button>`;
+                if(r.proofPhoto) {
+                    btns = `<button class="btn-action" style="background:#28a745;" onclick="updateStatus('${r.id}','approved')">✅ อนุมัติ</button>
+                            <button class="btn-action btn-reject" onclick="updateStatus('${r.id}','rejected')">ปฏิเสธ</button>`;
+                } else {
+                    btns = `<input type="file" id="file-${r.id}" style="display:none;" onchange="uploadProof(this, '${r.id}')" accept="image/*">
+                            <button class="btn-action" style="background:#444;" onclick="document.getElementById('file-${r.id}').click()"><i class="fas fa-camera"></i> ถ่ายรูป</button>
+                            <button class="btn-action btn-reject" onclick="updateStatus('${r.id}','rejected')">ปฏิเสธ</button>`;
+                }
             } else if(r.status === 'approved') {
                 badge = '<span class="badge status-approved">ถูกยืม</span>';
                 btns = `<button class="btn-action" style="background:#0099cc; color:white" onclick="updateStatus('${r.id}','returned')">รับคืน</button>`;
-            } else { badge = `<span class="badge" style="background:#333; color:#aaa">${r.status}</span>`; btns = '-'; }
+            } else { 
+                // สถานะที่จบแล้ว (Returned / Rejected) -> แสดงปุ่มลบ (Trash)
+                badge = `<span class="badge" style="background:#333; color:#aaa">${r.status}</span>`; 
+                btns = `<button class="btn-action btn-reject" onclick="deleteRequest('${r.id}')" title="ลบประวัตินี้"><i class="fas fa-trash"></i></button>`; 
+            }
             
-            tbody.innerHTML += `<tr><td>${r.user}</td><td>${r.item}</td><td>${r.date}</td><td>${badge}</td><td>${photoBtn}</td><td>${btns}</td></tr>`;
+            tbody.innerHTML += `<tr><td>${r.user}</td><td>${r.item}</td><td>${r.date}</td><td>${badge}</td><td>${photoDisplay}</td><td>${btns}</td></tr>`;
         });
     }
 
-    // ฟังก์ชันอัปโหลดรูป (Resize -> Upload)
+    // ✅ ฟังก์ชันลบคำขอ (Manual Delete)
+    window.deleteRequest = async (id) => {
+        if(confirm("⚠️ คุณต้องการลบประวัติคำขอนี้ใช่หรือไม่?\n(ข้อมูลจะหายไปถาวร)")) {
+            try {
+                await deleteDoc(doc(db, "requests", id));
+                // ไม่ต้อง alert ก็ได้เพราะมัน real-time แต่นิดนึงเพื่อความชัวร์
+            } catch(e) {
+                alert("❌ ลบไม่สำเร็จ: " + e.message);
+            }
+        }
+    }
+
     window.uploadProof = async (input, reqId) => {
         const file = input.files[0]; if(!file) return;
         try {
-            alert("⏳ กำลังย่อขนาดและบันทึกรูป...");
+            alert("⏳ กำลังบันทึกรูป...");
             const base64String = await resizeImage(file); 
             await updateDoc(doc(db, "requests", reqId), { status: 'approved', proofPhoto: base64String });
-            alert("✅ สำเร็จ! อนุมัติเรียบร้อย");
+            alert("✅ สำเร็จ!");
         } catch (error) { alert("❌ ผิดพลาด: " + error.message); }
     }
 
