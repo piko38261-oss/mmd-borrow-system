@@ -1,5 +1,5 @@
 /* =========================================
-   script.js - MMD BORROW SYSTEM (LATEST FIRST + DELETE EDITION)
+   script.js - MMD BORROW SYSTEM (FULL EDITION + EMAIL ALERT)
    ========================================= */
 
 // 1. นำเข้า Firebase
@@ -163,6 +163,7 @@ if(window.location.pathname.includes('dashboard.html')) {
     }
     window.closeModal = () => document.getElementById('borrowModal').style.display = 'none';
 
+    // ✅ ฟังก์ชันกดจอง + ส่งอีเมลแจ้งเตือน
     document.getElementById('borrowForm').onsubmit = async (e) => {
         e.preventDefault();
         const itemName = document.getElementById('modalItemName').innerText;
@@ -170,10 +171,11 @@ if(window.location.pathname.includes('dashboard.html')) {
         const fileInput = document.getElementById('borrowProof');
 
         try {
-            alert("⏳ กำลังส่งคำขอ...");
+            alert("⏳ กำลังบันทึกและส่งแจ้งเตือน...");
             let photoBase64 = null;
             if (fileInput.files.length > 0) { photoBase64 = await resizeImage(fileInput.files[0]); }
 
+            // 1. บันทึกลง Firebase
             await addDoc(collection(db, "requests"), { 
                 user: currentUser.name, userId: currentUser.id, item: itemName, date: date, 
                 status: "pending", 
@@ -181,7 +183,23 @@ if(window.location.pathname.includes('dashboard.html')) {
                 timestamp: new Date() 
             });
             
-            alert("✅ ส่งคำขอจองเรียบร้อย!"); 
+            // 2. ส่ง Email ไปหาแอดมิน (piko38261@gmail.com)
+            const emailParams = {
+                user_name: currentUser.name,
+                item_name: itemName,
+                date: date,
+                to_email: "piko38261@gmail.com"
+            };
+
+            // ✅ ใส่รหัสจริงให้แล้วครับ!
+            emailjs.send('service_8q17oo9', 'template_4ch9467', emailParams)
+                .then(function() {
+                    console.log('✅ แจ้งเตือนเข้าเมลสำเร็จ!');
+                }, function(error) {
+                    console.log('❌ แจ้งเตือนเมลล้มเหลว...', error);
+                });
+
+            alert("✅ จองสำเร็จ! แจ้งเตือนแอดมินเรียบร้อย"); 
             closeModal();
             fileInput.value = ''; 
         } catch(e) { alert("Error: " + e.message); }
@@ -189,7 +207,6 @@ if(window.location.pathname.includes('dashboard.html')) {
 
     window.openHistoryModal = () => {
         const tbody = document.getElementById('historyTableBody'); tbody.innerHTML = '';
-        // เรียงประวัติ User: ใหม่ -> เก่า
         const myReqs = borrowRequests.filter(r => r.user === currentUser.name).sort((a,b) => {
              const tA = a.timestamp && a.timestamp.seconds ? a.timestamp.seconds : 0;
              const tB = b.timestamp && b.timestamp.seconds ? b.timestamp.seconds : 0;
@@ -214,15 +231,12 @@ if(window.location.pathname.includes('admin.html')) {
     listenToData(); window.onload = () => { checkAuth(); updateDashboardStats(); document.getElementById('section-requests').style.display = 'block'; }
     window.switchTab = (t) => { document.querySelectorAll('.content-section').forEach(e => e.style.display = 'none'); document.querySelectorAll('.sidebar-menu a').forEach(e => e.classList.remove('active')); document.getElementById(`section-${t}`).style.display = 'block'; document.getElementById(`menu-${t}`).classList.add('active'); if(t==='requests') renderRequests(); if(t==='inventory') renderInventory(); if(t==='users') renderUsers(); }
 
-    // ✅ ฟังก์ชันแสดงรายการคำขอ (ปรับปรุงใหม่: เรียงล่าสุด + ปุ่มลบ)
     window.renderRequests = () => {
         const tbody = document.getElementById('requestTableBody'); if(!tbody) return; tbody.innerHTML = '';
-        
-        // เรียงลำดับ: ใหม่ล่าสุด -> เก่าสุด (Latest First)
         const sortedReqs = [...borrowRequests].sort((a,b) => {
              const tA = a.timestamp && a.timestamp.seconds ? a.timestamp.seconds : 0;
              const tB = b.timestamp && b.timestamp.seconds ? b.timestamp.seconds : 0;
-             return tB - tA; // มากไปน้อย
+             return tB - tA;
         });
 
         sortedReqs.forEach(r => {
@@ -230,9 +244,7 @@ if(window.location.pathname.includes('admin.html')) {
 
             if (r.proofPhoto) {
                 photoDisplay = `<button onclick="viewPhoto('${r.id}')" style="background:none; border:none; color:#ff6600; cursor:pointer; font-weight:bold; text-decoration:underline;">📷 รูปแนบ</button>`;
-            } else {
-                photoDisplay = '-';
-            }
+            } else { photoDisplay = '-'; }
 
             if(r.status === 'pending') {
                 badge = '<span class="badge status-pending">รอตรวจสอบ</span>';
@@ -248,24 +260,16 @@ if(window.location.pathname.includes('admin.html')) {
                 badge = '<span class="badge status-approved">ถูกยืม</span>';
                 btns = `<button class="btn-action" style="background:#0099cc; color:white" onclick="updateStatus('${r.id}','returned')">รับคืน</button>`;
             } else { 
-                // สถานะที่จบแล้ว (Returned / Rejected) -> แสดงปุ่มลบ (Trash)
                 badge = `<span class="badge" style="background:#333; color:#aaa">${r.status}</span>`; 
                 btns = `<button class="btn-action btn-reject" onclick="deleteRequest('${r.id}')" title="ลบประวัตินี้"><i class="fas fa-trash"></i></button>`; 
             }
-            
             tbody.innerHTML += `<tr><td>${r.user}</td><td>${r.item}</td><td>${r.date}</td><td>${badge}</td><td>${photoDisplay}</td><td>${btns}</td></tr>`;
         });
     }
 
-    // ✅ ฟังก์ชันลบคำขอ (Manual Delete)
     window.deleteRequest = async (id) => {
         if(confirm("⚠️ คุณต้องการลบประวัติคำขอนี้ใช่หรือไม่?\n(ข้อมูลจะหายไปถาวร)")) {
-            try {
-                await deleteDoc(doc(db, "requests", id));
-                // ไม่ต้อง alert ก็ได้เพราะมัน real-time แต่นิดนึงเพื่อความชัวร์
-            } catch(e) {
-                alert("❌ ลบไม่สำเร็จ: " + e.message);
-            }
+            try { await deleteDoc(doc(db, "requests", id)); } catch(e) { alert("❌ ลบไม่สำเร็จ: " + e.message); }
         }
     }
 

@@ -7,6 +7,16 @@
     <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600&family=Poppins:wght@400;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="style.css">
+
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
+    
+    <script type="text/javascript">
+       (function(){
+          // ⚠️⚠️ 2. เอา Public Key มาใส่ตรงนี้ครับ! ⚠️⚠️
+          // (ดูได้จากเมนู Account ในเว็บ EmailJS รหัสจะขึ้นต้นด้วย user_ หรือตัวอักษรมั่วๆ)
+          emailjs.init("ewHyCGZrrHFfNYPldlQzL"); 
+       })();
+    </script>
 </head>
 <body>
     <div class="bg-animate"></div>
@@ -88,10 +98,7 @@
         </div>
     </div>
 
-    <audio id="bgMusic" loop autoplay>
-        <source src="https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3?filename=lofi-study-112191.mp3" type="audio/mpeg">
-    </audio>
-
+    <audio id="bgMusic"></audio> 
     <div id="musicControl" onclick="toggleMusic()" style="
         position: fixed; bottom: 20px; left: 20px; z-index: 9999;
         background: rgba(0, 0, 0, 0.6); backdrop-filter: blur(5px);
@@ -106,11 +113,34 @@
     </div>
 
     <script>
+        // --- 🎵 รายการเพลง (Playlist) ---
+        const playlist = [
+            "https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3?filename=lofi-study-112191.mp3", 
+            "https://cdn.pixabay.com/download/audio/2022/03/10/audio_c8c8a73467.mp3?filename=spirit-blossom-15285.mp3",
+            "https://cdn.pixabay.com/download/audio/2022/01/18/audio_d0a13f69d2.mp3?filename=lofi-chill-medium-version-159456.mp3"
+        ];
+
+        let currentTrack = 0;
         const music = document.getElementById('bgMusic');
         const btn = document.getElementById('musicControl');
         const icon = document.getElementById('musicIcon');
         const text = document.getElementById('musicText');
         music.volume = 0.3; 
+
+        function loadTrack(index) {
+            music.src = playlist[index];
+            music.load();
+        }
+
+        function nextTrack() {
+            currentTrack++;
+            if (currentTrack >= playlist.length) currentTrack = 0; 
+            loadTrack(currentTrack);
+            music.play();
+            updateButtonState(true);
+        }
+
+        music.addEventListener('ended', nextTrack);
 
         function updateButtonState(isPlaying) {
             if (isPlaying) {
@@ -118,7 +148,7 @@
                 btn.style.color = "black";
                 icon.innerText = "🎵";
                 icon.style.animation = "spin 2s linear infinite";
-                text.innerText = "Now Playing...";
+                text.innerText = `Track ${currentTrack + 1}`;
             } else {
                 btn.style.background = "rgba(0, 0, 0, 0.6)";
                 btn.style.color = "white";
@@ -133,12 +163,14 @@
             else { music.pause(); updateButtonState(false); }
         }
 
+        loadTrack(currentTrack);
+
         window.addEventListener('load', () => {
             const playPromise = music.play();
             if (playPromise !== undefined) {
                 playPromise.then(_ => { updateButtonState(true); })
                 .catch(error => {
-                    console.log("Autoplay blocked. Waiting for interaction.");
+                    console.log("Autoplay blocked.");
                     document.body.addEventListener('click', () => { music.play(); updateButtonState(true); }, { once: true });
                 });
             }
