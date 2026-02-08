@@ -12,8 +12,8 @@
     
     <script type="text/javascript">
        (function(){
-          // ⚠️⚠️ 2. เอา Public Key มาใส่ตรงนี้ครับ! ⚠️⚠️
-          // (ดูได้จากเมนู Account ในเว็บ EmailJS รหัสจะขึ้นต้นด้วย user_ หรือตัวอักษรมั่วๆ)
+          // ⚠️⚠️ 2. เอา Public Key มาใส่ในช่องฟันหนูตรงนี้ครับ! ⚠️⚠️
+          // (ดูจากเมนู Account ในเว็บ EmailJS)
           emailjs.init("Rj2WpB-v7fZqvEu08"); 
        })();
     </script>
@@ -113,72 +113,25 @@
     </div>
 
     <script>
-        // --- 🎵 รายการเพลง (Playlist) ---
         const playlist = [
             "https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3?filename=lofi-study-112191.mp3", 
             "https://cdn.pixabay.com/download/audio/2022/03/10/audio_c8c8a73467.mp3?filename=spirit-blossom-15285.mp3",
             "https://cdn.pixabay.com/download/audio/2022/01/18/audio_d0a13f69d2.mp3?filename=lofi-chill-medium-version-159456.mp3"
         ];
-
         let currentTrack = 0;
         const music = document.getElementById('bgMusic');
         const btn = document.getElementById('musicControl');
         const icon = document.getElementById('musicIcon');
         const text = document.getElementById('musicText');
         music.volume = 0.3; 
-
-        function loadTrack(index) {
-            music.src = playlist[index];
-            music.load();
-        }
-
-        function nextTrack() {
-            currentTrack++;
-            if (currentTrack >= playlist.length) currentTrack = 0; 
-            loadTrack(currentTrack);
-            music.play();
-            updateButtonState(true);
-        }
-
+        function loadTrack(index) { music.src = playlist[index]; music.load(); }
+        function nextTrack() { currentTrack++; if (currentTrack >= playlist.length) currentTrack = 0; loadTrack(currentTrack); music.play(); updateButtonState(true); }
         music.addEventListener('ended', nextTrack);
-
-        function updateButtonState(isPlaying) {
-            if (isPlaying) {
-                btn.style.background = "var(--theme-primary)";
-                btn.style.color = "black";
-                icon.innerText = "🎵";
-                icon.style.animation = "spin 2s linear infinite";
-                text.innerText = `Track ${currentTrack + 1}`;
-            } else {
-                btn.style.background = "rgba(0, 0, 0, 0.6)";
-                btn.style.color = "white";
-                icon.innerText = "🔇";
-                icon.style.animation = "none";
-                text.innerText = "Music Paused";
-            }
-        }
-
-        function toggleMusic() {
-            if (music.paused) { music.play(); updateButtonState(true); } 
-            else { music.pause(); updateButtonState(false); }
-        }
-
+        function updateButtonState(isPlaying) { if (isPlaying) { btn.style.background = "var(--theme-primary)"; btn.style.color = "black"; icon.innerText = "🎵"; icon.style.animation = "spin 2s linear infinite"; text.innerText = `Track ${currentTrack + 1}`; } else { btn.style.background = "rgba(0, 0, 0, 0.6)"; btn.style.color = "white"; icon.innerText = "🔇"; icon.style.animation = "none"; text.innerText = "Music Paused"; } }
+        function toggleMusic() { if (music.paused) { music.play(); updateButtonState(true); } else { music.pause(); updateButtonState(false); } }
         loadTrack(currentTrack);
-
-        window.addEventListener('load', () => {
-            const playPromise = music.play();
-            if (playPromise !== undefined) {
-                playPromise.then(_ => { updateButtonState(true); })
-                .catch(error => {
-                    console.log("Autoplay blocked.");
-                    document.body.addEventListener('click', () => { music.play(); updateButtonState(true); }, { once: true });
-                });
-            }
-        });
-
-        const styleSheet = document.createElement("style");
-        styleSheet.innerText = `@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } } #musicControl:hover { transform: scale(1.05); }`;
-        document.head.appendChild(styleSheet);
+        window.addEventListener('load', () => { const playPromise = music.play(); if (playPromise !== undefined) { playPromise.then(_ => { updateButtonState(true); }).catch(error => { console.log("Autoplay blocked."); document.body.addEventListener('click', () => { music.play(); updateButtonState(true); }, { once: true }); }); } });
+        const styleSheet = document.createElement("style"); styleSheet.innerText = `@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } } #musicControl:hover { transform: scale(1.05); }`; document.head.appendChild(styleSheet);
     </script>
 
     <script type="module" src="script.js"></script>
