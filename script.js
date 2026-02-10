@@ -1,5 +1,5 @@
 /* =========================================
-   script.js - MMD BORROW SYSTEM (FIREBASE + LINE NOTIFY)
+   script.js - MMD BORROW SYSTEM (COMPLETE)
    ========================================= */
 
 // 1. นำเข้า Firebase
@@ -7,11 +7,16 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebas
 import { getFirestore, collection, addDoc, getDocs, updateDoc, deleteDoc, doc, onSnapshot, query, where } 
 from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-// ✅ ลิงก์เชื่อมต่อ LINE Notify (Google Apps Script)
-// (ตรวจสอบแล้ว: รูปแบบลิงก์ถูกต้องครับ)
+// 2. ตั้งค่า EmailJS (ใส่รหัสของคุณให้แล้วครับ) ✅
+(function() {
+    // Public Key ของคุณ
+    emailjs.init("Rj2WpB-v7fZqvEu08");
+})();
+
+// 3. ลิงก์ LINE Notify (Google Apps Script)
 const LINE_API_URL = "https://script.google.com/macros/s/AKfycbzw0gLpeZEdB8rUofNdPTLKHBQYhfcYcD1S72t_PRI-tSfdfi2-ZqGUw-Hwa4wRP17crg/exec";
 
-// 2. การตั้งค่า Firebase
+// 4. การตั้งค่า Firebase
 const firebaseConfig = {
   apiKey: "AIzaSyCJNX3-vN5bceDczdKxrqb0N8uaBpgDhTE",
   authDomain: "mmd-borrow-app.firebaseapp.com",
@@ -169,14 +174,14 @@ if(window.location.pathname.includes('dashboard.html')) {
     }
     window.closeModal = () => document.getElementById('borrowModal').style.display = 'none';
 
-    // ✅✅✅ ส่วนที่แก้และเพิ่มให้ใหม่ ✅✅✅
+    // ✅✅✅ ส่วนสำคัญ: การกดจอง ✅✅✅
     document.getElementById('borrowForm').onsubmit = async (e) => {
         e.preventDefault();
         const itemName = document.getElementById('modalItemName').innerText;
         const date = document.querySelector('input[type="date"]').value;
-        const submitBtn = document.querySelector('#borrowForm button[type="submit"]'); // ปุ่มกดจอง
+        const submitBtn = document.querySelector('#borrowForm button[type="submit"]');
 
-        // เพิ่มการตรวจสอบวันที่ (ไม่ให้จองย้อนหลัง)
+        // ป้องกันการเลือกวันย้อนหลัง
         const selectedDate = new Date(date);
         const today = new Date();
         today.setHours(0,0,0,0);
@@ -186,8 +191,6 @@ if(window.location.pathname.includes('dashboard.html')) {
         }
 
         try {
-            // เปลี่ยนปุ่มเป็นสถานะกำลังโหลด
-            const originalText = submitBtn.innerText;
             submitBtn.innerText = "⏳ กำลังบันทึก...";
             submitBtn.disabled = true;
 
@@ -202,27 +205,33 @@ if(window.location.pathname.includes('dashboard.html')) {
                 timestamp: new Date() 
             });
             
-            // 2. ส่งแจ้งเตือนเข้า LINE (แก้ไข Header เพื่อให้ผ่าน CORS)
+            // 2. ส่งไลน์ (LINE Notify)
             fetch(LINE_API_URL, {
                 method: 'POST',
-                mode: 'no-cors', // บอก Browser ว่าไม่ต้องสนเรื่องความปลอดภัยข้ามโดเมน
-                headers: { 
-                    'Content-Type': 'text/plain' // ✅ แก้ตรงนี้สำคัญมาก! (เปลี่ยนจาก application/json)
-                },
-                body: JSON.stringify({
-                    user: currentUser.name,
-                    item: itemName,
-                    date: date
-                })
-            }).then(() => console.log("Sent to LINE")).catch(err => console.error("Line Error", err));
+                mode: 'no-cors',
+                headers: { 'Content-Type': 'text/plain' },
+                body: JSON.stringify({ user: currentUser.name, item: itemName, date: date })
+            }).catch(err => console.error("Line Error", err));
 
-            alert("✅ ส่งคำขอจองเรียบร้อย! (ระบบแจ้งเตือนไปที่แอดมินแล้ว)"); 
+            // 3. ส่งอีเมล (EmailJS) ✅ เพิ่มให้แล้วครับ
+            const emailParams = {
+                user_name: currentUser.name,
+                item_name: itemName,
+                borrow_date: date,
+                status: 'pending' // สถานะเริ่มต้น
+            };
+
+            // ใส่ Service ID และ Template ID ที่คุณให้มา
+            emailjs.send("service_8q17oo9", "template_4ch9467", emailParams)
+                .then(() => console.log("✅ Email sent successfully"))
+                .catch((err) => console.error("❌ Email failed:", err));
+
+            alert("✅ ส่งคำขอจองเรียบร้อย! (แจ้งเตือนไปยัง Admin แล้ว)"); 
             closeModal();
 
         } catch(e) { 
             alert("Error: " + e.message); 
         } finally {
-            // คืนค่าปุ่มกลับเหมือนเดิม
             submitBtn.innerText = "ยืนยันการจอง";
             submitBtn.disabled = false;
         }
