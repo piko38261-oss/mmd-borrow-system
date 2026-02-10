@@ -8,9 +8,10 @@ import { getFirestore, collection, addDoc, getDocs, updateDoc, deleteDoc, doc, o
 from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
 // ✅ ลิงก์เชื่อมต่อ LINE Notify (Google Apps Script)
+// (ตรวจสอบแล้ว: รูปแบบลิงก์ถูกต้องครับ)
 const LINE_API_URL = "https://script.google.com/macros/s/AKfycbzw0gLpeZEdB8rUofNdPTLKHBQYhfcYcD1S72t_PRI-tSfdfi2-ZqGUw-Hwa4wRP17crg/exec";
 
-// 2. การตั้งค่า Firebase (Config เดิมของคุณ)
+// 2. การตั้งค่า Firebase
 const firebaseConfig = {
   apiKey: "AIzaSyCJNX3-vN5bceDczdKxrqb0N8uaBpgDhTE",
   authDomain: "mmd-borrow-app.firebaseapp.com",
@@ -168,16 +169,29 @@ if(window.location.pathname.includes('dashboard.html')) {
     }
     window.closeModal = () => document.getElementById('borrowModal').style.display = 'none';
 
-    // ✅✅✅ ส่วนที่เพิ่มระบบส่ง LINE เข้าไปในระบบจอง ✅✅✅
+    // ✅✅✅ ส่วนที่แก้และเพิ่มให้ใหม่ ✅✅✅
     document.getElementById('borrowForm').onsubmit = async (e) => {
         e.preventDefault();
         const itemName = document.getElementById('modalItemName').innerText;
         const date = document.querySelector('input[type="date"]').value;
+        const submitBtn = document.querySelector('#borrowForm button[type="submit"]'); // ปุ่มกดจอง
+
+        // เพิ่มการตรวจสอบวันที่ (ไม่ให้จองย้อนหลัง)
+        const selectedDate = new Date(date);
+        const today = new Date();
+        today.setHours(0,0,0,0);
+        if(selectedDate < today) {
+            alert("❌ ไม่สามารถเลือกวันที่ย้อนหลังได้ครับ");
+            return;
+        }
 
         try {
-            alert("⏳ กำลังส่งคำขอจอง...");
-            
-            // 1. บันทึกลง Firebase (ฐานข้อมูลจริง)
+            // เปลี่ยนปุ่มเป็นสถานะกำลังโหลด
+            const originalText = submitBtn.innerText;
+            submitBtn.innerText = "⏳ กำลังบันทึก...";
+            submitBtn.disabled = true;
+
+            // 1. บันทึกลง Firebase
             await addDoc(collection(db, "requests"), { 
                 user: currentUser.name, 
                 userId: currentUser.id, 
@@ -188,12 +202,13 @@ if(window.location.pathname.includes('dashboard.html')) {
                 timestamp: new Date() 
             });
             
-            // 2. ส่งแจ้งเตือนเข้า LINE (ผ่าน Google Apps Script)
-            // ส่งข้อมูลไปที่หลังบ้านแบบเงียบๆ ไม่ต้องรอผลลัพธ์
+            // 2. ส่งแจ้งเตือนเข้า LINE (แก้ไข Header เพื่อให้ผ่าน CORS)
             fetch(LINE_API_URL, {
                 method: 'POST',
-                mode: 'no-cors',
-                headers: { 'Content-Type': 'application/json' },
+                mode: 'no-cors', // บอก Browser ว่าไม่ต้องสนเรื่องความปลอดภัยข้ามโดเมน
+                headers: { 
+                    'Content-Type': 'text/plain' // ✅ แก้ตรงนี้สำคัญมาก! (เปลี่ยนจาก application/json)
+                },
                 body: JSON.stringify({
                     user: currentUser.name,
                     item: itemName,
@@ -201,11 +216,15 @@ if(window.location.pathname.includes('dashboard.html')) {
                 })
             }).then(() => console.log("Sent to LINE")).catch(err => console.error("Line Error", err));
 
-            alert("✅ ส่งคำขอจองเรียบร้อย! (แจ้งเตือนส่งไปที่แอดมินแล้ว)"); 
+            alert("✅ ส่งคำขอจองเรียบร้อย! (ระบบแจ้งเตือนไปที่แอดมินแล้ว)"); 
             closeModal();
 
         } catch(e) { 
             alert("Error: " + e.message); 
+        } finally {
+            // คืนค่าปุ่มกลับเหมือนเดิม
+            submitBtn.innerText = "ยืนยันการจอง";
+            submitBtn.disabled = false;
         }
     };
 
