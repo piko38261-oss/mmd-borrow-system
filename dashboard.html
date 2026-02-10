@@ -31,14 +31,25 @@
 </div>
     <div class="bg-animate"></div>
     
-    <nav>
-        <div class="logo"><i class="fas fa-video"></i> MMD BORROW</div>
-        <div class="user-info">
-            <span id="userNameDisplay">Loading...</span> 
-            <button onclick="openHistoryModal()" class="btn-history"><i class="fas fa-history"></i> ประวัติการจอง</button>
-            <button onclick="logout()" class="btn-logout" title="ออกจากระบบ"><i class="fas fa-sign-out-alt"></i></button>
-        </div>
-    </nav>
+<nav>
+    <div class="logo"><i class="fas fa-video"></i> MMD BORROW</div>
+    
+    <div class="user-info">
+        <span id="userNameDisplay">Loading...</span> 
+
+        <button onclick="openHistoryModal()" class="btn-history">
+            <i class="fas fa-history"></i> ประวัติการจอง
+        </button>
+
+        <a href="about.html" class="btn-history" style="border-color: #fff; color: #fff; text-decoration: none; display: inline-flex; align-items: center; gap: 5px;">
+            <i class="fas fa-user-astronaut"></i> ผู้พัฒนา
+        </a>
+
+        <button onclick="logout()" class="btn-logout" title="ออกจากระบบ">
+            <i class="fas fa-sign-out-alt"></i>
+        </button>
+    </div>
+</nav>
 
     <div class="container">
         <div class="filters">
