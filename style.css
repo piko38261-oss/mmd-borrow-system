@@ -157,48 +157,80 @@ nav { background: rgba(0,0,0,0.95); padding: 15px 30px; display: flex; justify-c
     .table-header { flex-direction: column; gap: 10px; align-items: flex-start; }
     .table-header .search-box { width: 100%; }
     /* =========================================
-   📢 Announcement Bar (แถบประกาศวิ่ง)
+   📢 COOL NEWS TICKER (Cyberpunk Style)
    ========================================= */
-.announcement-bar {
-    background: #000; /* พื้นหลังดำ */
-    color: var(--theme-primary); /* ตัวหนังสือสีส้ม */
-    border-bottom: 1px solid #333;
+.ticker-wrap {
+    width: 100%;
+    height: 40px; /* ความสูงแถบ */
+    background: #000; /* พื้นหลังดำสนิท */
+    border-bottom: 1px solid #333; /* เส้นขอบล่าง */
+    display: flex; /* จัดเรียงแนวนอน */
+    overflow: hidden; /* ซ่อนส่วนที่เกิน */
+    position: relative;
+    z-index: 200;
+}
+
+/* ป้ายหัวข้อ (Fixed Label) */
+.ticker-heading {
+    background: var(--theme-primary); /* สีส้ม */
+    color: #000; /* ตัวหนังสือดำ */
+    padding: 0 20px;
+    font-weight: bold;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    position: relative;
+    z-index: 2; /* อยู่เหนือตัววิ่ง */
+    box-shadow: 5px 0 15px rgba(0,0,0,0.8); /* เงาหลังป้าย */
+}
+
+/* ทำให้ป้ายหัวข้อเอียงนิดๆ (Slight Skew) เพื่อความเท่ */
+.ticker-heading::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: -15px; /* ยื่นออกไปทางขวา */
+    width: 30px;
+    height: 100%;
+    background: var(--theme-primary);
+    transform: skewX(20deg); /* เอียง */
+    z-index: -1;
+}
+
+/* กล่องตัววิ่ง */
+.ticker-move {
+    flex-grow: 1; /* กินพื้นที่ที่เหลือทั้งหมด */
+    display: flex;
+    align-items: center;
     overflow: hidden;
     position: relative;
-    height: 35px; /* ความสูงแถบ */
-    display: flex;
-    align-items: center;
-    font-size: 13px;
-    z-index: 200; /* อยู่เหนือทุกอย่าง */
+    /* ไล่สีจางๆ ทางขวา (Fade Out Effect) */
+    mask-image: linear-gradient(to right, black 90%, transparent 100%);
+    -webkit-mask-image: linear-gradient(to right, black 90%, transparent 100%);
 }
 
-.announcement-content {
-    display: flex;
+/* ข้อความข้างใน */
+.ticker-item {
+    display: inline-block;
     white-space: nowrap; /* ห้ามขึ้นบรรทัดใหม่ */
-    animation: marquee 20s linear infinite; /* สั่งให้วิ่งวนลูป */
-    gap: 50px; /* ระยะห่างระหว่างข้อความ */
     padding-left: 100%; /* เริ่มวิ่งจากขวาสุด */
+    animation: ticker-scroll 25s linear infinite; /* ความเร็ว 25 วิ */
+    color: var(--theme-primary); /* ตัวหนังสือสีส้ม */
+    font-size: 14px;
+    text-shadow: 0 0 5px rgba(255, 102, 0, 0.5); /* เรืองแสงนิดๆ */
 }
 
-.announcement-content span {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px; /* ระยะห่างไอคอนกับข้อความ */
+/* Animation สั่งให้วิ่ง */
+@keyframes ticker-scroll {
+    0% { transform: translate3d(0, 0, 0); }
+    100% { transform: translate3d(-100%, 0, 0); }
 }
 
-.announcement-content i {
-    color: var(--warning); /* สีไอคอน (เหลือง) */
-}
-
-/* Animation การวิ่ง */
-@keyframes marquee {
-    0% { transform: translateX(0); }
-    100% { transform: translateX(-100%); }
-}
-
-/* หยุดวิ่งเมื่อเอาเมาส์ไปชี้ (เผื่ออ่านไม่ทัน) */
-.announcement-bar:hover .announcement-content {
+/* หยุดวิ่งเมื่อเอาเมาส์ชี้ */
+.ticker-wrap:hover .ticker-item {
     animation-play-state: paused;
-    cursor: default;
 }
 }
