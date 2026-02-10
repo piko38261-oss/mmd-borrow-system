@@ -4,133 +4,137 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin Dashboard - MMD BORROW</title>
-    <link rel="stylesheet" href="style.css">
+    
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600&family=Poppins:wght@400;600&display=swap" rel="stylesheet">
+    
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <link rel="stylesheet" href="style.css">
+
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
+    <script type="text/javascript">
+       (function(){ emailjs.init("Rj2WpB-v7fZqvEu08"); })();
+    </script>
 </head>
 <body>
-    <div class="admin-layout">
+
+    <div class="admin-container">
         <aside class="sidebar">
-            <div class="sidebar-header">
-                <h2><i class="fas fa-camera-retro"></i> ADMIN</h2>
+            <div class="logo">
+                <i class="fas fa-user-shield"></i> MMD ADMIN
             </div>
             <ul class="sidebar-menu">
-                <li><a href="#" onclick="switchTab('requests')" id="menu-requests" class="active"><i class="fas fa-inbox"></i> รายการคำขอ <span class="badge-count" id="pendingCountSidebar">0</span></a></li>
-                <li><a href="#" onclick="switchTab('inventory')" id="menu-inventory"><i class="fas fa-box-open"></i> คลังอุปกรณ์</a></li>
-                <li><a href="#" onclick="switchTab('users')" id="menu-users"><i class="fas fa-users"></i> รายชื่อสมาชิก</a></li>
-                <li><a href="dashboard.html" style="color: var(--theme-primary);"><i class="fas fa-shopping-bag"></i> ไปหน้ายืมของ (User)</a></li>
-                <li><a href="#" class="logout-btn" onclick="logout()"><i class="fas fa-sign-out-alt"></i> ออกจากระบบ</a></li>
+                <li><a href="#" id="menu-requests" class="active" onclick="switchTab('requests')"><i class="fas fa-clipboard-list"></i> <span>คำขอยืม</span></a></li>
+                <li><a href="#" id="menu-inventory" onclick="switchTab('inventory')"><i class="fas fa-box-open"></i> <span>คลังของ</span></a></li>
+                <li><a href="#" id="menu-users" onclick="switchTab('users')"><i class="fas fa-users"></i> <span>ผู้ใช้งาน</span></a></li>
+                <li><a href="dashboard.html" class="btn-back"><i class="fas fa-home"></i> <span>ไปหน้าเว็บหลัก</span></a></li>
+                <li><a href="#" onclick="logout()" class="btn-logout-menu"><i class="fas fa-sign-out-alt"></i> <span>ออกระบบ</span></a></li>
             </ul>
         </aside>
 
         <main class="main-content">
-            <header class="top-bar">
-                <div class="page-title">
-                    <h1 style="color:white; margin:0; font-size:20px;">Dashboard ตรวจสอบ-อนุมัติ</h1>
-                    <p style="color:#666; margin:5px 0 0;">จัดการรายการยืม-คืนครุภัณฑ์ สาขามัลติมีเดีย</p>
-                </div>
-                <div class="admin-profile" style="display:flex; align-items:center; gap:10px;">
-                    <span style="color:var(--theme-primary); font-weight:bold;">Admin</span>
-                    <div class="avatar"><i class="fas fa-user-shield"></i></div>
+            <header>
+                <h2>Dashboard Overview</h2>
+                <div class="admin-profile">
+                    <span>Admin</span> <i class="fas fa-user-circle"></i>
                 </div>
             </header>
 
             <div class="stats-grid">
-                <div class="stat-card card-yellow">
-                    <div class="stat-icon" style="color:#ffcc00;"><i class="fas fa-clock"></i></div>
+                <div class="stat-card yellow">
+                    <i class="fas fa-clock"></i>
                     <div class="stat-info">
-                        <h3 style="color:#888; margin:0; font-size:14px;">รอตรวจสอบ</h3>
-                        <p id="stat-pending" style="color:white; font-size:24px; font-weight:bold; margin:0;">0</p>
+                        <h3 id="stat-pending">0</h3>
+                        <p>รอดำเนินการ</p>
                     </div>
                 </div>
-                <div class="stat-card card-blue">
-                    <div class="stat-icon" style="color:var(--theme-primary);"><i class="fas fa-hand-holding"></i></div>
+                <div class="stat-card green">
+                    <i class="fas fa-check-circle"></i>
                     <div class="stat-info">
-                        <h3 style="color:#888; margin:0; font-size:14px;">กำลังถูกยืม</h3>
-                        <p id="stat-borrowed" style="color:white; font-size:24px; font-weight:bold; margin:0;">0</p>
+                        <h3 id="stat-borrowed">0</h3>
+                        <p>กำลังถูกยืม</p>
                     </div>
                 </div>
-                <div class="stat-card card-green">
-                    <div class="stat-icon" style="color:var(--success);"><i class="fas fa-check-circle"></i></div>
+                <div class="stat-card blue">
+                    <i class="fas fa-cubes"></i>
                     <div class="stat-info">
-                        <h3 style="color:#888; margin:0; font-size:14px;">อุปกรณ์ทั้งหมด</h3>
-                        <p id="stat-total-items" style="color:white; font-size:24px; font-weight:bold; margin:0;">0</p>
+                        <h3 id="stat-total-items">0</h3>
+                        <p>อุปกรณ์ทั้งหมด</p>
                     </div>
                 </div>
             </div>
 
             <div id="section-requests" class="content-section">
-                <div class="table-card">
-                    <div class="table-header">
-                        <h3 style="color:white; margin:0;"><i class="fas fa-inbox"></i> รายการคำขอล่าสุด</h3>
-                        <div class="search-box">
-                            <i class="fas fa-search" style="color: #666;"></i>
-                            <input type="text" placeholder="ค้นหาคนยืม..." onkeyup="searchRequest(this.value)">
-                        </div>
+                <div class="section-header">
+                    <h3>รายการยืม-คืนล่าสุด</h3>
+                    <div class="search-box">
+                        <input type="text" placeholder="ค้นหาชื่อคนยืม..." onkeyup="searchRequest(this.value)">
                     </div>
-                    <th>หลักฐาน</th>
+                </div>
+                <div class="table-responsive">
                     <table class="data-table">
-    <thead>
-        <tr>
-            <th>User</th>
-            <th>Item</th>
-            <th>Date</th>
-            <th>Status</th>
-            <th>หลักฐาน</th> <th>Action</th>
-        </tr>
-    </thead>
-    <tbody id="requestTableBody"></tbody>
-</table>
-                    <div class="table-responsive">
-                        <table class="data-table">
-                            <thead>
-                                <tr><th>User</th><th>Item</th><th>Date</th><th>Status</th><th>Action</th></tr>
-                            </thead>
-                            <tbody id="requestTableBody"></tbody>
-                        </table>
-                    </div>
+                        <thead>
+                            <tr>
+                                <th>ผู้ยืม</th>
+                                <th>อุปกรณ์</th>
+                                <th>วันที่ยืม</th>
+                                <th>สถานะ</th>
+                                <th>หลักฐาน</th>
+                                <th>จัดการ</th>
+                            </tr>
+                        </thead>
+                        <tbody id="requestTableBody">
+                            </tbody>
+                    </table>
                 </div>
             </div>
 
             <div id="section-inventory" class="content-section" style="display:none;">
-                <div class="table-card">
-                    <div class="table-header">
-                        <h3 style="color:white; margin:0;"><i class="fas fa-box-open"></i> จัดการคลังอุปกรณ์</h3>
-                        <button onclick="addNewItem()" class="btn-approve" style="padding: 8px 15px;"><i class="fas fa-plus"></i> เพิ่มของใหม่</button>
-                    </div>
-                    <div class="table-responsive">
-                        <table class="data-table">
-                            <thead>
-                                <tr><th>รูปภาพ</th><th>ชื่ออุปกรณ์</th><th>หมวดหมู่</th><th>สถานะ</th><th>จัดการ</th></tr>
-                            </thead>
-                            <tbody id="inventoryTableBody"></tbody>
-                        </table>
-                    </div>
+                <div class="section-header">
+                    <h3>จัดการอุปกรณ์</h3>
+                    <button class="btn-add" onclick="addNewItem()"><i class="fas fa-plus"></i> เพิ่มของใหม่</button>
+                </div>
+                <div class="table-responsive">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>รูป</th>
+                                <th>ชื่ออุปกรณ์</th>
+                                <th>หมวดหมู่</th>
+                                <th>สถานะปัจจุบัน</th>
+                                <th>ลบ</th>
+                            </tr>
+                        </thead>
+                        <tbody id="inventoryTableBody">
+                            </tbody>
+                    </table>
                 </div>
             </div>
 
             <div id="section-users" class="content-section" style="display:none;">
-                <div class="table-card">
-                    <div class="table-header">
-                        <h3 style="color:white; margin:0;"><i class="fas fa-users"></i> รายชื่อสมาชิก</h3>
-                        <div class="search-box">
-                            <i class="fas fa-search" style="color: #666;"></i>
-                            <input type="text" placeholder="ค้นหาชื่อ..." onkeyup="searchUser(this.value)">
-                        </div>
-                    </div>
-                    <div class="table-responsive">
-                        <table class="data-table">
-                            <thead>
-                                <tr><th>ชื่อ-นามสกุล</th><th>Username / รหัส</th><th>Role</th><th>จัดการ</th></tr>
-                            </thead>
-                            <tbody id="usersTableBody"></tbody>
-                        </table>
-                    </div>
+                <div class="section-header">
+                    <h3>จัดการผู้ใช้งาน</h3>
+                    <input type="text" placeholder="ค้นหา user..." onkeyup="searchUser(this.value)" style="padding:5px; border-radius:5px;">
+                </div>
+                <div class="table-responsive">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>ชื่อ-สกุล</th>
+                                <th>Username</th>
+                                <th>Role</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="usersTableBody">
+                            </tbody>
+                    </table>
                 </div>
             </div>
 
         </main>
     </div>
-    
+
     <script type="module" src="script.js"></script>
 </body>
 </html>
