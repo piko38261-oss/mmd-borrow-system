@@ -1,5 +1,5 @@
 /* =========================================
-   script.js - MMD BORROW SYSTEM (UPDATED LOGIN)
+   script.js - MMD BORROW SYSTEM (FULL + LOGIN FIX)
    ========================================= */
 
 // 1. นำเข้า Firebase
@@ -8,9 +8,12 @@ import { getFirestore, collection, addDoc, getDocs, updateDoc, deleteDoc, doc, o
 from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
 // 2. ตั้งค่า EmailJS
-(function() {
+// (ต้องใส่ script ในไฟล์ html ก่อน ถึงจะทำงานได้)
+try {
     emailjs.init("Rj2WpB-v7fZqvEu08");
-})();
+} catch (e) {
+    console.warn("⚠️ EmailJS ยังไม่ถูกโหลด (อย่าลืมใส่ Script ใน HTML)");
+}
 
 // 3. ลิงก์ LINE Notify
 const LINE_API_URL = "https://script.google.com/macros/s/AKfycbzw0gLpeZEdB8rUofNdPTLKHBQYhfcYcD1S72t_PRI-tSfdfi2-ZqGUw-Hwa4wRP17crg/exec";
@@ -125,54 +128,40 @@ window.checkAuth = function() {
     return currentUser;
 }
 
-// ✅✅✅ แก้ไขฟังก์ชัน Login (เพิ่ม Error Handling) ✅✅✅
+// ✅✅✅ ส่วน Login ที่ปรับปรุงใหม่ (มีแจ้งเตือน Error) ✅✅✅
 window.login = async function(u, p) {
-    console.log("กำลังพยายามเข้าสู่ระบบ...", u, p); 
+    console.log("กำลังเข้าสู่ระบบ...", u, p);
     try {
+        // ค้นหา User ใน Firebase
         const q = query(collection(db, "users"), where("username", "==", u), where("password", "==", p));
         const qs = await getDocs(q);
         
         if (!qs.empty) {
+            // Login สำเร็จ
             const d = qs.docs[0].data(); 
             d.id = qs.docs[0].id;
             localStorage.setItem('currentUser', JSON.stringify(d));
-            
-            console.log("Login สำเร็จ!", d);
-            alert("✅ เข้าสู่ระบบสำเร็จ! ยินดีต้อนรับ " + d.name);
+            alert("✅ ยินดีต้อนรับคุณ " + d.name);
             window.location.href = d.role === 'admin' ? 'admin.html' : 'dashboard.html';
         } else { 
-            console.warn("ไม่พบผู้ใช้ หรือรหัสผ่านผิด");
+            // Login ไม่ผ่าน
             alert("❌ ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง"); 
         }
     } catch (error) {
-        console.error("Login Error Details:", error);
-        
-        // เช็คว่า Error เรื่องสิทธิ์หรือไม่
-        if (error.code === 'permission-denied') {
-            alert("❌ เข้าถึงฐานข้อมูลไม่ได้! (Permission Denied)\nกรุณาไปแก้ Rules ใน Firebase Console");
-        } else {
-            alert("เกิดข้อผิดพลาดในการเข้าสู่ระบบ: " + error.message);
-        }
+        // แจ้งเตือนเมื่อระบบมีปัญหา (เช่น เน็ตหลุด หรือ Permission)
+        console.error("Login Error:", error);
+        alert("เกิดข้อผิดพลาด: " + error.message + "\n(ลองเช็คเน็ต หรือ Rules ใน Firebase)");
     }
 }
 
-// ฟังก์ชันสมัครสมาชิก
 window.register = async function(u, p, n) {
     try {
         const q = query(collection(db, "users"), where("username", "==", u));
-        const snapshot = await getDocs(q);
-        
-        if (!snapshot.empty) { 
-            alert("❌ ชื่อผู้ใช้นี้มีคนใช้แล้ว"); 
-            return; 
-        }
-        
+        if (!(await getDocs(q)).empty) { alert("❌ มีผู้ใช้นี้แล้ว"); return; }
         await addDoc(collection(db, "users"), { username: u, password: p, role: "user", name: n });
-        alert("✅ สมัครสมาชิกสำเร็จ! กรุณาเข้าสู่ระบบ"); 
-        toggleForm();
-    } catch (error) {
-        console.error("Register Error:", error);
-        alert("สมัครสมาชิกไม่สำเร็จ: " + error.message);
+        alert("✅ สมัครสำเร็จ!"); toggleForm();
+    } catch (e) {
+        alert("Error Register: " + e.message);
     }
 }
 
@@ -210,14 +199,13 @@ if(window.location.pathname.includes('dashboard.html')) {
     }
     window.closeModal = () => document.getElementById('borrowModal').style.display = 'none';
 
-    // ✅✅✅ ส่วนสำคัญ: การกดจอง ✅✅✅
+    // ✅✅✅ ส่วนสำคัญ: การกดจอง (LINE + Email + กันจองย้อนหลัง) ✅✅✅
     document.getElementById('borrowForm').onsubmit = async (e) => {
         e.preventDefault();
         const itemName = document.getElementById('modalItemName').innerText;
         const date = document.querySelector('input[type="date"]').value;
         const submitBtn = document.querySelector('#borrowForm button[type="submit"]');
 
-        // ป้องกันการเลือกวันย้อนหลัง
         const selectedDate = new Date(date);
         const today = new Date();
         today.setHours(0,0,0,0);
@@ -254,11 +242,16 @@ if(window.location.pathname.includes('dashboard.html')) {
                 user_name: currentUser.name,
                 item_name: itemName,
                 borrow_date: date,
-                status: 'pending' // สถานะเริ่มต้น
+                status: 'pending'
             };
-            emailjs.send("service_8q17oo9", "template_4ch9467", emailParams)
-                .then(() => console.log("✅ Email sent successfully"))
-                .catch((err) => console.error("❌ Email failed:", err));
+            // เช็คก่อนว่าโหลด Library มาหรือยัง
+            if(typeof emailjs !== 'undefined') {
+                emailjs.send("service_8q17oo9", "template_4ch9467", emailParams)
+                    .then(() => console.log("✅ Email sent"))
+                    .catch((err) => console.error("❌ Email failed:", err));
+            } else {
+                console.warn("⚠️ ส่งอีเมลไม่ได้ เพราะไม่ได้ใส่ Script EmailJS ใน HTML");
+            }
 
             alert("✅ ส่งคำขอจองเรียบร้อย! (แจ้งเตือนไปยัง Admin แล้ว)"); 
             closeModal();
