@@ -1,13 +1,16 @@
 /* =========================================
-   script.js - MMD BORROW SYSTEM (2-STEP PROFESSIONAL FLOW)
+   script.js - MMD BORROW SYSTEM (FIREBASE + LINE NOTIFY)
    ========================================= */
 
 // 1. นำเข้า Firebase
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-import { getFirestore, collection, addDoc, getDocs, updateDoc, deleteDoc, doc, onSnapshot, query, where, writeBatch } 
+import { getFirestore, collection, addDoc, getDocs, updateDoc, deleteDoc, doc, onSnapshot, query, where } 
 from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-// 2. การตั้งค่า (Config) - ใช้ค่าเดิมของคุณ
+// ✅ ลิงก์เชื่อมต่อ LINE Notify (Google Apps Script)
+const LINE_API_URL = "https://script.google.com/macros/s/AKfycbzw0gLpeZEdB8rUofNdPTLKHBQYhfcYcD1S72t_PRI-tSfdfi2-ZqGUw-Hwa4wRP17crg/exec";
+
+// 2. การตั้งค่า Firebase (Config เดิมของคุณ)
 const firebaseConfig = {
   apiKey: "AIzaSyCJNX3-vN5bceDczdKxrqb0N8uaBpgDhTE",
   authDomain: "mmd-borrow-app.firebaseapp.com",
@@ -26,9 +29,9 @@ let currentUser = JSON.parse(localStorage.getItem('currentUser')) || null;
 let items = [];
 let borrowRequests = [];
 let users = [];
-let currentPickupId = null; // ตัวแปรสำหรับเก็บ ID ตอนจะกดรับของ
+let currentPickupId = null;
 
-/* --- Helper 1: ระบบย่อรูป --- */
+/* --- Helper: ระบบย่อรูป --- */
 function resizeImage(file) {
     return new Promise((resolve) => {
         const reader = new FileReader();
@@ -55,7 +58,7 @@ function resizeImage(file) {
     });
 }
 
-/* --- Helper 2: ระบบ Popup ดูรูป --- */
+/* --- Helper: Popup ดูรูป --- */
 const lightbox = document.createElement('div');
 lightbox.id = 'lightbox-modal';
 lightbox.style.cssText = 'display:none; position:fixed; z-index:99999; left:0; top:0; width:100%; height:100%; background:rgba(0,0,0,0.9); justify-content:center; align-items:center; cursor:pointer; flex-direction:column;';
@@ -148,7 +151,6 @@ if(window.location.pathname.includes('dashboard.html')) {
         const grid = document.getElementById('itemGrid'); if(!grid) return; grid.innerHTML = '';
         items.forEach(item => {
             if(cat !== 'all' && item.category !== cat) return;
-            // เช็คว่าของถูกยืม หรือ อยู่ระหว่างรอรับของ (approved_pickup)
             const isBorrowed = borrowRequests.some(r => (r.item === item.name) && (r.status === 'borrowed' || r.status === 'approved_pickup'));
             
             const status = isBorrowed ? 'borrowed' : 'available';
@@ -166,7 +168,7 @@ if(window.location.pathname.includes('dashboard.html')) {
     }
     window.closeModal = () => document.getElementById('borrowModal').style.display = 'none';
 
-    // ✅ Flow Step 1: User จอง (ตัดส่วนอัปรูปออก)
+    // ✅✅✅ ส่วนที่เพิ่มระบบส่ง LINE เข้าไปในระบบจอง ✅✅✅
     document.getElementById('borrowForm').onsubmit = async (e) => {
         e.preventDefault();
         const itemName = document.getElementById('modalItemName').innerText;
@@ -175,60 +177,62 @@ if(window.location.pathname.includes('dashboard.html')) {
         try {
             alert("⏳ กำลังส่งคำขอจอง...");
             
-            // บันทึกสถานะ pending (proofPhoto เป็น null)
+            // 1. บันทึกลง Firebase (ฐานข้อมูลจริง)
             await addDoc(collection(db, "requests"), { 
-                user: currentUser.name, userId: currentUser.id, item: itemName, date: date, 
+                user: currentUser.name, 
+                userId: currentUser.id, 
+                item: itemName, 
+                date: date, 
                 status: "pending", 
-                proofPhoto: null, // ยังไม่มีรูป
+                proofPhoto: null, 
                 timestamp: new Date() 
             });
             
-            // ส่ง Email แจ้งเตือนแอดมิน (ใช้ ID เดิมของคุณ)
-            const emailParams = {
-                user_name: currentUser.name,
-                item_name: itemName,
-                date: date,
-                to_email: "piko38261@gmail.com"
-            };
+            // 2. ส่งแจ้งเตือนเข้า LINE (ผ่าน Google Apps Script)
+            // ส่งข้อมูลไปที่หลังบ้านแบบเงียบๆ ไม่ต้องรอผลลัพธ์
+            fetch(LINE_API_URL, {
+                method: 'POST',
+                mode: 'no-cors',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    user: currentUser.name,
+                    item: itemName,
+                    date: date
+                })
+            }).then(() => console.log("Sent to LINE")).catch(err => console.error("Line Error", err));
 
-            emailjs.send('service_8q17oo9', 'template_4ch9467', emailParams)
-                .then(()=> console.log('✅ Email sent'))
-                .catch((err)=> console.log('❌ Email error', err));
-
-            alert("✅ ส่งคำขอจองเรียบร้อย! กรุณารอแอดมินอนุมัติและไปรับของ"); 
+            alert("✅ ส่งคำขอจองเรียบร้อย! (แจ้งเตือนส่งไปที่แอดมินแล้ว)"); 
             closeModal();
-        } catch(e) { alert("Error: " + e.message); }
+
+        } catch(e) { 
+            alert("Error: " + e.message); 
+        }
     };
 
-    // ✅ Flow Step 3: User กดรับของ -> เปิดกล้อง/เลือกไฟล์
+    // Flow Step 3: User กดรับของ
     window.triggerPickup = (reqId) => {
         currentPickupId = reqId;
         const fileInput = document.getElementById('pickupProofInput');
         if(fileInput) fileInput.click();
-        else alert("ไม่พบช่องอัปโหลดไฟล์ (ตรวจสอบว่าไฟล์ HTML อัปเดตหรือยัง)");
+        else alert("ไม่พบช่องอัปโหลดไฟล์");
     }
 
-    // เมื่อเลือกรูปเสร็จ -> อัปโหลดและเปลี่ยนสถานะเป็น borrowed
     const pickupInput = document.getElementById('pickupProofInput');
     if(pickupInput) {
         pickupInput.onchange = async (e) => {
             const file = e.target.files[0];
             if(!file || !currentPickupId) return;
-
             try {
                 alert("⏳ กำลังอัปโหลดรูปและยืนยันการรับของ...");
                 const base64 = await resizeImage(file);
-                
-                // อัปเดตสถานะเป็น "borrowed" (ยืมจริงแล้ว)
                 await updateDoc(doc(db, "requests", currentPickupId), {
                     status: "borrowed",
                     proofPhoto: base64,
                     pickupTime: new Date()
                 });
-
                 alert("✅ รับของสำเร็จ! สถานะเปลี่ยนเป็น 'กำลังถูกยืม'");
-                e.target.value = ''; // Reset ช่องเลือกไฟล์
-                openHistoryModal(); // Refresh ตาราง
+                e.target.value = ''; 
+                openHistoryModal(); 
             } catch(err) {
                 alert("เกิดข้อผิดพลาด: " + err.message);
             }
@@ -247,12 +251,10 @@ if(window.location.pathname.includes('dashboard.html')) {
         else myReqs.forEach(r => {
             let statusBadge = '';
             let actionBtn = '-';
-
             if(r.status === 'pending') {
                 statusBadge = '<span style="color:#ffc107">⏳ รออนุมัติ</span>';
             } else if (r.status === 'approved_pickup') {
                 statusBadge = '<span style="color:#0dcaf0">📦 รอรับของ</span>';
-                // ปุ่มกดรับของ (ถ่ายรูป)
                 actionBtn = `<button onclick="triggerPickup('${r.id}')" class="btn-confirm" style="padding:5px 10px; font-size:12px;">📷 ยืนยันรับของ</button>`;
             } else if (r.status === 'borrowed') {
                 statusBadge = '<span style="color:#198754">✅ กำลังยืม</span>';
@@ -262,7 +264,6 @@ if(window.location.pathname.includes('dashboard.html')) {
             } else {
                 statusBadge = '<span style="color:red">❌ ปฏิเสธ</span>';
             }
-
             tbody.innerHTML += `<tr><td style="padding:10px; border-bottom:1px solid #333">${r.item}</td><td style="padding:10px; border-bottom:1px solid #333">${r.date}</td><td style="padding:10px; border-bottom:1px solid #333">${statusBadge}</td><td style="padding:10px; border-bottom:1px solid #333">${actionBtn}</td></tr>`;
         });
         document.getElementById('historyModal').style.display = 'flex';
@@ -287,29 +288,24 @@ if(window.location.pathname.includes('admin.html')) {
 
         sortedReqs.forEach(r => {
             let badge, btns, photoDisplay;
-
             if (r.proofPhoto) {
                 photoDisplay = `<button onclick="viewPhoto('${r.id}')" style="background:none; border:none; color:#ff6600; cursor:pointer; font-weight:bold; text-decoration:underline;">📷 รูปรับของ</button>`;
             } else { photoDisplay = '-'; }
 
             if(r.status === 'pending') {
-                // Step 1: คำขอมาใหม่ (ยังไม่มีรูป)
                 badge = '<span class="badge status-pending">คำขอใหม่</span>';
                 btns = `<button class="btn-action" style="background:#28a745;" onclick="updateStatus('${r.id}','approved_pickup')">อนุญาตให้มารับ</button>
                         <button class="btn-action btn-reject" onclick="updateStatus('${r.id}','rejected')">ปฏิเสธ</button>`;
             } else if (r.status === 'approved_pickup') {
-                // Step 2: อนุมัติแล้ว รอ User มารับและถ่ายรูป
                 badge = '<span class="badge" style="background:#0dcaf0; color:black;">รอรับของ</span>';
                 btns = '<span style="font-size:12px; color:#aaa;">รอ User ถ่ายรูป...</span>';
             } else if(r.status === 'borrowed') {
-                // Step 3: รับของไปแล้ว (มีรูปแล้ว)
                 badge = '<span class="badge status-approved">กำลังถูกยืม</span>';
                 btns = `<button class="btn-action" style="background:#0099cc; color:white" onclick="updateStatus('${r.id}','returned')">รับคืน</button>`;
             } else { 
                 badge = `<span class="badge" style="background:#333; color:#aaa">${r.status}</span>`; 
                 btns = `<button class="btn-action btn-reject" onclick="deleteRequest('${r.id}')" title="ลบ"><i class="fas fa-trash"></i></button>`; 
             }
-            
             tbody.innerHTML += `<tr><td>${r.user}</td><td>${r.item}</td><td>${r.date}</td><td>${badge}</td><td>${photoDisplay}</td><td>${btns}</td></tr>`;
         });
     }
@@ -317,7 +313,6 @@ if(window.location.pathname.includes('admin.html')) {
     window.deleteRequest = async (id) => { if(confirm("ลบประวัติ?")) await deleteDoc(doc(db, "requests", id)); }
     window.updateStatus = async (id, s) => { try { await updateDoc(doc(db, "requests", id), { status: s }); } catch(e) { alert("Error"); } }
     
-    // Inventory, Users, etc.
     window.renderInventory = () => { const tbody = document.getElementById('inventoryTableBody'); tbody.innerHTML = ''; items.forEach(i => { const st = borrowRequests.some(r => r.item === i.name && (r.status === 'borrowed' || r.status === 'approved_pickup')) ? '<span style="color:var(--danger)">ไม่ว่าง</span>' : '<span style="color:var(--success)">ว่าง</span>'; tbody.innerHTML += `<tr><td><img src="${i.image}" width="40"></td><td style="color:white">${i.name}</td><td>${i.category}</td><td>${st}</td><td><button onclick="deleteItem('${i.id}')" class="btn-action btn-reject"><i class="fas fa-trash"></i></button></td></tr>`; }); }
     window.addNewItem = async () => { const n = prompt("ชื่อ:"); if(n) await addDoc(collection(db, "items"), { name: n, category: "general", status: "available", image: "https://placehold.co/100" }); }
     window.deleteItem = async (id) => { if(confirm("ลบ?")) await deleteDoc(doc(db, "items", id)); }

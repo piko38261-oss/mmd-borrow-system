@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MMD Gallery - รวมภาพกิจกรรม</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600&family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <link rel="stylesheet" href="style.css">
+
+    <style>
+        /* --- CSS เฉพาะหน้า Gallery (ใส่ไว้ตรงนี้เลยจะได้ไม่งง) --- */
+        body {
+            background-color: #121212; /* สีพื้นหลัง */
+        }
+        
+        .gallery-container {
+            max-width: 1200px;
+            margin: 40px auto;
+            padding: 0 20px;
+        }
+
+        .gallery-title {
+            text-align: center;
+            color: var(--theme-primary, #ff6600); /* ใช้สีส้มธีมหลัก */
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        .gallery-subtitle {
+            text-align: center;
+            color: #aaa;
+            margin-bottom: 40px;
+            font-weight: 300;
+        }
+
+        /* ตารางรูปภาพ (Grid) */
+        .gallery-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); /* จัดเรียงอัตโนมัติ */
+            gap: 20px;
+        }
+
+        /* การ์ดรูปภาพ */
+        .gallery-item {
+            position: relative;
+            overflow: hidden;
+            border-radius: 15px;
+            border: 1px solid #333;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            aspect-ratio: 1 / 1; /* บังคับเป็นสี่เหลี่ยมจัตุรัส */
+            cursor: pointer;
+        }
+
+        .gallery-item img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover; /* ให้รูปเต็มกรอบโดยไม่เบี้ยว */
+            transition: transform 0.5s ease;
+        }
+
+        /* Effect ตอนเอาเมาส์ชี้ */
+        .gallery-item:hover img {
+            transform: scale(1.15); /* ซูมเข้า */
+        }
+
+        /* แผ่นฟิล์มดำๆ พร้อมข้อความ */
+        .overlay {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: linear-gradient(to top, rgba(0,0,0,0.9), transparent);
+            overflow: hidden;
+            width: 100%;
+            height: 0;
+            transition: .5s ease;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .gallery-item:hover .overlay {
+            height: 100%; /* เลื่อนขึ้นมาเต็มภาพ */
+        }
+
+        .text {
+            color: white;
+            font-size: 18px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            text-align: center;
+            padding: 10px;
+        }
+    </style>
+</head>
+<body>
+
+    <nav>
+        <div class="logo"><i class="fas fa-images"></i> MMD GALLERY</div>
+        
+        <div class="user-info">
+            <a href="dashboard.html" class="btn-history" style="text-decoration: none; color: white; border: 1px solid #555; padding: 8px 15px; border-radius: 20px;">
+                <i class="fas fa-arrow-left"></i> กลับหน้ายืมของ
+            </a>
+        </div>
+    </nav>
+
+    <div class="gallery-container">
+        <h2 class="gallery-title">ภาพกิจกรรม & ผลงาน</h2>
+        <p class="gallery-subtitle">รวมภาพบรรยากาศสาขา MMD และผลงานนักศึกษา</p>
+        
+        <div class="gallery-grid">
+            
+            <div class="gallery-item">
+                <img src="d72d37a4-e743-49c5-bbc2-e8748adbaa39.jpg" alt="Activity Photo">
+                <div class="overlay">
+                    <div class="text">กิจกรรมสาขา MMD</div>
+                </div>
+            </div>
+
+            <div class="gallery-item">
+                <img src="https://images.unsplash.com/photo-1516035069371-29a1b244cc32?ixlib=rb-1.2.1&auto=format&fit=crop&w=1000&q=80" alt="Camera">
+                <div class="overlay">
+                    <div class="text">อุปกรณ์ถ่ายทำ</div>
+                </div>
+            </div>
+
+            <div class="gallery-item">
+                <img src="https://images.unsplash.com/photo-1598550476439-6847785fcea6?ixlib=rb-1.2.1&auto=format&fit=crop&w=1000&q=80" alt="Studio">
+                <div class="overlay">
+                    <div class="text">ห้องสตูดิโอ</div>
+                </div>
+            </div>
+
+            <div class="gallery-item">
+                <img src="https://images.unsplash.com/photo-1574717024653-61fd2cf4d44c?ixlib=rb-1.2.1&auto=format&fit=crop&w=1000&q=80" alt="Editing">
+                <div class="overlay">
+                    <div class="text">ห้องตัดต่อ</div>
+                </div>
+            </div>
+            
+            </div>
+    </div>
+
+</body>
+</html>
