@@ -341,3 +341,66 @@ nav { background: rgba(0,0,0,0.95); padding: 15px 30px; display: flex; justify-c
     transition: 0.3s;
 }
 .btn-back-home:hover { background: #fff; color: #000; }
+/* =========================================
+   📱 MOBILE RESPONSIVE FIXES (ปรับหน้าจอให้รองรับมือถือ)
+   ========================================= */
+
+/* --- 1. จัดการหน้ารายการอุปกรณ์ (Item Grid) --- */
+#itemGrid {
+    display: grid;
+    /* ทริคระดับโปร: ถ้าย่อจอให้เล็กกว่า 150px มันจะดันลงมาแถวใหม่ให้เอง (มือถือจะได้การ์ด 2 แถวสวยๆ) */
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); 
+    gap: 15px;
+    justify-content: center;
+}
+
+/* บังคับให้การ์ดไม่กว้างเกินไปและยืดหยุ่น */
+.card {
+    width: 100%;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+/* ปรับความสูงรูปภาพในมือถือไม่ให้กินพื้นที่จอมากไป */
+.card-img img {
+    width: 100%;
+    height: 140px; 
+    object-fit: cover;
+}
+
+/* ลดขนาดฟอนต์ในการ์ดลงนิดนึงเวลาอยู่บนมือถือ */
+.card-body h4 {
+    font-size: 15px;
+    margin-bottom: 8px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis; /* ถ้าชื่อยาวไปให้ใส่ ... */
+}
+
+/* --- 2. จัดการ Popup (Modal) จองของ/ประวัติให้พอดีมือถือ --- */
+@media screen and (max-width: 768px) {
+    .modal-content {
+        width: 90% !important; /* บังคับให้กล่องกว้างแค่ 90% ของจอมือถือ */
+        padding: 20px !important;
+        margin: 10% auto;
+    }
+
+    /* ปรับช่องกรอกข้อมูลให้เต็มนิ้วกดง่ายๆ */
+    .modal-content input, 
+    .modal-content button {
+        width: 100%;
+        box-sizing: border-box;
+    }
+}
+
+/* --- 3. จัดการตารางหน้า Admin (ให้เอานิ้วปัดซ้ายขวาได้เวลาเปิดในมือถือ) --- */
+.table-responsive {
+    width: 100%;
+    overflow-x: auto; /* เปิดโหมดให้ตารางเลื่อนซ้ายขวาได้ */
+    -webkit-overflow-scrolling: touch; /* ให้เลื่อนลื่นๆ บน iPhone */
+}
+
+.data-table {
+    min-width: 600px; /* บังคับตารางไม่ให้บีบตัวจนอ่านไม่ออก */
+}
