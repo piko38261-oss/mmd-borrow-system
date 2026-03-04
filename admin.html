@@ -67,9 +67,16 @@
             <div id="section-requests" class="content-section">
                 <div class="section-header">
                     <h3>รายการยืม-คืนล่าสุด</h3>
-                    <div class="search-box">
-                        <input type="text" placeholder="ค้นหาชื่อคนยืม..." onkeyup="searchRequest(this.value)">
+                    
+                    <div style="display: flex; gap: 10px; align-items: center;">
+                        <button onclick="exportToCSV()" style="background-color: #107c41; color: white; padding: 8px 15px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; font-family: 'Kanit', sans-serif;">
+                            <i class="fas fa-file-excel"></i> โหลดรายงาน
+                        </button>
+                        <div class="search-box">
+                            <input type="text" placeholder="ค้นหาชื่อคนยืม..." onkeyup="searchRequest(this.value)">
+                        </div>
                     </div>
+                    
                 </div>
                 <div class="table-responsive">
                     <table class="data-table">
@@ -136,5 +143,6 @@
     </div>
 
     <script type="module" src="script.js"></script>
-</body>
+    
+    </body>
 </html>

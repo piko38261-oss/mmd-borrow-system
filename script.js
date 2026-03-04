@@ -375,3 +375,54 @@ if(window.location.pathname.includes('admin.html')) {
     window.banUser = async (id, u) => { if(u.includes('admin')||u.includes('rmuti')) return; if(confirm("ลบ?")) await deleteDoc(doc(db, "users", id)); }
     window.updateDashboardStats = () => { document.getElementById('stat-pending').innerText = borrowRequests.filter(r => r.status === 'pending').length; document.getElementById('stat-borrowed').innerText = borrowRequests.filter(r => r.status === 'borrowed').length; document.getElementById('stat-total-items').innerText = items.length; }
 }
+// ฟังก์ชันสำหรับดึงข้อมูลและ Export เป็น CSV
+async function exportToCSV() {
+    try {
+        // เปลี่ยนปุ่มให้ดูเหมือนกำลังโหลด (ถ้าต้องการ)
+        console.log("กำลังดึงข้อมูลเพื่อสร้างรายงาน...");
+
+        // 1. ดึงข้อมูลจากคอลเลกชัน 'requests' (หรือชื่อตารางที่คุณเก็บข้อมูลการยืม)
+        const querySnapshot = await getDocs(collection(db, "requests"));
+
+        // 2. ทริคลับ! ใส่ BOM (\uFEFF) เพื่อให้ Microsoft Excel อ่านภาษาไทยได้ไม่เพี้ยน (สำคัญมาก)
+        let csvContent = "\uFEFF"; 
+        
+        // 3. สร้างหัวตาราง (Header)
+        csvContent += "วันที่ทำรายการ,ชื่อผู้ยืม,อุปกรณ์ที่ยืม,วันที่รับของ,วันที่คืนของ,สถานะ\n";
+
+        // 4. วนลูปข้อมูลจาก Firebase มาต่อกันทีละบรรทัด
+        querySnapshot.forEach((doc) => {
+            const data = doc.data();
+            
+            // ดึงค่ามาใส่ตัวแปร (แก้ชื่อ data.xxx ให้ตรงกับที่คุณตั้งไว้ใน Firebase นะครับ)
+            const timestamp = data.timestamp || "-"; 
+            const userName = data.userName || "-";
+            const itemName = data.itemName || "-";
+            const borrowDate = data.borrowDate || "-";
+            const returnDate = data.returnDate || "-";
+            const status = data.status || "-";
+
+            // เอาข้อมูลมาต่อกัน คั่นด้วยเครื่องหมายลูกน้ำ (,) และขึ้นบรรทัดใหม่ (\n)
+            csvContent += `"${timestamp}","${userName}","${itemName}","${borrowDate}","${returnDate}","${status}"\n`;
+        });
+
+        // 5. สร้างไฟล์จำลอง (Blob) และสั่งดาวน์โหลด
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement("a");
+        const url = URL.createObjectURL(blob);
+
+        link.setAttribute("href", url);
+        link.setAttribute("download", "MMD_Borrow_Report.csv"); // ชื่อไฟล์ที่จะได้
+        link.style.visibility = 'hidden';
+        
+        document.body.appendChild(link);
+        link.click(); // จำลองการคลิกเพื่อโหลด
+        document.body.removeChild(link);
+
+        alert("✅ ดาวน์โหลดรายงานสำเร็จ!");
+
+    } catch (error) {
+        console.error("เกิดข้อผิดพลาดในการ Export: ", error);
+        alert("❌ ไม่สามารถดาวน์โหลดรายงานได้ กรุณาลองใหม่");
+    }
+}
