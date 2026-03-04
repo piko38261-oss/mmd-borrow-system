@@ -7,10 +7,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600&family=Poppins:wght@400;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="style.css">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/themes/dark.css">
-    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
-    <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/th.js"></script>
+    
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
     <script type="text/javascript">
@@ -80,7 +77,8 @@
                 <input type="text" id="borrowerName" readonly style="color:#666; cursor:not-allowed;">
                 
                 <label style="color:#888; font-size:12px;">วันที่คืน</label>
-<input type="text" id="borrowDate" placeholder="คลิกเพื่อเลือกวันที่..." readonly required style="cursor: pointer; background-color: #222; color: #fff; border: 1px solid #444; padding: 10px; border-radius: 5px; width: 100%; box-sizing: border-box;">
+                <input type="date" required>
+
                 <label style="color:#888; font-size:12px;">เหตุผลการยืม</label>
                 <textarea rows="3" placeholder="เช่น ใช้ถ่ายงานวิชา..."></textarea>
                 
