@@ -14,7 +14,6 @@
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
     <script type="text/javascript">
-        
        (function(){ emailjs.init("Rj2WpB-v7fZqvEu08"); })();
     </script>
 </head>
@@ -30,7 +29,8 @@
                 <li><a href="#" id="menu-inventory" onclick="switchTab('inventory')"><i class="fas fa-box-open"></i> <span>คลังของ</span></a></li>
                 <li><a href="#" id="menu-users" onclick="switchTab('users')"><i class="fas fa-users"></i> <span>ผู้ใช้งาน</span></a></li>
                 <li><a href="dashboard.html" class="btn-back"><i class="fas fa-home"></i> <span>ไปหน้าเว็บหลัก</span></a></li>
-                <li><a href="#" onclick="logout()" class="btn-logout-menu"><i class="fas fa-sign-out-alt"></i> <span>ออกระบบ</span></a></li>
+                
+                <li><a href="#" onclick="window.logout(); return false;" class="btn-logout-menu"><i class="fas fa-sign-out-alt"></i> <span>ออกระบบ</span></a></li>
             </ul>
         </aside>
 
@@ -146,5 +146,5 @@
 
     <script type="module" src="script.js"></script>
     
-    </body>
+</body>
 </html>

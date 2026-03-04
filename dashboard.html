@@ -7,10 +7,10 @@
     <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600&family=Poppins:wght@400;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="style.css">
+    
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
     <script type="text/javascript">
-        
        (function(){
           emailjs.init("Rj2WpB-v7fZqvEu08"); 
        })();
@@ -37,7 +37,7 @@
     <div class="user-info">
         <span id="userNameDisplay">Loading...</span> 
 
-        <button onclick="openHistoryModal()" class="btn-history">
+        <button onclick="window.openHistoryModal()" class="btn-history">
             <i class="fas fa-history"></i> ประวัติการจอง
         </button>
 
@@ -45,7 +45,7 @@
             <i class="fas fa-user-astronaut"></i> ผู้พัฒนา
         </a>
 
-        <button onclick="logout()" class="btn-logout" title="ออกจากระบบ">
+        <button onclick="window.logout()" class="btn-logout" title="ออกจากระบบ">
             <i class="fas fa-sign-out-alt"></i>
         </button>
     </div>
@@ -53,14 +53,14 @@
 
     <div class="container">
         <div class="filters">
-            <button onclick="filterItems('all')" class="active">ทั้งหมด</button>
-            <button onclick="filterItems('camera')">กล้อง</button>
-            <button onclick="filterItems('tripod')">ขาตั้ง/Gimbal</button>
-            <button onclick="filterItems('audio')">เสียง</button>
-            <button onclick="filterItems('light')">ไฟสตูดิโอ</button>
+            <button onclick="window.filterItems('all')" class="active">ทั้งหมด</button>
+            <button onclick="window.filterItems('camera')">กล้อง</button>
+            <button onclick="window.filterItems('tripod')">ขาตั้ง/Gimbal</button>
+            <button onclick="window.filterItems('audio')">เสียง</button>
+            <button onclick="window.filterItems('light')">ไฟสตูดิโอ</button>
             <div class="search-box">
                 <i class="fas fa-search" style="color: #666;"></i>
-                <input type="text" placeholder="ค้นหาอุปกรณ์..." onkeyup="searchItem(this.value)">
+                <input type="text" placeholder="ค้นหาอุปกรณ์..." onkeyup="window.searchItem(this.value)">
             </div>
         </div>
         <div id="itemGrid" class="item-grid"></div>
@@ -68,7 +68,7 @@
 
     <div id="borrowModal" class="modal">
         <div class="modal-content">
-            <span class="close" onclick="closeModal()">&times;</span>
+            <span class="close" onclick="window.closeModal()">&times;</span>
             <h3 style="color:var(--theme-primary); margin-top:0;"><i class="far fa-edit"></i> แบบฟอร์มยืมอุปกรณ์</h3>
             <p>กำลังยืม: <strong id="modalItemName" style="color: #fff;">...</strong></p>
             
@@ -83,7 +83,7 @@
                 <textarea rows="3" placeholder="เช่น ใช้ถ่ายงานวิชา..."></textarea>
                 
                 <div class="modal-actions" style="display:flex; gap:10px; margin-top:15px;">
-                    <button type="button" onclick="closeModal()" class="btn-cancel">ยกเลิก</button>
+                    <button type="button" onclick="window.closeModal()" class="btn-cancel">ยกเลิก</button>
                     <button type="submit" class="btn-confirm">ยืนยันการจอง</button>
                 </div>
             </form>
@@ -92,7 +92,7 @@
 
     <div id="historyModal" class="modal">
         <div class="modal-content" style="width: 800px;">
-            <span class="close" onclick="closeHistoryModal()">&times;</span>
+            <span class="close" onclick="window.closeHistoryModal()">&times;</span>
             <h3 style="color:var(--theme-primary); margin-top:0;"><i class="fas fa-history"></i> ประวัติการจองของฉัน</h3>
             
             <div class="table-responsive">
@@ -112,7 +112,7 @@
             <input type="file" id="pickupProofInput" accept="image/*" style="display:none;">
 
             <div style="margin-top:20px; text-align:right;">
-                <button onclick="closeHistoryModal()" class="btn-cancel">ปิดหน้าต่าง</button>
+                <button onclick="window.closeHistoryModal()" class="btn-cancel">ปิดหน้าต่าง</button>
             </div>
         </div>
     </div>

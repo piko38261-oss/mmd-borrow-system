@@ -1,5 +1,5 @@
 /* =========================================
-   script.js - MMD BORROW SYSTEM (FULL + SWEETALERT2 + EXCEL + FIX CALENDAR)
+   script.js - MMD BORROW SYSTEM (FULL + SWEETALERT2 + EXCEL + FIX CALENDAR + LOGOUT FIX)
    ========================================= */
 
 // 1. นำเข้า Firebase
@@ -163,23 +163,23 @@ window.register = async function(u, p, n) {
     }
 }
 
-// ✅✅✅ ส่วนที่ 1: ปลดล็อกปฏิทินตอนเปิด Popup จอง ให้พิมพ์ตัวเลขได้อิสระ ✅✅✅
-    window.openModal = (n, id) => { 
-        document.getElementById('modalItemName').innerText = n; 
-        document.getElementById('modalItemName').dataset.id = id; 
-        document.getElementById('borrowerName').value = currentUser.name; 
-        
-        const dateInput = document.querySelector('#borrowForm input[type="date"]');
-        if (dateInput) {
-            // 🛑 ทริคแก้บั๊ก: ลบ min และ max ออกจาก HTML เพื่อไม่ให้เบราว์เซอร์บล็อกการพิมพ์หลักสิบ
-            dateInput.removeAttribute("min"); 
-            dateInput.removeAttribute("max"); 
-            dateInput.value = ""; // เคลียร์ค่าเก่าที่เคยพิมพ์ไว้
+// ✅✅✅ เอาระบบออกจากระบบ (Logout) กลับมาแล้ว! ✅✅✅
+window.logout = () => { 
+    Swal.fire({
+        title: 'ออกจากระบบ?',
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#3085d6',
+        confirmButtonText: 'ออกจากระบบ',
+        cancelButtonText: 'ยกเลิก'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            localStorage.removeItem('currentUser'); 
+            window.location.href = 'index.html';
         }
-
-        document.getElementById('borrowModal').style.display = 'flex'; 
-    }
-    window.closeModal = () => document.getElementById('borrowModal').style.display = 'none';
+    });
+}
 
 /* --- PART 3: Page Logic --- */
 if(document.getElementById('loginForm')) {
@@ -206,7 +206,7 @@ if(window.location.pathname.includes('dashboard.html')) {
         });
     }
 
-    // ✅✅✅ ส่วนที่ 1: ล็อกปฏิทินตอนเปิด Popup จอง (ปลดล็อก max ให้พิมพ์หลักสิบได้) ✅✅✅
+    // ✅✅✅ ส่วนที่ 1: ล็อกปฏิทินตอนเปิด Popup จอง (ปลดล็อกให้พิมพ์อิสระ) ✅✅✅
     window.openModal = (n, id) => { 
         document.getElementById('modalItemName').innerText = n; 
         document.getElementById('modalItemName').dataset.id = id; 
@@ -224,7 +224,7 @@ if(window.location.pathname.includes('dashboard.html')) {
             };
 
             dateInput.min = formatDate(today); // ห้ามย้อนหลัง
-            dateInput.removeAttribute("max"); // 🛑 ปลดล็อก max เพื่อให้ผู้ใช้พิมพ์วันที่หลักสิบได้ปกติ
+            dateInput.removeAttribute("max"); // ปลดล็อก max เพื่อให้ผู้ใช้พิมพ์วันที่หลักสิบได้ปกติ
             dateInput.value = ""; // เคลียร์ค่าเก่า
         }
 
