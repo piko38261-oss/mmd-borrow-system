@@ -1,5 +1,5 @@
 /* =========================================
-   script.js - MMD BORROW SYSTEM (FULL + SWEETALERT2 + EXCEL)
+   script.js - MMD BORROW SYSTEM (FULL + SWEETALERT2 + EXCEL + ล็อกปฏิทิน 5 วัน)
    ========================================= */
 
 // 1. นำเข้า Firebase
@@ -204,14 +204,38 @@ if(window.location.pathname.includes('dashboard.html')) {
             grid.innerHTML += `<div class="card"><div class="card-img"><img src="${item.image}"><div class="status-badge ${status}">${status==='available'?'ว่าง':'ถูกยืม'}</div></div><div class="card-body"><h4>${item.name}</h4><span class="category-tag">${item.category.toUpperCase()}</span><button class="${btnClass}" onclick="${btnAction}">${btnText}</button></div></div>`;
         });
     }
+
+    // ✅✅✅ ส่วนที่ 1: ล็อกปฏิทินตอนเปิด Popup จอง ✅✅✅
     window.openModal = (n, id) => { 
         document.getElementById('modalItemName').innerText = n; 
         document.getElementById('modalItemName').dataset.id = id; 
         document.getElementById('borrowerName').value = currentUser.name; 
+        
+        // ล็อกวันที่ในปฏิทิน
+        const dateInput = document.querySelector('#borrowForm input[type="date"]');
+        if (dateInput) {
+            const today = new Date();
+            const maxDate = new Date();
+            maxDate.setDate(today.getDate() + 5); // กำหนดให้จองล่วงหน้าได้สูงสุด 5 วัน
+
+            // ฟังก์ชันแปลงวันที่ให้เป็นรูปแบบ YYYY-MM-DD
+            const formatDate = (dateObj) => {
+                const y = dateObj.getFullYear();
+                const m = String(dateObj.getMonth() + 1).padStart(2, '0');
+                const d = String(dateObj.getDate()).padStart(2, '0');
+                return `${y}-${m}-${d}`;
+            };
+
+            dateInput.min = formatDate(today); // ห้ามย้อนหลัง (ต่ำสุดคือวันนี้)
+            dateInput.max = formatDate(maxDate); // ห้ามเกิน 5 วัน (สูงสุด)
+            dateInput.value = ""; // เคลียร์ค่าเก่าทุกครั้งที่เปิดหน้าต่างใหม่
+        }
+
         document.getElementById('borrowModal').style.display = 'flex'; 
     }
     window.closeModal = () => document.getElementById('borrowModal').style.display = 'none';
 
+    // ✅✅✅ ส่วนที่ 2: ดักจับความปลอดภัยตอนกดยืนยันจอง ✅✅✅
     document.getElementById('borrowForm').onsubmit = async (e) => {
         e.preventDefault();
         const itemName = document.getElementById('modalItemName').innerText;
@@ -219,10 +243,21 @@ if(window.location.pathname.includes('dashboard.html')) {
         const submitBtn = document.querySelector('#borrowForm button[type="submit"]');
 
         const selectedDate = new Date(date);
+        selectedDate.setHours(0,0,0,0);
+        
         const today = new Date();
         today.setHours(0,0,0,0);
+
+        const maxAllowedDate = new Date(today);
+        maxAllowedDate.setDate(today.getDate() + 5);
+
+        // ตรวจสอบความถูกต้องของวันที่ก่อนบันทึก
         if(selectedDate < today) {
             Swal.fire({ icon: 'error', title: 'วันที่ไม่ถูกต้อง', text: 'ไม่สามารถเลือกวันที่ย้อนหลังได้ครับ' });
+            return;
+        }
+        if(selectedDate > maxAllowedDate) {
+            Swal.fire({ icon: 'error', title: 'วันที่ไม่ถูกต้อง', text: 'สามารถจองล่วงหน้าได้ไม่เกิน 5 วันครับ' });
             return;
         }
 
