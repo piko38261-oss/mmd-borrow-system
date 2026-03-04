@@ -1,5 +1,5 @@
 /* =========================================
-   script.js - MMD BORROW SYSTEM (FULL + LOGIN FIX)
+   script.js - MMD BORROW SYSTEM (FULL + EXCEL EXPORT)
    ========================================= */
 
 // 1. นำเข้า Firebase
@@ -8,7 +8,6 @@ import { getFirestore, collection, addDoc, getDocs, updateDoc, deleteDoc, doc, o
 from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
 // 2. ตั้งค่า EmailJS
-// (ต้องใส่ script ในไฟล์ html ก่อน ถึงจะทำงานได้)
 try {
     emailjs.init("Rj2WpB-v7fZqvEu08");
 } catch (e) {
@@ -128,27 +127,22 @@ window.checkAuth = function() {
     return currentUser;
 }
 
-// ✅✅✅ ส่วน Login ที่ปรับปรุงใหม่ (มีแจ้งเตือน Error) ✅✅✅
 window.login = async function(u, p) {
     console.log("กำลังเข้าสู่ระบบ...", u, p);
     try {
-        // ค้นหา User ใน Firebase
         const q = query(collection(db, "users"), where("username", "==", u), where("password", "==", p));
         const qs = await getDocs(q);
         
         if (!qs.empty) {
-            // Login สำเร็จ
             const d = qs.docs[0].data(); 
             d.id = qs.docs[0].id;
             localStorage.setItem('currentUser', JSON.stringify(d));
             alert("✅ ยินดีต้อนรับคุณ " + d.name);
             window.location.href = d.role === 'admin' ? 'admin.html' : 'dashboard.html';
         } else { 
-            // Login ไม่ผ่าน
             alert("❌ ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง"); 
         }
     } catch (error) {
-        // แจ้งเตือนเมื่อระบบมีปัญหา (เช่น เน็ตหลุด หรือ Permission)
         console.error("Login Error:", error);
         alert("เกิดข้อผิดพลาด: " + error.message + "\n(ลองเช็คเน็ต หรือ Rules ใน Firebase)");
     }
@@ -199,7 +193,6 @@ if(window.location.pathname.includes('dashboard.html')) {
     }
     window.closeModal = () => document.getElementById('borrowModal').style.display = 'none';
 
-    // ✅✅✅ ส่วนสำคัญ: การกดจอง (LINE + Email + กันจองย้อนหลัง) ✅✅✅
     document.getElementById('borrowForm').onsubmit = async (e) => {
         e.preventDefault();
         const itemName = document.getElementById('modalItemName').innerText;
@@ -218,7 +211,6 @@ if(window.location.pathname.includes('dashboard.html')) {
             submitBtn.innerText = "⏳ กำลังบันทึก...";
             submitBtn.disabled = true;
 
-            // 1. บันทึกลง Firebase
             await addDoc(collection(db, "requests"), { 
                 user: currentUser.name, 
                 userId: currentUser.id, 
@@ -229,7 +221,6 @@ if(window.location.pathname.includes('dashboard.html')) {
                 timestamp: new Date() 
             });
             
-            // 2. ส่งไลน์ (LINE Notify)
             fetch(LINE_API_URL, {
                 method: 'POST',
                 mode: 'no-cors',
@@ -237,14 +228,12 @@ if(window.location.pathname.includes('dashboard.html')) {
                 body: JSON.stringify({ user: currentUser.name, item: itemName, date: date })
             }).catch(err => console.error("Line Error", err));
 
-            // 3. ส่งอีเมล (EmailJS)
             const emailParams = {
                 user_name: currentUser.name,
                 item_name: itemName,
                 borrow_date: date,
                 status: 'pending'
             };
-            // เช็คก่อนว่าโหลด Library มาหรือยัง
             if(typeof emailjs !== 'undefined') {
                 emailjs.send("service_8q17oo9", "template_4ch9467", emailParams)
                     .then(() => console.log("✅ Email sent"))
@@ -264,7 +253,6 @@ if(window.location.pathname.includes('dashboard.html')) {
         }
     };
 
-    // Flow Step 3: User กดรับของ
     window.triggerPickup = (reqId) => {
         currentPickupId = reqId;
         const fileInput = document.getElementById('pickupProofInput');
@@ -375,48 +363,54 @@ if(window.location.pathname.includes('admin.html')) {
     window.banUser = async (id, u) => { if(u.includes('admin')||u.includes('rmuti')) return; if(confirm("ลบ?")) await deleteDoc(doc(db, "users", id)); }
     window.updateDashboardStats = () => { document.getElementById('stat-pending').innerText = borrowRequests.filter(r => r.status === 'pending').length; document.getElementById('stat-borrowed').innerText = borrowRequests.filter(r => r.status === 'borrowed').length; document.getElementById('stat-total-items').innerText = items.length; }
 }
-// ฟังก์ชันสำหรับดึงข้อมูลและ Export เป็น CSV
-async function exportToCSV() {
+
+// ✅✅✅ ฟังก์ชันสำหรับดึงข้อมูลและ Export เป็น CSV (เพิ่ม window. แล้ว) ✅✅✅
+window.exportToCSV = async function() {
     try {
-        // เปลี่ยนปุ่มให้ดูเหมือนกำลังโหลด (ถ้าต้องการ)
         console.log("กำลังดึงข้อมูลเพื่อสร้างรายงาน...");
 
-        // 1. ดึงข้อมูลจากคอลเลกชัน 'requests' (หรือชื่อตารางที่คุณเก็บข้อมูลการยืม)
         const querySnapshot = await getDocs(collection(db, "requests"));
 
-        // 2. ทริคลับ! ใส่ BOM (\uFEFF) เพื่อให้ Microsoft Excel อ่านภาษาไทยได้ไม่เพี้ยน (สำคัญมาก)
+        // ใส่ BOM (\uFEFF) เพื่อให้ Microsoft Excel อ่านภาษาไทยได้ไม่เพี้ยน
         let csvContent = "\uFEFF"; 
         
-        // 3. สร้างหัวตาราง (Header)
-        csvContent += "วันที่ทำรายการ,ชื่อผู้ยืม,อุปกรณ์ที่ยืม,วันที่รับของ,วันที่คืนของ,สถานะ\n";
+        csvContent += "วันที่ส่งคำขอ,ชื่อผู้ยืม,อุปกรณ์ที่ยืม,วันที่ต้องการยืม,สถานะ\n";
 
-        // 4. วนลูปข้อมูลจาก Firebase มาต่อกันทีละบรรทัด
         querySnapshot.forEach((doc) => {
             const data = doc.data();
             
-            // ดึงค่ามาใส่ตัวแปร (แก้ชื่อ data.xxx ให้ตรงกับที่คุณตั้งไว้ใน Firebase นะครับ)
-            const timestamp = data.timestamp || "-"; 
-            const userName = data.userName || "-";
-            const itemName = data.itemName || "-";
-            const borrowDate = data.borrowDate || "-";
-            const returnDate = data.returnDate || "-";
+            let timeString = "-";
+            if(data.timestamp && data.timestamp.toDate) {
+                timeString = data.timestamp.toDate().toLocaleString('th-TH');
+            } else if (data.timestamp) {
+                timeString = new Date(data.timestamp).toLocaleString('th-TH');
+            }
+
+            const userName = data.user || "-"; 
+            const itemName = data.item || "-"; 
+            const borrowDate = data.date || "-"; 
             const status = data.status || "-";
 
-            // เอาข้อมูลมาต่อกัน คั่นด้วยเครื่องหมายลูกน้ำ (,) และขึ้นบรรทัดใหม่ (\n)
-            csvContent += `"${timestamp}","${userName}","${itemName}","${borrowDate}","${returnDate}","${status}"\n`;
+            let statusThai = status;
+            if(status === 'pending') statusThai = "รออนุมัติ";
+            else if(status === 'approved_pickup') statusThai = "รอรับของ";
+            else if(status === 'borrowed') statusThai = "กำลังยืม";
+            else if(status === 'returned') statusThai = "คืนแล้ว";
+            else if(status === 'rejected') statusThai = "ถูกปฏิเสธ";
+
+            csvContent += `"${timeString}","${userName}","${itemName}","${borrowDate}","${statusThai}"\n`;
         });
 
-        // 5. สร้างไฟล์จำลอง (Blob) และสั่งดาวน์โหลด
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
         const link = document.createElement("a");
         const url = URL.createObjectURL(blob);
 
         link.setAttribute("href", url);
-        link.setAttribute("download", "MMD_Borrow_Report.csv"); // ชื่อไฟล์ที่จะได้
+        link.setAttribute("download", `MMD_Borrow_Report_${new Date().toLocaleDateString('th-TH').replace(/\//g, '-')}.csv`);
         link.style.visibility = 'hidden';
         
         document.body.appendChild(link);
-        link.click(); // จำลองการคลิกเพื่อโหลด
+        link.click();
         document.body.removeChild(link);
 
         alert("✅ ดาวน์โหลดรายงานสำเร็จ!");
