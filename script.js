@@ -1,5 +1,5 @@
 /* =========================================
-   script.js - MMD BORROW SYSTEM (FULL + EXCEL EXPORT)
+   script.js - MMD BORROW SYSTEM (FULL + SWEETALERT2 + EXCEL)
    ========================================= */
 
 // 1. นำเข้า Firebase
@@ -11,7 +11,7 @@ from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 try {
     emailjs.init("Rj2WpB-v7fZqvEu08");
 } catch (e) {
-    console.warn("⚠️ EmailJS ยังไม่ถูกโหลด (อย่าลืมใส่ Script ใน HTML)");
+    console.warn("⚠️ EmailJS ยังไม่ถูกโหลด");
 }
 
 // 3. ลิงก์ LINE Notify
@@ -82,7 +82,7 @@ window.viewPhoto = function(reqId) {
         document.getElementById('lightbox-img').src = req.proofPhoto;
         document.getElementById('lightbox-modal').style.display = 'flex';
     } else {
-        alert("ยังไม่มีรูปภาพหลักฐาน");
+        Swal.fire({ icon: 'info', title: 'ไม่พบรูปภาพ', text: 'รายการนี้ยังไม่มีรูปภาพหลักฐาน' });
     }
 }
 
@@ -128,7 +128,7 @@ window.checkAuth = function() {
 }
 
 window.login = async function(u, p) {
-    console.log("กำลังเข้าสู่ระบบ...", u, p);
+    Swal.fire({ title: 'กำลังเข้าสู่ระบบ...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); }});
     try {
         const q = query(collection(db, "users"), where("username", "==", u), where("password", "==", p));
         const qs = await getDocs(q);
@@ -137,29 +137,48 @@ window.login = async function(u, p) {
             const d = qs.docs[0].data(); 
             d.id = qs.docs[0].id;
             localStorage.setItem('currentUser', JSON.stringify(d));
-            alert("✅ ยินดีต้อนรับคุณ " + d.name);
+            
+            await Swal.fire({ icon: 'success', title: 'สำเร็จ!', text: 'ยินดีต้อนรับคุณ ' + d.name, timer: 1500, showConfirmButton: false });
             window.location.href = d.role === 'admin' ? 'admin.html' : 'dashboard.html';
         } else { 
-            alert("❌ ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง"); 
+            Swal.fire({ icon: 'error', title: 'เข้าสู่ระบบล้มเหลว', text: 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง' });
         }
     } catch (error) {
-        console.error("Login Error:", error);
-        alert("เกิดข้อผิดพลาด: " + error.message + "\n(ลองเช็คเน็ต หรือ Rules ใน Firebase)");
+        Swal.fire({ icon: 'error', title: 'เกิดข้อผิดพลาด', text: error.message });
     }
 }
 
 window.register = async function(u, p, n) {
     try {
         const q = query(collection(db, "users"), where("username", "==", u));
-        if (!(await getDocs(q)).empty) { alert("❌ มีผู้ใช้นี้แล้ว"); return; }
+        if (!(await getDocs(q)).empty) { 
+            Swal.fire({ icon: 'warning', title: 'สมัครไม่ได้', text: 'มีชื่อผู้ใช้นี้ในระบบแล้ว' });
+            return; 
+        }
         await addDoc(collection(db, "users"), { username: u, password: p, role: "user", name: n });
-        alert("✅ สมัครสำเร็จ!"); toggleForm();
+        Swal.fire({ icon: 'success', title: 'สมัครสำเร็จ!', text: 'กรุณาเข้าสู่ระบบด้วยรหัสผ่านใหม่', timer: 2000, showConfirmButton: false });
+        toggleForm();
     } catch (e) {
-        alert("Error Register: " + e.message);
+        Swal.fire({ icon: 'error', title: 'เกิดข้อผิดพลาด', text: e.message });
     }
 }
 
-window.logout = () => { localStorage.removeItem('currentUser'); window.location.href = 'index.html'; }
+window.logout = () => { 
+    Swal.fire({
+        title: 'ออกจากระบบ?',
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#3085d6',
+        confirmButtonText: 'ออกจากระบบ',
+        cancelButtonText: 'ยกเลิก'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            localStorage.removeItem('currentUser'); 
+            window.location.href = 'index.html';
+        }
+    });
+}
 
 /* --- PART 3: Page Logic --- */
 if(document.getElementById('loginForm')) {
@@ -203,7 +222,7 @@ if(window.location.pathname.includes('dashboard.html')) {
         const today = new Date();
         today.setHours(0,0,0,0);
         if(selectedDate < today) {
-            alert("❌ ไม่สามารถเลือกวันที่ย้อนหลังได้ครับ");
+            Swal.fire({ icon: 'error', title: 'วันที่ไม่ถูกต้อง', text: 'ไม่สามารถเลือกวันที่ย้อนหลังได้ครับ' });
             return;
         }
 
@@ -235,18 +254,14 @@ if(window.location.pathname.includes('dashboard.html')) {
                 status: 'pending'
             };
             if(typeof emailjs !== 'undefined') {
-                emailjs.send("service_8q17oo9", "template_4ch9467", emailParams)
-                    .then(() => console.log("✅ Email sent"))
-                    .catch((err) => console.error("❌ Email failed:", err));
-            } else {
-                console.warn("⚠️ ส่งอีเมลไม่ได้ เพราะไม่ได้ใส่ Script EmailJS ใน HTML");
+                emailjs.send("service_8q17oo9", "template_4ch9467", emailParams);
             }
 
-            alert("✅ ส่งคำขอจองเรียบร้อย! (แจ้งเตือนไปยัง Admin แล้ว)"); 
+            Swal.fire({ icon: 'success', title: 'ส่งคำขอจองสำเร็จ!', text: 'ระบบได้แจ้งเตือนไปยัง Admin แล้ว โปรดรอการอนุมัติ', timer: 2500, showConfirmButton: false });
             closeModal();
 
         } catch(e) { 
-            alert("Error: " + e.message); 
+            Swal.fire({ icon: 'error', title: 'เกิดข้อผิดพลาด', text: e.message });
         } finally {
             submitBtn.innerText = "ยืนยันการจอง";
             submitBtn.disabled = false;
@@ -257,7 +272,7 @@ if(window.location.pathname.includes('dashboard.html')) {
         currentPickupId = reqId;
         const fileInput = document.getElementById('pickupProofInput');
         if(fileInput) fileInput.click();
-        else alert("ไม่พบช่องอัปโหลดไฟล์");
+        else Swal.fire('Error', 'ไม่พบช่องอัปโหลดไฟล์', 'error');
     }
 
     const pickupInput = document.getElementById('pickupProofInput');
@@ -265,19 +280,21 @@ if(window.location.pathname.includes('dashboard.html')) {
         pickupInput.onchange = async (e) => {
             const file = e.target.files[0];
             if(!file || !currentPickupId) return;
+            
+            Swal.fire({ title: 'กำลังอัปโหลดรูปภาพ...', text: 'โปรดรอสักครู่', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); }});
+            
             try {
-                alert("⏳ กำลังอัปโหลดรูปและยืนยันการรับของ...");
                 const base64 = await resizeImage(file);
                 await updateDoc(doc(db, "requests", currentPickupId), {
                     status: "borrowed",
                     proofPhoto: base64,
                     pickupTime: new Date()
                 });
-                alert("✅ รับของสำเร็จ! สถานะเปลี่ยนเป็น 'กำลังถูกยืม'");
+                Swal.fire({ icon: 'success', title: 'รับของสำเร็จ!', text: 'สถานะเปลี่ยนเป็น กำลังถูกยืม เรียบร้อยแล้ว', timer: 2000, showConfirmButton: false });
                 e.target.value = ''; 
                 openHistoryModal(); 
             } catch(err) {
-                alert("เกิดข้อผิดพลาด: " + err.message);
+                Swal.fire({ icon: 'error', title: 'อัปโหลดไม่สำเร็จ', text: err.message });
             }
         };
     }
@@ -353,32 +370,45 @@ if(window.location.pathname.includes('admin.html')) {
         });
     }
 
-    window.deleteRequest = async (id) => { if(confirm("ลบประวัติ?")) await deleteDoc(doc(db, "requests", id)); }
-    window.updateStatus = async (id, s) => { try { await updateDoc(doc(db, "requests", id), { status: s }); } catch(e) { alert("Error"); } }
+    // แจ้งเตือนยืนยันการลบ
+    window.deleteRequest = async (id) => { 
+        const result = await Swal.fire({ title: 'ยืนยันการลบ?', text: "ประวัตินี้จะถูกลบถาวร!", icon: 'warning', showCancelButton: true, confirmButtonColor: '#d33', cancelButtonColor: '#3085d6', confirmButtonText: 'ลบเลย', cancelButtonText: 'ยกเลิก' });
+        if(result.isConfirmed) { await deleteDoc(doc(db, "requests", id)); Swal.fire('ลบแล้ว!', '', 'success'); }
+    }
+    window.updateStatus = async (id, s) => { try { await updateDoc(doc(db, "requests", id), { status: s }); } catch(e) { Swal.fire('Error', e.message, 'error'); } }
     
     window.renderInventory = () => { const tbody = document.getElementById('inventoryTableBody'); tbody.innerHTML = ''; items.forEach(i => { const st = borrowRequests.some(r => r.item === i.name && (r.status === 'borrowed' || r.status === 'approved_pickup')) ? '<span style="color:var(--danger)">ไม่ว่าง</span>' : '<span style="color:var(--success)">ว่าง</span>'; tbody.innerHTML += `<tr><td><img src="${i.image}" width="40"></td><td style="color:white">${i.name}</td><td>${i.category}</td><td>${st}</td><td><button onclick="deleteItem('${i.id}')" class="btn-action btn-reject"><i class="fas fa-trash"></i></button></td></tr>`; }); }
-    window.addNewItem = async () => { const n = prompt("ชื่อ:"); if(n) await addDoc(collection(db, "items"), { name: n, category: "general", status: "available", image: "https://placehold.co/100" }); }
-    window.deleteItem = async (id) => { if(confirm("ลบ?")) await deleteDoc(doc(db, "items", id)); }
+    
+    // แจ้งเตือนเพิ่มอุปกรณ์ใหม่
+    window.addNewItem = async () => { 
+        const { value: n } = await Swal.fire({ title: 'เพิ่มอุปกรณ์ใหม่', input: 'text', inputLabel: 'ชื่ออุปกรณ์', inputPlaceholder: 'พิมพ์ชื่ออุปกรณ์ที่นี่...', showCancelButton: true });
+        if(n) { await addDoc(collection(db, "items"), { name: n, category: "general", status: "available", image: "https://placehold.co/100" }); Swal.fire('สำเร็จ', 'เพิ่มอุปกรณ์แล้ว', 'success'); }
+    }
+    window.deleteItem = async (id) => { 
+        const result = await Swal.fire({ title: 'ลบอุปกรณ์นี้?', icon: 'warning', showCancelButton: true, confirmButtonColor: '#d33', confirmButtonText: 'ลบ', cancelButtonText: 'ยกเลิก' });
+        if(result.isConfirmed) { await deleteDoc(doc(db, "items", id)); Swal.fire('ลบแล้ว!', '', 'success'); }
+    }
+    
     window.renderUsers = () => { const tbody = document.getElementById('usersTableBody'); tbody.innerHTML = ''; users.forEach(u => { tbody.innerHTML += `<tr><td style="color:white">${u.name}</td><td>${u.username}</td><td>${u.role}</td><td><button onclick="banUser('${u.id}', '${u.username}')" class="btn-action" style="background:#333; color:#666">Ban</button></td></tr>`; }); }
-    window.banUser = async (id, u) => { if(u.includes('admin')||u.includes('rmuti')) return; if(confirm("ลบ?")) await deleteDoc(doc(db, "users", id)); }
+    window.banUser = async (id, u) => { 
+        if(u.includes('admin')||u.includes('rmuti')) return Swal.fire('ปฏิเสธ', 'ไม่สามารถแบน Admin ได้', 'error'); 
+        const result = await Swal.fire({ title: 'แบนผู้ใช้นี้?', text: "ผู้ใช้นี้จะถูกลบออกจากระบบ!", icon: 'warning', showCancelButton: true, confirmButtonColor: '#d33', confirmButtonText: 'แบนเลย' });
+        if(result.isConfirmed) { await deleteDoc(doc(db, "users", id)); Swal.fire('แบนสำเร็จ', '', 'success'); }
+    }
     window.updateDashboardStats = () => { document.getElementById('stat-pending').innerText = borrowRequests.filter(r => r.status === 'pending').length; document.getElementById('stat-borrowed').innerText = borrowRequests.filter(r => r.status === 'borrowed').length; document.getElementById('stat-total-items').innerText = items.length; }
 }
 
-// ✅✅✅ ฟังก์ชันสำหรับดึงข้อมูลและ Export เป็น CSV (เพิ่ม window. แล้ว) ✅✅✅
+// ฟังก์ชัน Export CSV (เพิ่ม SweetAlert)
 window.exportToCSV = async function() {
     try {
-        console.log("กำลังดึงข้อมูลเพื่อสร้างรายงาน...");
+        Swal.fire({ title: 'กำลังเตรียมรายงาน...', timer: 1000, timerProgressBar: true, didOpen: () => { Swal.showLoading(); }});
 
         const querySnapshot = await getDocs(collection(db, "requests"));
-
-        // ใส่ BOM (\uFEFF) เพื่อให้ Microsoft Excel อ่านภาษาไทยได้ไม่เพี้ยน
         let csvContent = "\uFEFF"; 
-        
         csvContent += "วันที่ส่งคำขอ,ชื่อผู้ยืม,อุปกรณ์ที่ยืม,วันที่ต้องการยืม,สถานะ\n";
 
         querySnapshot.forEach((doc) => {
             const data = doc.data();
-            
             let timeString = "-";
             if(data.timestamp && data.timestamp.toDate) {
                 timeString = data.timestamp.toDate().toLocaleString('th-TH');
@@ -404,7 +434,6 @@ window.exportToCSV = async function() {
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
         const link = document.createElement("a");
         const url = URL.createObjectURL(blob);
-
         link.setAttribute("href", url);
         link.setAttribute("download", `MMD_Borrow_Report_${new Date().toLocaleDateString('th-TH').replace(/\//g, '-')}.csv`);
         link.style.visibility = 'hidden';
@@ -413,10 +442,11 @@ window.exportToCSV = async function() {
         link.click();
         document.body.removeChild(link);
 
-        alert("✅ ดาวน์โหลดรายงานสำเร็จ!");
+        setTimeout(() => {
+            Swal.fire({ icon: 'success', title: 'ดาวน์โหลดรายงานสำเร็จ!', showConfirmButton: false, timer: 1500 });
+        }, 1000);
 
     } catch (error) {
-        console.error("เกิดข้อผิดพลาดในการ Export: ", error);
-        alert("❌ ไม่สามารถดาวน์โหลดรายงานได้ กรุณาลองใหม่");
+        Swal.fire({ icon: 'error', title: 'เกิดข้อผิดพลาด', text: 'ไม่สามารถดาวน์โหลดรายงานได้ กรุณาลองใหม่' });
     }
 }
