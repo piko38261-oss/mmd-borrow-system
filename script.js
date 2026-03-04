@@ -1,5 +1,5 @@
 /* =========================================
-   script.js - MMD BORROW SYSTEM (FULL + SWEETALERT2 + EXCEL + ล็อกปฏิทิน 5 วัน)
+   script.js - MMD BORROW SYSTEM (FULL + SWEETALERT2 + EXCEL + FIX CALENDAR)
    ========================================= */
 
 // 1. นำเข้า Firebase
@@ -205,20 +205,16 @@ if(window.location.pathname.includes('dashboard.html')) {
         });
     }
 
-    // ✅✅✅ ส่วนที่ 1: ล็อกปฏิทินตอนเปิด Popup จอง ✅✅✅
+    // ✅✅✅ ส่วนที่ 1: ล็อกปฏิทินตอนเปิด Popup จอง (ปลดล็อก max ให้พิมพ์หลักสิบได้) ✅✅✅
     window.openModal = (n, id) => { 
         document.getElementById('modalItemName').innerText = n; 
         document.getElementById('modalItemName').dataset.id = id; 
         document.getElementById('borrowerName').value = currentUser.name; 
         
-        // ล็อกวันที่ในปฏิทิน
         const dateInput = document.querySelector('#borrowForm input[type="date"]');
         if (dateInput) {
             const today = new Date();
-            const maxDate = new Date();
-            maxDate.setDate(today.getDate() + 5); // กำหนดให้จองล่วงหน้าได้สูงสุด 5 วัน
 
-            // ฟังก์ชันแปลงวันที่ให้เป็นรูปแบบ YYYY-MM-DD
             const formatDate = (dateObj) => {
                 const y = dateObj.getFullYear();
                 const m = String(dateObj.getMonth() + 1).padStart(2, '0');
@@ -226,9 +222,9 @@ if(window.location.pathname.includes('dashboard.html')) {
                 return `${y}-${m}-${d}`;
             };
 
-            dateInput.min = formatDate(today); // ห้ามย้อนหลัง (ต่ำสุดคือวันนี้)
-            dateInput.max = formatDate(maxDate); // ห้ามเกิน 5 วัน (สูงสุด)
-            dateInput.value = ""; // เคลียร์ค่าเก่าทุกครั้งที่เปิดหน้าต่างใหม่
+            dateInput.min = formatDate(today); // ห้ามย้อนหลัง
+            dateInput.removeAttribute("max"); // 🛑 ปลดล็อก max เพื่อให้ผู้ใช้พิมพ์วันที่หลักสิบได้ปกติ
+            dateInput.value = ""; // เคลียร์ค่าเก่า
         }
 
         document.getElementById('borrowModal').style.display = 'flex'; 
