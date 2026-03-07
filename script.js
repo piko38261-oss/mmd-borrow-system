@@ -1,5 +1,5 @@
 /* =========================================
-   script.js - MMD BORROW SYSTEM (FULL + SWEETALERT2 + EXCEL + FIX CALENDAR + LOGOUT FIX)
+   script.js - MMD BORROW SYSTEM (FULL + ADMIN ROLE MGMT)
    ========================================= */
 
 // 1. นำเข้า Firebase
@@ -90,40 +90,58 @@ window.viewPhoto = function(reqId) {
 function listenToData() {
     onSnapshot(collection(db, "items"), (snapshot) => {
         items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        if(window.location.pathname.includes('dashboard.html')) renderItems();
+        if(window.location.pathname.includes('dashboard.html') || window.location.pathname.includes('index.html')) renderItems();
         if(window.location.pathname.includes('admin.html')) { renderInventory(); updateDashboardStats(); }
     });
 
     onSnapshot(collection(db, "requests"), (snapshot) => {
         borrowRequests = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        if(window.location.pathname.includes('dashboard.html')) renderItems(); 
+        if(window.location.pathname.includes('dashboard.html') || window.location.pathname.includes('index.html')) renderItems(); 
         if(window.location.pathname.includes('admin.html')) { renderRequests(); updateDashboardStats(); }
     });
 
-    if(window.location.pathname.includes('admin.html')) {
-        onSnapshot(collection(db, "users"), (snapshot) => {
-            users = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            renderUsers();
-        });
-    }
+    onSnapshot(collection(db, "users"), (snapshot) => {
+        users = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        if(window.location.pathname.includes('admin.html')) renderUsers();
+        // อัปเดตตารางจัดการสิทธิ์แอดมินถ้าเปิดค้างไว้
+        const adminTable = document.getElementById('adminUserTableBody');
+        if(adminTable && document.getElementById('adminModal') && document.getElementById('adminModal').style.display === 'block') {
+            loadUsersToAdminTable();
+        }
+    });
 }
 
 /* --- PART 2: Auth System --- */
 window.checkAuth = function() {
-    if (!currentUser) { window.location.href = 'index.html'; return null; }
-    const display = document.querySelector('.user-info span') || document.querySelector('.admin-profile span');
-    if(display) display.innerText = currentUser.name;
+    if (!currentUser) { 
+        if (!window.location.pathname.includes('login.html') && !window.location.pathname.endsWith('/')) {
+            window.location.href = 'index.html'; // ส่งกลับไปหน้าแรกถ้ายังไม่ล็อกอิน
+        }
+        return null; 
+    }
     
-    if (currentUser.role === 'admin' && window.location.pathname.includes('dashboard.html')) {
+    // โชว์ชื่อบน Navbar
+    const display = document.getElementById('userNameDisplay') || document.querySelector('.user-info span') || document.querySelector('.admin-profile span');
+    if(display) display.innerText = currentUser.name || currentUser.username;
+    
+    // 🔥 จัดการปุ่ม Admin 🔥
+    if (currentUser.role === 'admin') {
+        // แสดงปุ่ม "จัดการระบบ (Admin Modal)" ในหน้า Index/Dashboard
+        const btnAdminManage = document.getElementById('btnAdminManage');
+        if (btnAdminManage) btnAdminManage.style.display = 'inline-flex';
+
+        // เผื่อมีปุ่มกลับหน้า Admin แบบเก่า
         const ui = document.querySelector('.user-info');
-        if (!document.getElementById('backToAdminBtn')) {
+        if (ui && window.location.pathname.includes('dashboard.html') && !document.getElementById('backToAdminBtn')) {
             const btn = document.createElement('button');
+            btn.id = 'backToAdminBtn';
             btn.innerHTML = '<i class="fas fa-user-shield"></i> กลับหน้า Admin';
             btn.className = 'btn-history'; btn.style.marginRight = '10px';
             btn.onclick = () => window.location.href = 'admin.html';
             ui.insertBefore(btn, ui.firstChild);
         }
     }
+
     return currentUser;
 }
 
@@ -138,8 +156,9 @@ window.login = async function(u, p) {
             d.id = qs.docs[0].id;
             localStorage.setItem('currentUser', JSON.stringify(d));
             
-            await Swal.fire({ icon: 'success', title: 'สำเร็จ!', text: 'ยินดีต้อนรับคุณ ' + d.name, timer: 1500, showConfirmButton: false });
-            window.location.href = d.role === 'admin' ? 'admin.html' : 'dashboard.html';
+            await Swal.fire({ icon: 'success', title: 'สำเร็จ!', text: 'ยินดีต้อนรับคุณ ' + (d.name || d.username), timer: 1500, showConfirmButton: false });
+            // ถ้าหน้าปัจจุบันคือหน้า Login/Index ให้ไปที่ Dashboard, แต่ถ้าอยู่ในหน้าไหนแล้วให้รีเฟรชโชว์ข้อมูล
+            window.location.reload();
         } else { 
             Swal.fire({ icon: 'error', title: 'เข้าสู่ระบบล้มเหลว', text: 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง' });
         }
@@ -163,7 +182,6 @@ window.register = async function(u, p, n) {
     }
 }
 
-// ✅✅✅ เอาระบบออกจากระบบ (Logout) กลับมาแล้ว! ✅✅✅
 window.logout = () => { 
     Swal.fire({
         title: 'ออกจากระบบ?',
@@ -176,21 +194,118 @@ window.logout = () => {
     }).then((result) => {
         if (result.isConfirmed) {
             localStorage.removeItem('currentUser'); 
-            window.location.href = 'index.html';
+            window.location.reload(); // รีเฟรชกลับหน้าล็อกอิน
         }
     });
 }
 
-/* --- PART 3: Page Logic --- */
+// === โลจิกหน้า Login ===
 if(document.getElementById('loginForm')) {
     window.toggleForm = () => { document.getElementById('loginForm').classList.toggle('hidden'); document.getElementById('registerForm').classList.toggle('hidden'); }
     document.getElementById('loginForm').onsubmit = (e) => { e.preventDefault(); login(document.getElementById('username').value, document.getElementById('password').value); };
     document.getElementById('registerForm').onsubmit = (e) => { e.preventDefault(); register(document.getElementById('regUser').value, document.getElementById('regPass').value, document.getElementById('regName').value); };
+    
+    // ถ้ามีคนล็อกอินอยู่แล้วในหน้า Login ให้ไปที่ Dashboard หรือ โหลด Data
+    if(currentUser) {
+        document.querySelector('.login-wrapper').style.display = 'none'; // ซ่อนฟอร์มล็อกอิน
+        listenToData(); 
+        window.onload = () => checkAuth();
+    }
 }
 
-// === USER DASHBOARD ===
-if(window.location.pathname.includes('dashboard.html')) {
-    listenToData(); window.onload = () => checkAuth();
+// === ADMIN ROLE MANAGEMENT MODAL ===
+window.openAdminModal = function() {
+    document.getElementById("adminModal").style.display = "block";
+    loadUsersToAdminTable(); 
+}
+
+window.closeAdminModal = function() {
+    document.getElementById("adminModal").style.display = "none";
+}
+
+window.loadUsersToAdminTable = function() {
+    const tableBody = document.getElementById("adminUserTableBody");
+    if(!tableBody) return;
+    tableBody.innerHTML = ""; 
+
+    if (users.length === 0) {
+        tableBody.innerHTML = "<tr><td colspan='4' style='text-align:center;'>กำลังโหลดข้อมูล...</td></tr>";
+        return;
+    }
+
+    users.forEach((u) => {
+        const userName = u.name || "ไม่มีชื่อ";
+        const userEmail = u.username || "-";
+        const currentRole = u.role || "user"; // ป้องกันค่า null
+
+        const roleBadge = currentRole === 'admin' 
+            ? `<span style="background:#ff9800; color:#fff; padding:3px 10px; border-radius:15px; font-size:12px;"><i class="fas fa-crown"></i> Admin</span>`
+            : `<span style="background:#444; color:#fff; padding:3px 10px; border-radius:15px; font-size:12px;">User</span>`;
+
+        // ป้องกันไม่ให้แอดมินปลดสิทธิ์ตัวเอง หรือ แบนตัวเอง
+        let actionBtn = "";
+        if (currentUser && currentUser.id === u.id) {
+            actionBtn = `<span style="color: #888; font-size: 12px;">(ตัวคุณเอง)</span>`;
+        } else {
+            actionBtn = `<button onclick="window.changeUserRole('${u.id}', '${currentRole}', '${userName}')" 
+                style="background: #28a745; color: white; border: none; padding: 6px 12px; border-radius: 5px; cursor: pointer; font-size: 12px; transition: 0.2s;">
+                <i class="fas fa-exchange-alt"></i> เปลี่ยนสิทธิ์
+            </button>`;
+        }
+
+        const row = `<tr style="border-bottom: 1px solid rgba(255,255,255,0.1);">
+            <td style="padding:12px;">${userName}</td>
+            <td style="padding:12px;">${userEmail}</td>
+            <td style="padding:12px;">${roleBadge}</td>
+            <td style="padding:12px;">${actionBtn}</td>
+        </tr>`;
+        tableBody.innerHTML += row;
+    });
+}
+
+window.changeUserRole = async function(userId, currentRole, userName) {
+    const newRole = currentRole === 'admin' ? 'user' : 'admin';
+    const actionText = newRole === 'admin' ? 'เลื่อนขั้นเป็น Admin' : 'ปลดเป็นนักศึกษาทั่วไป';
+
+    const result = await Swal.fire({
+        title: 'ยืนยันการเปลี่ยนสิทธิ์?',
+        html: `คุณต้องการ <b>${actionText}</b> ให้กับ <br/><span style="color:#ff9800">${userName}</span> ใช่หรือไม่?`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#ff9800',
+        cancelButtonColor: '#444',
+        confirmButtonText: 'ยืนยันการเปลี่ยน',
+        cancelButtonText: 'ยกเลิก',
+        background: '#1a1a1a',
+        color: '#fff'
+    });
+
+    if (result.isConfirmed) {
+        try {
+            const userRef = doc(db, "users", userId);
+            await updateDoc(userRef, { role: newRole });
+            
+            Swal.fire({
+                title: 'สำเร็จ!',
+                text: `เปลี่ยนสิทธิ์ของ ${userName} เรียบร้อยแล้ว`,
+                icon: 'success',
+                background: '#1a1a1a',
+                color: '#fff',
+                timer: 1500,
+                showConfirmButton: false
+            });
+            // ข้อมูลจะโหลดใหม่ผ่าน onSnapshot อัตโนมัติ
+        } catch (error) {
+            console.error("Error updating role: ", error);
+            Swal.fire('เกิดข้อผิดพลาด!', 'ไม่สามารถเปลี่ยนสิทธิ์ได้', 'error');
+        }
+    }
+}
+
+
+// === USER DASHBOARD CORE LOGIC ===
+// (โหลดเฉพาะตอนเข้าหน้า Dashboard หรือ Index ที่มี Grid)
+if(document.getElementById('itemGrid') && currentUser) {
     
     window.renderItems = (cat = 'all') => {
         const grid = document.getElementById('itemGrid'); if(!grid) return; grid.innerHTML = '';
@@ -206,7 +321,6 @@ if(window.location.pathname.includes('dashboard.html')) {
         });
     }
 
-    // ✅✅✅ ส่วนที่ 1: ล็อกปฏิทินตอนเปิด Popup จอง (ปลดล็อกให้พิมพ์อิสระ) ✅✅✅
     window.openModal = (n, id) => { 
         document.getElementById('modalItemName').innerText = n; 
         document.getElementById('modalItemName').dataset.id = id; 
@@ -215,24 +329,20 @@ if(window.location.pathname.includes('dashboard.html')) {
         const dateInput = document.querySelector('#borrowForm input[type="date"]');
         if (dateInput) {
             const today = new Date();
-
             const formatDate = (dateObj) => {
                 const y = dateObj.getFullYear();
                 const m = String(dateObj.getMonth() + 1).padStart(2, '0');
                 const d = String(dateObj.getDate()).padStart(2, '0');
                 return `${y}-${m}-${d}`;
             };
-
-            dateInput.min = formatDate(today); // ห้ามย้อนหลัง
-            dateInput.removeAttribute("max"); // ปลดล็อก max เพื่อให้ผู้ใช้พิมพ์วันที่หลักสิบได้ปกติ
-            dateInput.value = ""; // เคลียร์ค่าเก่า
+            dateInput.min = formatDate(today); 
+            dateInput.removeAttribute("max"); 
+            dateInput.value = ""; 
         }
-
         document.getElementById('borrowModal').style.display = 'flex'; 
     }
     window.closeModal = () => document.getElementById('borrowModal').style.display = 'none';
 
-    // ✅✅✅ ส่วนที่ 2: ดักจับความปลอดภัยตอนกดยืนยันจอง ✅✅✅
     document.getElementById('borrowForm').onsubmit = async (e) => {
         e.preventDefault();
         const itemName = document.getElementById('modalItemName').innerText;
@@ -248,7 +358,6 @@ if(window.location.pathname.includes('dashboard.html')) {
         const maxAllowedDate = new Date(today);
         maxAllowedDate.setDate(today.getDate() + 5);
 
-        // ตรวจสอบความถูกต้องของวันที่ก่อนบันทึก
         if(selectedDate < today) {
             Swal.fire({ icon: 'error', title: 'วันที่ไม่ถูกต้อง', text: 'ไม่สามารถเลือกวันที่ย้อนหลังได้ครับ' });
             return;
@@ -365,7 +474,7 @@ if(window.location.pathname.includes('dashboard.html')) {
     window.searchItem = (t) => { Array.from(document.getElementsByClassName('card')).forEach(c => c.style.display = c.querySelector('h4').innerText.toLowerCase().includes(t.toLowerCase()) ? 'flex' : 'none'); }
 }
 
-// === ADMIN DASHBOARD ===
+// === ADMIN SYSTEM LOGIC ===
 if(window.location.pathname.includes('admin.html')) {
     listenToData(); window.onload = () => { checkAuth(); updateDashboardStats(); document.getElementById('section-requests').style.display = 'block'; }
     window.switchTab = (t) => { document.querySelectorAll('.content-section').forEach(e => e.style.display = 'none'); document.querySelectorAll('.sidebar-menu a').forEach(e => e.classList.remove('active')); document.getElementById(`section-${t}`).style.display = 'block'; document.getElementById(`menu-${t}`).classList.add('active'); if(t==='requests') renderRequests(); if(t==='inventory') renderInventory(); if(t==='users') renderUsers(); }
@@ -402,7 +511,6 @@ if(window.location.pathname.includes('admin.html')) {
         });
     }
 
-    // แจ้งเตือนยืนยันการลบ
     window.deleteRequest = async (id) => { 
         const result = await Swal.fire({ title: 'ยืนยันการลบ?', text: "ประวัตินี้จะถูกลบถาวร!", icon: 'warning', showCancelButton: true, confirmButtonColor: '#d33', cancelButtonColor: '#3085d6', confirmButtonText: 'ลบเลย', cancelButtonText: 'ยกเลิก' });
         if(result.isConfirmed) { await deleteDoc(doc(db, "requests", id)); Swal.fire('ลบแล้ว!', '', 'success'); }
@@ -411,7 +519,6 @@ if(window.location.pathname.includes('admin.html')) {
     
     window.renderInventory = () => { const tbody = document.getElementById('inventoryTableBody'); tbody.innerHTML = ''; items.forEach(i => { const st = borrowRequests.some(r => r.item === i.name && (r.status === 'borrowed' || r.status === 'approved_pickup')) ? '<span style="color:var(--danger)">ไม่ว่าง</span>' : '<span style="color:var(--success)">ว่าง</span>'; tbody.innerHTML += `<tr><td><img src="${i.image}" width="40"></td><td style="color:white">${i.name}</td><td>${i.category}</td><td>${st}</td><td><button onclick="deleteItem('${i.id}')" class="btn-action btn-reject"><i class="fas fa-trash"></i></button></td></tr>`; }); }
     
-    // แจ้งเตือนเพิ่มอุปกรณ์ใหม่
     window.addNewItem = async () => { 
         const { value: n } = await Swal.fire({ title: 'เพิ่มอุปกรณ์ใหม่', input: 'text', inputLabel: 'ชื่ออุปกรณ์', inputPlaceholder: 'พิมพ์ชื่ออุปกรณ์ที่นี่...', showCancelButton: true });
         if(n) { await addDoc(collection(db, "items"), { name: n, category: "general", status: "available", image: "https://placehold.co/100" }); Swal.fire('สำเร็จ', 'เพิ่มอุปกรณ์แล้ว', 'success'); }
@@ -430,7 +537,7 @@ if(window.location.pathname.includes('admin.html')) {
     window.updateDashboardStats = () => { document.getElementById('stat-pending').innerText = borrowRequests.filter(r => r.status === 'pending').length; document.getElementById('stat-borrowed').innerText = borrowRequests.filter(r => r.status === 'borrowed').length; document.getElementById('stat-total-items').innerText = items.length; }
 }
 
-// ฟังก์ชัน Export CSV (เพิ่ม SweetAlert)
+// ฟังก์ชัน Export CSV
 window.exportToCSV = async function() {
     try {
         Swal.fire({ title: 'กำลังเตรียมรายงาน...', timer: 1000, timerProgressBar: true, didOpen: () => { Swal.showLoading(); }});
