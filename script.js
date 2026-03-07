@@ -1,5 +1,5 @@
 /* =========================================
-   script.js - MMD BORROW SYSTEM (FULL MEGA + STATS + CHARTS)
+   script.js - MMD BORROW SYSTEM (FULL MEGA + RETURN PHOTO PROOF)
    ========================================= */
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
@@ -31,15 +31,22 @@ let borrowRequests = [];
 let users = [];
 let cart = []; 
 let currentPickupId = null;
+let currentReturnId = null; // 🔥 ตัวแปรใหม่สำหรับเก็บ ID ตอนคืนของ
 
 // Pagination
 let currentPage = 1;
 const itemsPerPage = 8; 
 let searchQuery = ""; 
 
-// ตัวแปรกราฟ
-let borrowChartInstance = null;
-let conditionChartInstance = null;
+// สร้างช่องอัปโหลดรูปตอนคืนของ (ซ่อนไว้)
+if (!document.getElementById('returnProofInput')) {
+    const returnInput = document.createElement('input');
+    returnInput.type = 'file';
+    returnInput.id = 'returnProofInput';
+    returnInput.accept = 'image/*';
+    returnInput.style.display = 'none';
+    document.body.appendChild(returnInput);
+}
 
 /* --- Helpers --- */
 function resizeImage(file) {
@@ -70,13 +77,16 @@ lightbox.innerHTML = `<img id="lightbox-img" style="max-width:90%; max-height:85
 lightbox.onclick = () => lightbox.style.display = 'none';
 document.body.appendChild(lightbox);
 
-window.viewPhoto = function(reqId) {
+// 🔥 ปรับฟังก์ชันดูรูปให้แยกได้ว่าเป็นรูปตอนมารับ หรือรูปตอนมาคืน
+window.viewPhoto = function(reqId, type = 'pickup') {
     const req = borrowRequests.find(r => r.id === reqId);
-    if (req && req.proofPhoto) {
-        document.getElementById('lightbox-img').src = req.proofPhoto;
+    let photoData = (type === 'return') ? req.returnProofPhoto : req.proofPhoto;
+    
+    if (req && photoData) {
+        document.getElementById('lightbox-img').src = photoData;
         document.getElementById('lightbox-modal').style.display = 'flex';
     } else {
-        Swal.fire({ icon: 'info', title: 'ไม่พบรูปภาพ', text: 'รายการนี้ยังไม่มีรูปภาพหลักฐาน' });
+        Swal.fire({ icon: 'info', title: 'ไม่พบรูปภาพ', text: 'รายการนี้ยังไม่มีรูปภาพในระบบ' });
     }
 }
 
@@ -137,10 +147,6 @@ window.listenToData = function() {
         if(document.getElementById('itemGrid')) window.renderItems();
         if(document.getElementById('inventoryTableBody')) window.renderInventory();
         if(window.updateDashboardStats) window.updateDashboardStats();
-        // อัปเดตกราฟถ้าอยู่หน้าแอดมินและเปิดแท็บสถิติอยู่
-        if(document.getElementById('section-stats') && document.getElementById('section-stats').style.display === 'block') {
-            window.renderStats();
-        }
     });
 
     onSnapshot(collection(db, "requests"), (snapshot) => {
@@ -149,9 +155,6 @@ window.listenToData = function() {
         if(document.getElementById('requestTableBody')) window.renderRequests();
         if(document.getElementById('inventoryTableBody')) window.renderInventory();
         if(window.updateDashboardStats) window.updateDashboardStats();
-        if(document.getElementById('section-stats') && document.getElementById('section-stats').style.display === 'block') {
-            window.renderStats();
-        }
     });
 
     onSnapshot(collection(db, "users"), (snapshot) => {
@@ -168,7 +171,8 @@ window.renderItems = (cat = 'all') => {
     items.forEach(item => {
         if(cat !== 'all' && item.category !== cat) return;
         
-        const activeReq = borrowRequests.find(r => (r.item && r.item.includes(item.name)) && ['pending', 'approved_pickup', 'borrowed'].includes(r.status));
+        // 🔥 รวมสถานะ 'pending_return' เข้าไปด้วย (ตอนรอแอดมินตรวจรับของคืน ถือว่าของยังไม่ว่าง)
+        const activeReq = borrowRequests.find(r => (r.item && r.item.includes(item.name)) && ['pending', 'approved_pickup', 'borrowed', 'pending_return'].includes(r.status));
         let cartItem = cart.find(c => c.id === item.id);
         
         let statusCSS = 'available';
@@ -177,7 +181,6 @@ window.renderItems = (cat = 'all') => {
         let btnAction = `addToCart('${item.id}', '${item.name}')`;
         let badgeText = 'ว่าง';
 
-        // 🔥 ถ้าพัง ให้ผู้ใช้ยืมไม่ได้ 🔥
         if (item.condition === 'damaged') {
             statusCSS = 'borrowed'; 
             btnClass = 'btn-disabled';
@@ -190,6 +193,7 @@ window.renderItems = (cat = 'all') => {
             btnClass = 'btn-disabled';
             btnAction = ''; 
             if (activeReq.status === 'pending') { btnText = '<i class="fas fa-user-clock"></i> ติดจองแล้ว'; badgeText = 'รออนุมัติ'; } 
+            else if (activeReq.status === 'pending_return') { btnText = '<i class="fas fa-spinner"></i> รอแอดมินรับคืน'; badgeText = 'รอตรวจคืน'; }
             else { btnText = '<i class="fas fa-ban"></i> ไม่ว่าง'; badgeText = 'ถูกยืม'; }
         } 
         else if (cartItem) {
@@ -261,11 +265,37 @@ window.openHistoryModal = () => {
     if (myReqs.length === 0) tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;">ไม่มีประวัติ</td></tr>';
     else myReqs.forEach(r => {
         let statusBadge = '', actionBtn = '-';
-        if(r.status === 'pending') statusBadge = '<span style="color:#ffc107">⏳ รออนุมัติ</span>';
-        else if (r.status === 'approved_pickup') { statusBadge = '<span style="color:#0dcaf0">📦 กำลังดำเนินการ</span>'; actionBtn = `<button onclick="triggerPickup('${r.id}')" class="btn-confirm" style="padding:5px; font-size:12px;">📷 ยืนยันรับของ</button>`; }
-        else if (r.status === 'borrowed') { statusBadge = '<span style="color:#198754">✅ กำลังยืม</span>'; actionBtn = `<button onclick="viewPhoto('${r.id}')" style="background:none; border:none; color:#ff9800; cursor:pointer; text-decoration:underline;">ดูรูป</button>`; }
-        else if (r.status === 'returned') statusBadge = '<span style="color:#aaa">↩️ คืนแล้ว</span>';
-        else statusBadge = '<span style="color:red">❌ ปฏิเสธ</span>';
+        
+        if(r.status === 'pending') {
+            statusBadge = '<span style="color:#ffc107">⏳ รออนุมัติ</span>';
+        }
+        else if (r.status === 'approved_pickup') { 
+            statusBadge = '<span style="color:#0dcaf0">📦 กำลังดำเนินการ</span>'; 
+            actionBtn = `<button onclick="triggerPickup('${r.id}')" class="btn-confirm" style="padding:5px; font-size:12px;">📷 ยืนยันรับของ</button>`; 
+        }
+        else if (r.status === 'borrowed') { 
+            statusBadge = '<span style="color:#198754">✅ กำลังยืม</span>'; 
+            // 🔥 แสดงปุ่มดูรูปตอนรับของ และ ปุ่มถ่ายรูปตอนส่งคืน 🔥
+            actionBtn = `<div style="display:flex; gap:5px; align-items:center;">
+                            <button onclick="viewPhoto('${r.id}', 'pickup')" style="background:none; border:none; color:#0dcaf0; cursor:pointer; text-decoration:underline; font-size:12px;">ดูรูปรับ</button>
+                            <button onclick="triggerReturn('${r.id}')" class="btn-confirm" style="padding:5px; font-size:12px; background:#ff9800; margin:0;">📷 ส่งรูปคืน</button>
+                         </div>`; 
+        }
+        else if (r.status === 'pending_return') {
+            statusBadge = '<span style="color:#ff9800">🔄 รอตรวจรับคืน</span>';
+            actionBtn = `<button onclick="viewPhoto('${r.id}', 'return')" style="background:none; border:none; color:#ff9800; cursor:pointer; text-decoration:underline;">ดูรูปคืน</button>`;
+        }
+        else if (r.status === 'returned') {
+            statusBadge = '<span style="color:#aaa">↩️ คืนแล้ว</span>';
+            actionBtn = `<div style="display:flex; gap:5px;">
+                            <button onclick="viewPhoto('${r.id}', 'pickup')" style="background:none; border:none; color:#0dcaf0; cursor:pointer; text-decoration:underline; font-size:12px;">รูปรับ</button>
+                            <button onclick="viewPhoto('${r.id}', 'return')" style="background:none; border:none; color:#ff9800; cursor:pointer; text-decoration:underline; font-size:12px;">รูปคืน</button>
+                         </div>`;
+        }
+        else {
+            statusBadge = '<span style="color:red">❌ ปฏิเสธ</span>';
+        }
+        
         tbody.innerHTML += `<tr><td style="padding:10px; border-bottom:1px solid #333">${r.item}</td><td style="padding:10px; border-bottom:1px solid #333">${r.date}</td><td style="padding:10px; border-bottom:1px solid #333">${statusBadge}</td><td style="padding:10px; border-bottom:1px solid #333">${actionBtn}</td></tr>`;
     });
     document.getElementById('historyModal').style.display = 'flex';
@@ -273,7 +303,11 @@ window.openHistoryModal = () => {
 window.closeHistoryModal = () => document.getElementById('historyModal').style.display = 'none';
 window.filterItems = (cat) => { document.querySelectorAll('.filters button').forEach(b=>b.classList.remove('active')); event.target.classList.add('active'); window.renderItems(cat); }
 window.searchItem = (t) => { Array.from(document.getElementsByClassName('card')).forEach(c => c.style.display = c.querySelector('h4').innerText.toLowerCase().includes(t.toLowerCase()) ? 'flex' : 'none'); }
+
+// ทริกเกอร์อัปโหลดรูปรับของ
 window.triggerPickup = (reqId) => { currentPickupId = reqId; const f = document.getElementById('pickupProofInput'); if(f) f.click(); }
+// ทริกเกอร์อัปโหลดรูปคืนของ
+window.triggerReturn = (reqId) => { currentReturnId = reqId; const f = document.getElementById('returnProofInput'); if(f) f.click(); }
 
 /* ==========================================
    🔥 ADMIN SYSTEM FUNCTIONS 🔥
@@ -308,17 +342,35 @@ window.renderRequests = () => {
     if (paginatedReqs.length === 0) { tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:#888; padding:20px;">ไม่พบข้อมูล</td></tr>`; }
 
     paginatedReqs.forEach(r => {
-        let badge, btns, photoDisplay = r.proofPhoto ? `<button onclick="viewPhoto('${r.id}')" style="background:none; border:none; color:#ff6600; cursor:pointer; font-weight:bold; text-decoration:underline;">📷 รูปรับของ</button>` : '-';
+        // 🔥 จัดการคอลัมน์แสดงรูปภาพให้เห็น 2 รูป (รับ กับ คืน)
+        let photoDisplay = '<div style="display:flex; gap:5px;">';
+        if (r.proofPhoto) photoDisplay += `<button onclick="viewPhoto('${r.id}', 'pickup')" style="background:none; border:none; color:#0dcaf0; cursor:pointer; text-decoration:underline; font-size:12px;">📷 รับ</button>`;
+        if (r.returnProofPhoto) photoDisplay += `<button onclick="viewPhoto('${r.id}', 'return')" style="background:none; border:none; color:#ff9800; cursor:pointer; text-decoration:underline; font-size:12px;">📷 คืน</button>`;
+        if (!r.proofPhoto && !r.returnProofPhoto) photoDisplay = '-';
+        photoDisplay += '</div>';
+        
+        let badge, btns;
+        
         if(r.status === 'pending') { 
             badge = '<span class="badge status-pending">ใหม่</span>'; 
             btns = `<button class="btn-action" style="background:#28a745;" onclick="updateStatus('${r.id}','approved_pickup')">อนุญาต</button> <button class="btn-action btn-reject" onclick="updateStatus('${r.id}','rejected')">ปฏิเสธ</button>`; 
-        } else if (r.status === 'approved_pickup') { 
+        } 
+        else if (r.status === 'approved_pickup') { 
             badge = '<span class="badge" style="background:#0dcaf0; color:black;">กำลังดำเนินการ</span>'; 
-            btns = `<span style="font-size:12px; color:#aaa; margin-right:10px;">รอถ่ายรูป</span> <button class="btn-action btn-reject" onclick="updateStatus('${r.id}','pending')" title="ยกเลิกกลับไปรออนุมัติ"><i class="fas fa-undo"></i> ยกเลิก</button>`; 
-        } else if(r.status === 'borrowed') { 
+            btns = `<span style="font-size:12px; color:#aaa; margin-right:10px;">รอถ่ายรูปรัย</span> <button class="btn-action btn-reject" onclick="updateStatus('${r.id}','pending')" title="ยกเลิกกลับไปรออนุมัติ"><i class="fas fa-undo"></i> ยกเลิก</button>`; 
+        } 
+        else if(r.status === 'borrowed') { 
             badge = '<span class="badge status-approved">ถูกยืม</span>'; 
-            btns = `<button class="btn-action" style="background:#0099cc;" onclick="updateStatus('${r.id}','returned')">รับคืน</button>`; 
-        } else { 
+            // แอดมินสามารถกดรับคืนได้เลย กรณีนักศึกษาลืมถ่ายรูปส่ง
+            btns = `<button class="btn-action" style="background:#666;" onclick="updateStatus('${r.id}','returned')">รับคืน (ข้ามรูป)</button>`; 
+        } 
+        // 🔥 สถานะใหม่: รอแอดมินตรวจรับคืน 🔥
+        else if (r.status === 'pending_return') {
+            badge = '<span class="badge" style="background:#ff9800; color:white;">รอตรวจรับคืน</span>';
+            btns = `<button class="btn-action" style="background:#28a745;" onclick="updateStatus('${r.id}','returned')">ยืนยันรับคืน</button> 
+                    <button class="btn-action btn-reject" onclick="updateStatus('${r.id}','borrowed')" title="ตีกลับให้นักศึกษาถ่ายรูปส่งใหม่">ตีกลับ</button>`;
+        }
+        else { 
             badge = `<span class="badge" style="background:#333; color:#aaa">${r.status}</span>`; 
             btns = `<button class="btn-action btn-reject" onclick="deleteRequest('${r.id}')"><i class="fas fa-trash"></i></button>`; 
         }
@@ -341,18 +393,17 @@ window.changePage = function(page) { currentPage = page; window.renderRequests()
 window.updateStatus = async (id, s) => { await updateDoc(doc(db, "requests", id), { status: s }); }
 window.deleteRequest = async (id) => { if((await Swal.fire({title:'ลบ?',icon:'warning',showCancelButton:true})).isConfirmed) { await deleteDoc(doc(db, "requests", id)); Swal.fire('ลบแล้ว','','success'); } }
 
-// 🔥 เพิ่มระบบแจ้งซ่อมในตารางคลังของ 🔥
 window.renderInventory = () => { 
     const tbody = document.getElementById('inventoryTableBody'); if(!tbody) return; tbody.innerHTML = ''; 
     items.forEach(i => { 
-        const activeReq = borrowRequests.find(r => r.item && r.item.includes(i.name) && ['pending', 'approved_pickup', 'borrowed'].includes(r.status));
+        const activeReq = borrowRequests.find(r => r.item && r.item.includes(i.name) && ['pending', 'approved_pickup', 'borrowed', 'pending_return'].includes(r.status));
         let st = '<span style="color:var(--success)">ว่าง</span>';
         if (activeReq) {
             if(activeReq.status === 'pending') st = '<span style="color:#ffc107">ติดจอง (รออนุมัติ)</span>';
+            else if(activeReq.status === 'pending_return') st = '<span style="color:#ff9800">รอตรวจรับคืน</span>';
             else st = '<span style="color:var(--danger)">ไม่ว่าง</span>';
         }
 
-        // ปุ่มสภาพของ (ถ้าพัง เป็นสีแดง)
         let isDamaged = i.condition === 'damaged';
         let conditionBtn = isDamaged 
             ? `<button onclick="toggleCondition('${i.id}', 'good')" class="btn-action" style="background:#dc3545;">ชำรุด</button>`
@@ -362,7 +413,6 @@ window.renderInventory = () => {
     }); 
 }
 
-// ฟังก์ชันสลับสถานะชำรุด-ปกติ
 window.toggleCondition = async function(id, newCondition) {
     let msg = newCondition === 'damaged' ? "แจ้งว่าอุปกรณ์ชิ้นนี้ชำรุด/ส่งซ่อม ใช่หรือไม่?" : "ยืนยันว่าอุปกรณ์ชิ้นนี้ซ่อมเสร็จแล้ว (กลับมาปกติ)?";
     if((await Swal.fire({title:'เปลี่ยนสภาพของ?', text: msg, icon:'question',showCancelButton:true, background:'#1a1a1a', color:'#fff'})).isConfirmed) {
@@ -381,89 +431,51 @@ window.updateDashboardStats = () => {
     if(t) t.innerText = items.length; 
 }
 
-// ==========================================
-// 🔥 ระบบกราฟสถิติ (STATISTICS & CHARTS) 🔥
-// ==========================================
+/* --- กราฟสถิติ --- */
 window.renderStats = function() {
-    // 1. ดึงข้อมูลคำนวณอุปกรณ์ที่ถูกยืมมากที่สุด
     let itemFrequency = {};
     borrowRequests.forEach(req => {
-        if (req.status !== 'rejected') { // นับเฉพาะบิลที่ไม่โดนปฏิเสธ
-            // แกะสตริง เช่น "Canon EOS R5 (2 ชิ้น), Zoom H6 (1 ชิ้น)"
+        if (req.status !== 'rejected') { 
             let regex = /([^,]+)\s*\((\d+)\s*ชิ้น\)/g;
             let match;
             let foundAny = false;
             while ((match = regex.exec(req.item)) !== null) {
-                foundAny = true;
-                let name = match[1].trim();
-                let qty = parseInt(match[2]);
+                foundAny = true; let name = match[1].trim(); let qty = parseInt(match[2]);
                 itemFrequency[name] = (itemFrequency[name] || 0) + qty;
             }
-            // ถ้ารูปแบบเก่า ไม่มี (x ชิ้น) ให้นับเป็น 1 
             if (!foundAny && req.item) {
-                req.item.split(',').forEach(it => {
-                    let name = it.trim();
-                    itemFrequency[name] = (itemFrequency[name] || 0) + 1;
-                });
+                req.item.split(',').forEach(it => { let name = it.trim(); itemFrequency[name] = (itemFrequency[name] || 0) + 1; });
             }
         }
     });
 
-    // เรียงลำดับจากมากไปน้อย
-    let sortedItems = Object.keys(itemFrequency).map(key => ({ name: key, count: itemFrequency[key] })).sort((a, b) => b.count - a.count).slice(0, 10); // เอา 10 อันดับแรก
+    let sortedItems = Object.keys(itemFrequency).map(key => ({ name: key, count: itemFrequency[key] })).sort((a, b) => b.count - a.count).slice(0, 10);
     let labelsBar = sortedItems.map(i => i.name);
     let dataBar = sortedItems.map(i => i.count);
 
-    // 2. คำนวณสภาพอุปกรณ์ (ปกติ vs ชำรุด)
     let goodCount = items.filter(i => i.condition !== 'damaged').length;
     let damagedCount = items.filter(i => i.condition === 'damaged').length;
 
-    // --- วาดกราฟแท่ง (ยอดฮิต) ---
     const ctxBar = document.getElementById('borrowChart');
     if (ctxBar) {
-        if (borrowChartInstance) borrowChartInstance.destroy(); // ลบกราฟเก่าออกก่อนวาดใหม่
+        if (borrowChartInstance) borrowChartInstance.destroy(); 
         borrowChartInstance = new Chart(ctxBar, {
             type: 'bar',
-            data: {
-                labels: labelsBar,
-                datasets: [{
-                    label: 'จำนวนครั้งที่ถูกยืม (ชิ้น)',
-                    data: dataBar,
-                    backgroundColor: '#ff6600',
-                    borderRadius: 5
-                }]
-            },
-            options: {
-                responsive: true,
-                scales: { y: { beginAtZero: true, ticks: { color: '#aaa', stepSize: 1 } }, x: { ticks: { color: '#aaa' } } },
-                plugins: { legend: { display: false } }
-            }
+            data: { labels: labelsBar, datasets: [{ label: 'จำนวนครั้งที่ถูกยืม (ชิ้น)', data: dataBar, backgroundColor: '#ff6600', borderRadius: 5 }] },
+            options: { responsive: true, scales: { y: { beginAtZero: true, ticks: { color: '#aaa', stepSize: 1 } }, x: { ticks: { color: '#aaa' } } }, plugins: { legend: { display: false } } }
         });
     }
 
-    // --- วาดกราฟวงกลม (สภาพของ) ---
     const ctxPie = document.getElementById('conditionChart');
     if (ctxPie) {
         if (conditionChartInstance) conditionChartInstance.destroy();
         conditionChartInstance = new Chart(ctxPie, {
             type: 'doughnut',
-            data: {
-                labels: ['สภาพปกติพร้อมใช้งาน', 'ชำรุด / แจ้งซ่อม'],
-                datasets: [{
-                    data: [goodCount, damagedCount],
-                    backgroundColor: ['#198754', '#dc3545'],
-                    borderWidth: 0
-                }]
-            },
-            options: {
-                responsive: true,
-                plugins: { legend: { position: 'bottom', labels: { color: '#fff' } } }
-            }
+            data: { labels: ['สภาพปกติ', 'ชำรุด / ซ่อม'], datasets: [{ data: [goodCount, damagedCount], backgroundColor: ['#198754', '#dc3545'], borderWidth: 0 }] },
+            options: { responsive: true, plugins: { legend: { position: 'bottom', labels: { color: '#fff' } } } }
         });
     }
 }
-
-// ------------------------------------------
 
 window.loadUsersToAdminTable = function() {
     const tableBody = document.getElementById("adminUserTableBody"); if(!tableBody) return; tableBody.innerHTML = ""; 
@@ -489,7 +501,7 @@ window.exportToCSV = async function() {
             const data = doc.data();
             let timeString = data.timestamp ? (data.timestamp.toDate ? data.timestamp.toDate().toLocaleString('th-TH') : new Date(data.timestamp).toLocaleString('th-TH')) : "-";
             const userName = data.user || "-", itemName = data.item || "-", borrowDate = data.date || "-", status = data.status || "-";
-            let statusThai = status === 'pending' ? "รออนุมัติ" : (status === 'approved_pickup' ? "กำลังดำเนินการ" : (status === 'borrowed' ? "กำลังยืม" : (status === 'returned' ? "คืนแล้ว" : "ถูกปฏิเสธ")));
+            let statusThai = status === 'pending' ? "รออนุมัติ" : (status === 'approved_pickup' ? "กำลังดำเนินการ" : (status === 'borrowed' ? "กำลังยืม" : (status === 'pending_return' ? "รอตรวจรับคืน" : (status === 'returned' ? "คืนแล้ว" : "ถูกปฏิเสธ"))));
             csvContent += `"${timeString}","${userName}","${itemName.replace(/"/g, '""')}","${borrowDate}","${statusThai}"\n`;
         });
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -549,6 +561,7 @@ function initApp() {
                 };
             }
 
+            // จัดการ Event อัปโหลดรูปรับของ
             const pickupInput = document.getElementById('pickupProofInput');
             if(pickupInput) {
                 pickupInput.onchange = async (e) => {
@@ -558,6 +571,21 @@ function initApp() {
                         const base64 = await resizeImage(file);
                         await updateDoc(doc(db, "requests", currentPickupId), { status: "borrowed", proofPhoto: base64, pickupTime: new Date() });
                         Swal.fire({ icon: 'success', title: 'รับของสำเร็จ!', timer: 2000, showConfirmButton: false });
+                        e.target.value = ''; window.openHistoryModal(); 
+                    } catch(err) { Swal.fire({ icon: 'error', title: 'อัปโหลดไม่สำเร็จ', text: err.message }); }
+                };
+            }
+
+            // 🔥 จัดการ Event อัปโหลดรูปคืนของ 🔥
+            const returnInput = document.getElementById('returnProofInput');
+            if(returnInput) {
+                returnInput.onchange = async (e) => {
+                    const file = e.target.files[0]; if(!file || !currentReturnId) return;
+                    Swal.fire({ title: 'กำลังอัปโหลดรูปคืนของ...', allowOutsideClick: false, didOpen: () => Swal.showLoading()});
+                    try {
+                        const base64 = await resizeImage(file);
+                        await updateDoc(doc(db, "requests", currentReturnId), { status: "pending_return", returnProofPhoto: base64, returnTime: new Date() });
+                        Swal.fire({ icon: 'success', title: 'ส่งรูปคืนสำเร็จ!', text: 'รอแอดมินตรวจสอบความเรียบร้อย', timer: 2000, showConfirmButton: false });
                         e.target.value = ''; window.openHistoryModal(); 
                     } catch(err) { Swal.fire({ icon: 'error', title: 'อัปโหลดไม่สำเร็จ', text: err.message }); }
                 };
