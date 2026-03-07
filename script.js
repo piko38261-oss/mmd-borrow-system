@@ -1,5 +1,5 @@
 /* =========================================
-   script.js - MMD BORROW SYSTEM (FULL MEGA + RETURN PHOTO PROOF)
+   script.js - MMD BORROW SYSTEM (FULL MEGA + RETURN PHOTO + STATS)
    ========================================= */
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
@@ -10,7 +10,7 @@ try { emailjs.init("Rj2WpB-v7fZqvEu08"); } catch (e) { console.warn("⚠️ Emai
 
 const LINE_API_URL = "https://script.google.com/macros/s/AKfycbzw0gLpeZEdB8rUofNdPTLKHBQYhfcYcD1S72t_PRI-tSfdfi2-ZqGUw-Hwa4wRP17crg/exec";
 
-// 🔴 Config ของคุณกาย
+// 🔴 Config ของคุณกาย (ตรวจสอบครบถ้วนแล้ว)
 const firebaseConfig = {
   apiKey: "AIzaSyCJNX3-vN5bceDczdKxrqb0N8uaBpgDhTE",
   authDomain: "mmd-borrow-app.firebaseapp.com",
@@ -38,7 +38,7 @@ let currentPage = 1;
 const itemsPerPage = 8; 
 let searchQuery = ""; 
 
-// ตัวแปรกราฟ
+// 🔥 ตัวแปรกราฟ (เติมใหม่) 🔥
 let borrowChartInstance = null;
 let conditionChartInstance = null;
 
@@ -150,6 +150,7 @@ window.listenToData = function() {
         if(document.getElementById('itemGrid')) window.renderItems();
         if(document.getElementById('inventoryTableBody')) window.renderInventory();
         if(window.updateDashboardStats) window.updateDashboardStats();
+        // 🔥 อัปเดตกราฟอัตโนมัติเมื่อข้อมูลเปลี่ยน 🔥
         if(document.getElementById('section-stats') && document.getElementById('section-stats').style.display === 'block') {
             window.renderStats();
         }
@@ -161,6 +162,7 @@ window.listenToData = function() {
         if(document.getElementById('requestTableBody')) window.renderRequests();
         if(document.getElementById('inventoryTableBody')) window.renderInventory();
         if(window.updateDashboardStats) window.updateDashboardStats();
+        // 🔥 อัปเดตกราฟอัตโนมัติเมื่อประวัติเปลี่ยน 🔥
         if(document.getElementById('section-stats') && document.getElementById('section-stats').style.display === 'block') {
             window.renderStats();
         }
@@ -361,7 +363,6 @@ window.renderRequests = () => {
         } 
         else if (r.status === 'approved_pickup') { 
             badge = '<span class="badge" style="background:#0dcaf0; color:black;">กำลังดำเนินการ</span>'; 
-            // 🔥 แก้ไขคำผิด "รอถ่ายรูปรัย" เป็น "รอถ่ายรูปรับ" ตรงนี้ครับ 🔥
             btns = `<span style="font-size:12px; color:#aaa; margin-right:10px;">รอถ่ายรูปรับ</span> <button class="btn-action btn-reject" onclick="updateStatus('${r.id}','pending')" title="ยกเลิกกลับไปรออนุมัติ"><i class="fas fa-undo"></i> ยกเลิก</button>`; 
         } 
         else if(r.status === 'borrowed') { 
@@ -434,7 +435,9 @@ window.updateDashboardStats = () => {
     if(t) t.innerText = items.length; 
 }
 
-/* --- กราฟสถิติ --- */
+/* ==========================================
+   🔥 ระบบกราฟสถิติ (STATISTICS & CHARTS) 🔥
+   ========================================== */
 window.renderStats = function() {
     let itemFrequency = {};
     borrowRequests.forEach(req => {
@@ -564,7 +567,6 @@ function initApp() {
                 };
             }
 
-            // จัดการ Event อัปโหลดรูปรับของ
             const pickupInput = document.getElementById('pickupProofInput');
             if(pickupInput) {
                 pickupInput.onchange = async (e) => {
@@ -579,7 +581,6 @@ function initApp() {
                 };
             }
 
-            // 🔥 จัดการ Event อัปโหลดรูปคืนของ 🔥
             const returnInput = document.getElementById('returnProofInput');
             if(returnInput) {
                 returnInput.onchange = async (e) => {
