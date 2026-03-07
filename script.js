@@ -1,5 +1,5 @@
 /* =========================================
-   script.js - MMD BORROW SYSTEM (FULL MEGA UPDATE + PAGINATION + UNDO)
+   script.js - MMD BORROW SYSTEM (FULL MEGA + STATS + CHARTS)
    ========================================= */
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
@@ -10,7 +10,7 @@ try { emailjs.init("Rj2WpB-v7fZqvEu08"); } catch (e) { console.warn("⚠️ Emai
 
 const LINE_API_URL = "https://script.google.com/macros/s/AKfycbzw0gLpeZEdB8rUofNdPTLKHBQYhfcYcD1S72t_PRI-tSfdfi2-ZqGUw-Hwa4wRP17crg/exec";
 
-// 🔴 Firebase Config ของคุณกาย (ใส่ให้ครบถ้วนแล้วครับ) 🔴
+// 🔴 Config ของคุณกาย
 const firebaseConfig = {
   apiKey: "AIzaSyCJNX3-vN5bceDczdKxrqb0N8uaBpgDhTE",
   authDomain: "mmd-borrow-app.firebaseapp.com",
@@ -32,10 +32,14 @@ let users = [];
 let cart = []; 
 let currentPickupId = null;
 
-// ตัวแปรสำหรับ Pagination
+// Pagination
 let currentPage = 1;
 const itemsPerPage = 8; 
 let searchQuery = ""; 
+
+// ตัวแปรกราฟ
+let borrowChartInstance = null;
+let conditionChartInstance = null;
 
 /* --- Helpers --- */
 function resizeImage(file) {
@@ -86,14 +90,10 @@ window.checkAuth = function() {
         }
         return null; 
     }
-    
     const display = document.getElementById('userNameDisplay');
     if(display) display.innerText = currentUser.name || currentUser.username;
-    
     const btnAdminManage = document.getElementById('btnAdminManage');
-    if (btnAdminManage) {
-        btnAdminManage.style.display = currentUser.role === 'admin' ? 'inline-flex' : 'none';
-    }
+    if (btnAdminManage) { btnAdminManage.style.display = currentUser.role === 'admin' ? 'inline-flex' : 'none'; }
     return currentUser;
 }
 
@@ -107,9 +107,7 @@ window.login = async function(u, p) {
             localStorage.setItem('currentUser', JSON.stringify(d));
             await Swal.fire({ icon: 'success', title: 'สำเร็จ!', text: 'ยินดีต้อนรับคุณ ' + (d.name || d.username), timer: 1500, showConfirmButton: false });
             window.location.href = 'dashboard.html';
-        } else { 
-            Swal.fire({ icon: 'error', title: 'เข้าสู่ระบบล้มเหลว', text: 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง' });
-        }
+        } else { Swal.fire({ icon: 'error', title: 'เข้าสู่ระบบล้มเหลว', text: 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง' }); }
     } catch (error) { Swal.fire({ icon: 'error', title: 'เกิดข้อผิดพลาด', text: error.message }); }
 }
 
@@ -139,6 +137,10 @@ window.listenToData = function() {
         if(document.getElementById('itemGrid')) window.renderItems();
         if(document.getElementById('inventoryTableBody')) window.renderInventory();
         if(window.updateDashboardStats) window.updateDashboardStats();
+        // อัปเดตกราฟถ้าอยู่หน้าแอดมินและเปิดแท็บสถิติอยู่
+        if(document.getElementById('section-stats') && document.getElementById('section-stats').style.display === 'block') {
+            window.renderStats();
+        }
     });
 
     onSnapshot(collection(db, "requests"), (snapshot) => {
@@ -147,6 +149,9 @@ window.listenToData = function() {
         if(document.getElementById('requestTableBody')) window.renderRequests();
         if(document.getElementById('inventoryTableBody')) window.renderInventory();
         if(window.updateDashboardStats) window.updateDashboardStats();
+        if(document.getElementById('section-stats') && document.getElementById('section-stats').style.display === 'block') {
+            window.renderStats();
+        }
     });
 
     onSnapshot(collection(db, "users"), (snapshot) => {
@@ -172,19 +177,22 @@ window.renderItems = (cat = 'all') => {
         let btnAction = `addToCart('${item.id}', '${item.name}')`;
         let badgeText = 'ว่าง';
 
-        if (activeReq) {
+        // 🔥 ถ้าพัง ให้ผู้ใช้ยืมไม่ได้ 🔥
+        if (item.condition === 'damaged') {
             statusCSS = 'borrowed'; 
             btnClass = 'btn-disabled';
             btnAction = ''; 
-            
-            if (activeReq.status === 'pending') {
-                btnText = '<i class="fas fa-user-clock"></i> ติดจองแล้ว';
-                badgeText = 'รออนุมัติ';
-            } else {
-                btnText = '<i class="fas fa-ban"></i> ไม่ว่าง';
-                badgeText = 'ถูกยืม';
-            }
-        } else if (cartItem) {
+            btnText = '<i class="fas fa-wrench"></i> ชำรุด/ส่งซ่อม';
+            badgeText = 'ส่งซ่อม';
+        }
+        else if (activeReq) {
+            statusCSS = 'borrowed'; 
+            btnClass = 'btn-disabled';
+            btnAction = ''; 
+            if (activeReq.status === 'pending') { btnText = '<i class="fas fa-user-clock"></i> ติดจองแล้ว'; badgeText = 'รออนุมัติ'; } 
+            else { btnText = '<i class="fas fa-ban"></i> ไม่ว่าง'; badgeText = 'ถูกยืม'; }
+        } 
+        else if (cartItem) {
             statusCSS = 'incart';
             btnText = `กำลังจอง (${cartItem.qty})`;
             badgeText = 'ในตะกร้า';
@@ -211,8 +219,7 @@ window.addToCart = async function(id, name) {
 
     if (qty && qty > 0) {
         cart.push({ id, name, qty: parseInt(qty) });
-        window.updateCartCount();
-        window.renderItems(); 
+        window.updateCartCount(); window.renderItems(); 
         Swal.fire({icon: 'success', title: 'เพิ่มลงตะกร้าแล้ว', text: `จำนวน ${qty} ชิ้น`, showConfirmButton: false, timer: 1500, position: 'top-end', toast: true});
     }
 }
@@ -229,12 +236,8 @@ window.openCartModal = function() {
     
     const dateInput = document.getElementById('cartBorrowDate');
     if (dateInput) {
-        const today = new Date();
-        const y = today.getFullYear();
-        const m = String(today.getMonth() + 1).padStart(2, '0');
-        const d = String(today.getDate()).padStart(2, '0');
-        dateInput.min = `${y}-${m}-${d}`;
-        dateInput.value = "";
+        const today = new Date(); const y = today.getFullYear(); const m = String(today.getMonth() + 1).padStart(2, '0'); const d = String(today.getDate()).padStart(2, '0');
+        dateInput.min = `${y}-${m}-${d}`; dateInput.value = "";
     }
 
     document.getElementById('cartItemsList').innerHTML = cart.map((item, index) =>
@@ -243,7 +246,6 @@ window.openCartModal = function() {
             <button type="button" onclick="removeFromCart('${item.id}')" style="background:none; border:none; color:#dc3545; cursor:pointer;"><i class="fas fa-trash"></i></button>
         </div>`
     ).join('');
-
     document.getElementById('cartModal').style.display = 'flex';
 }
 
@@ -273,9 +275,8 @@ window.filterItems = (cat) => { document.querySelectorAll('.filters button').for
 window.searchItem = (t) => { Array.from(document.getElementsByClassName('card')).forEach(c => c.style.display = c.querySelector('h4').innerText.toLowerCase().includes(t.toLowerCase()) ? 'flex' : 'none'); }
 window.triggerPickup = (reqId) => { currentPickupId = reqId; const f = document.getElementById('pickupProofInput'); if(f) f.click(); }
 
-
 /* ==========================================
-   🔥 ADMIN SYSTEM FUNCTIONS (PAGINATION + UNDO) 🔥
+   🔥 ADMIN SYSTEM FUNCTIONS 🔥
    ========================================== */
 window.switchTab = (t) => { 
     document.querySelectorAll('.content-section').forEach(e => e.style.display = 'none'); 
@@ -285,106 +286,92 @@ window.switchTab = (t) => {
 }
 
 window.searchRequest = function(query) {
-    searchQuery = query.toLowerCase();
-    currentPage = 1; 
-    window.renderRequests();
+    searchQuery = query.toLowerCase(); currentPage = 1; window.renderRequests();
 }
 
 window.renderRequests = () => {
-    const tbody = document.getElementById('requestTableBody'); 
-    if(!tbody) return; 
-    tbody.innerHTML = '';
-
+    const tbody = document.getElementById('requestTableBody'); if(!tbody) return; tbody.innerHTML = '';
     let sortedReqs = [...borrowRequests].sort((a,b) => (b.timestamp?.seconds||0) - (a.timestamp?.seconds||0));
 
     if (searchQuery) {
-        sortedReqs = sortedReqs.filter(r => 
-            (r.user && r.user.toLowerCase().includes(searchQuery)) || 
-            (r.item && r.item.toLowerCase().includes(searchQuery))
-        );
+        sortedReqs = sortedReqs.filter(r => (r.user && r.user.toLowerCase().includes(searchQuery)) || (r.item && r.item.toLowerCase().includes(searchQuery)));
     }
 
     const totalItems = sortedReqs.length;
     const totalPages = Math.ceil(totalItems / itemsPerPage) || 1;
-
     if (currentPage > totalPages) currentPage = totalPages; 
 
     const startIdx = (currentPage - 1) * itemsPerPage;
     const endIdx = startIdx + itemsPerPage;
-    
     const paginatedReqs = sortedReqs.slice(startIdx, endIdx);
 
-    if (paginatedReqs.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:#888; padding:20px;">ไม่พบข้อมูล</td></tr>`;
-    }
+    if (paginatedReqs.length === 0) { tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:#888; padding:20px;">ไม่พบข้อมูล</td></tr>`; }
 
     paginatedReqs.forEach(r => {
         let badge, btns, photoDisplay = r.proofPhoto ? `<button onclick="viewPhoto('${r.id}')" style="background:none; border:none; color:#ff6600; cursor:pointer; font-weight:bold; text-decoration:underline;">📷 รูปรับของ</button>` : '-';
-        
         if(r.status === 'pending') { 
             badge = '<span class="badge status-pending">ใหม่</span>'; 
             btns = `<button class="btn-action" style="background:#28a745;" onclick="updateStatus('${r.id}','approved_pickup')">อนุญาต</button> <button class="btn-action btn-reject" onclick="updateStatus('${r.id}','rejected')">ปฏิเสธ</button>`; 
-        }
-        else if (r.status === 'approved_pickup') { 
+        } else if (r.status === 'approved_pickup') { 
             badge = '<span class="badge" style="background:#0dcaf0; color:black;">กำลังดำเนินการ</span>'; 
             btns = `<span style="font-size:12px; color:#aaa; margin-right:10px;">รอถ่ายรูป</span> <button class="btn-action btn-reject" onclick="updateStatus('${r.id}','pending')" title="ยกเลิกกลับไปรออนุมัติ"><i class="fas fa-undo"></i> ยกเลิก</button>`; 
-        }
-        else if(r.status === 'borrowed') { 
+        } else if(r.status === 'borrowed') { 
             badge = '<span class="badge status-approved">ถูกยืม</span>'; 
             btns = `<button class="btn-action" style="background:#0099cc;" onclick="updateStatus('${r.id}','returned')">รับคืน</button>`; 
-        }
-        else { 
+        } else { 
             badge = `<span class="badge" style="background:#333; color:#aaa">${r.status}</span>`; 
             btns = `<button class="btn-action btn-reject" onclick="deleteRequest('${r.id}')"><i class="fas fa-trash"></i></button>`; 
         }
-        
         tbody.innerHTML += `<tr><td>${r.user}</td><td>${r.item}</td><td>${r.date}</td><td>${badge}</td><td>${photoDisplay}</td><td>${btns}</td></tr>`;
     });
-
-    window.renderPagination(totalItems, totalPages);
+    if(window.renderPagination) window.renderPagination(totalItems, totalPages);
 }
 
 window.renderPagination = function(totalItems, totalPages) {
-    const container = document.getElementById('paginationControls');
-    if (!container) return;
-
-    if (totalItems <= itemsPerPage) {
-        container.innerHTML = ''; 
-        return;
-    }
-
+    const container = document.getElementById('paginationControls'); if (!container) return;
+    if (totalItems <= itemsPerPage) { container.innerHTML = ''; return; }
     let html = '';
     html += `<button class="page-btn" onclick="changePage(${currentPage - 1})" ${currentPage === 1 ? 'disabled' : ''}><i class="fas fa-chevron-left"></i></button>`;
-    for (let i = 1; i <= totalPages; i++) {
-        html += `<button class="page-btn ${i === currentPage ? 'active' : ''}" onclick="changePage(${i})">${i}</button>`;
-    }
+    for (let i = 1; i <= totalPages; i++) { html += `<button class="page-btn ${i === currentPage ? 'active' : ''}" onclick="changePage(${i})">${i}</button>`; }
     html += `<button class="page-btn" onclick="changePage(${currentPage + 1})" ${currentPage === totalPages ? 'disabled' : ''}><i class="fas fa-chevron-right"></i></button>`;
     container.innerHTML = html;
 }
 
-window.changePage = function(page) {
-    currentPage = page;
-    window.renderRequests(); 
-}
-
+window.changePage = function(page) { currentPage = page; window.renderRequests(); }
 window.updateStatus = async (id, s) => { await updateDoc(doc(db, "requests", id), { status: s }); }
 window.deleteRequest = async (id) => { if((await Swal.fire({title:'ลบ?',icon:'warning',showCancelButton:true})).isConfirmed) { await deleteDoc(doc(db, "requests", id)); Swal.fire('ลบแล้ว','','success'); } }
 
+// 🔥 เพิ่มระบบแจ้งซ่อมในตารางคลังของ 🔥
 window.renderInventory = () => { 
     const tbody = document.getElementById('inventoryTableBody'); if(!tbody) return; tbody.innerHTML = ''; 
     items.forEach(i => { 
         const activeReq = borrowRequests.find(r => r.item && r.item.includes(i.name) && ['pending', 'approved_pickup', 'borrowed'].includes(r.status));
-        
         let st = '<span style="color:var(--success)">ว่าง</span>';
         if (activeReq) {
             if(activeReq.status === 'pending') st = '<span style="color:#ffc107">ติดจอง (รออนุมัติ)</span>';
             else st = '<span style="color:var(--danger)">ไม่ว่าง</span>';
         }
-        
-        tbody.innerHTML += `<tr><td><img src="${i.image}" width="40"></td><td style="color:white">${i.name}</td><td>${i.category}</td><td>${st}</td><td><button onclick="deleteItem('${i.id}')" class="btn-action btn-reject"><i class="fas fa-trash"></i></button></td></tr>`; 
+
+        // ปุ่มสภาพของ (ถ้าพัง เป็นสีแดง)
+        let isDamaged = i.condition === 'damaged';
+        let conditionBtn = isDamaged 
+            ? `<button onclick="toggleCondition('${i.id}', 'good')" class="btn-action" style="background:#dc3545;">ชำรุด</button>`
+            : `<button onclick="toggleCondition('${i.id}', 'damaged')" class="btn-action" style="background:#198754;">ปกติ</button>`;
+
+        tbody.innerHTML += `<tr><td><img src="${i.image}" width="40"></td><td style="color:white">${i.name}</td><td>${i.category}</td><td>${st}</td><td>${conditionBtn}</td><td><button onclick="deleteItem('${i.id}')" class="btn-action btn-reject"><i class="fas fa-trash"></i></button></td></tr>`; 
     }); 
 }
-window.addNewItem = async () => { const { value: n } = await Swal.fire({ title: 'เพิ่มอุปกรณ์ใหม่', input: 'text', showCancelButton: true }); if(n) { await addDoc(collection(db, "items"), { name: n, category: "general", status: "available", image: "https://placehold.co/100" }); } }
+
+// ฟังก์ชันสลับสถานะชำรุด-ปกติ
+window.toggleCondition = async function(id, newCondition) {
+    let msg = newCondition === 'damaged' ? "แจ้งว่าอุปกรณ์ชิ้นนี้ชำรุด/ส่งซ่อม ใช่หรือไม่?" : "ยืนยันว่าอุปกรณ์ชิ้นนี้ซ่อมเสร็จแล้ว (กลับมาปกติ)?";
+    if((await Swal.fire({title:'เปลี่ยนสภาพของ?', text: msg, icon:'question',showCancelButton:true, background:'#1a1a1a', color:'#fff'})).isConfirmed) {
+        await updateDoc(doc(db, "items", id), { condition: newCondition });
+        Swal.fire({title:'อัปเดตแล้ว!',icon:'success',timer:1500,showConfirmButton:false});
+    }
+}
+
+window.addNewItem = async () => { const { value: n } = await Swal.fire({ title: 'เพิ่มอุปกรณ์ใหม่', input: 'text', showCancelButton: true }); if(n) { await addDoc(collection(db, "items"), { name: n, category: "general", status: "available", condition: "good", image: "https://placehold.co/100" }); } }
 window.deleteItem = async (id) => { if((await Swal.fire({title:'ลบอุปกรณ์?',icon:'warning',showCancelButton:true})).isConfirmed) { await deleteDoc(doc(db, "items", id)); } }
 
 window.updateDashboardStats = () => { 
@@ -393,6 +380,90 @@ window.updateDashboardStats = () => {
     if(b) b.innerText = borrowRequests.filter(r => r.status === 'borrowed').length; 
     if(t) t.innerText = items.length; 
 }
+
+// ==========================================
+// 🔥 ระบบกราฟสถิติ (STATISTICS & CHARTS) 🔥
+// ==========================================
+window.renderStats = function() {
+    // 1. ดึงข้อมูลคำนวณอุปกรณ์ที่ถูกยืมมากที่สุด
+    let itemFrequency = {};
+    borrowRequests.forEach(req => {
+        if (req.status !== 'rejected') { // นับเฉพาะบิลที่ไม่โดนปฏิเสธ
+            // แกะสตริง เช่น "Canon EOS R5 (2 ชิ้น), Zoom H6 (1 ชิ้น)"
+            let regex = /([^,]+)\s*\((\d+)\s*ชิ้น\)/g;
+            let match;
+            let foundAny = false;
+            while ((match = regex.exec(req.item)) !== null) {
+                foundAny = true;
+                let name = match[1].trim();
+                let qty = parseInt(match[2]);
+                itemFrequency[name] = (itemFrequency[name] || 0) + qty;
+            }
+            // ถ้ารูปแบบเก่า ไม่มี (x ชิ้น) ให้นับเป็น 1 
+            if (!foundAny && req.item) {
+                req.item.split(',').forEach(it => {
+                    let name = it.trim();
+                    itemFrequency[name] = (itemFrequency[name] || 0) + 1;
+                });
+            }
+        }
+    });
+
+    // เรียงลำดับจากมากไปน้อย
+    let sortedItems = Object.keys(itemFrequency).map(key => ({ name: key, count: itemFrequency[key] })).sort((a, b) => b.count - a.count).slice(0, 10); // เอา 10 อันดับแรก
+    let labelsBar = sortedItems.map(i => i.name);
+    let dataBar = sortedItems.map(i => i.count);
+
+    // 2. คำนวณสภาพอุปกรณ์ (ปกติ vs ชำรุด)
+    let goodCount = items.filter(i => i.condition !== 'damaged').length;
+    let damagedCount = items.filter(i => i.condition === 'damaged').length;
+
+    // --- วาดกราฟแท่ง (ยอดฮิต) ---
+    const ctxBar = document.getElementById('borrowChart');
+    if (ctxBar) {
+        if (borrowChartInstance) borrowChartInstance.destroy(); // ลบกราฟเก่าออกก่อนวาดใหม่
+        borrowChartInstance = new Chart(ctxBar, {
+            type: 'bar',
+            data: {
+                labels: labelsBar,
+                datasets: [{
+                    label: 'จำนวนครั้งที่ถูกยืม (ชิ้น)',
+                    data: dataBar,
+                    backgroundColor: '#ff6600',
+                    borderRadius: 5
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: { y: { beginAtZero: true, ticks: { color: '#aaa', stepSize: 1 } }, x: { ticks: { color: '#aaa' } } },
+                plugins: { legend: { display: false } }
+            }
+        });
+    }
+
+    // --- วาดกราฟวงกลม (สภาพของ) ---
+    const ctxPie = document.getElementById('conditionChart');
+    if (ctxPie) {
+        if (conditionChartInstance) conditionChartInstance.destroy();
+        conditionChartInstance = new Chart(ctxPie, {
+            type: 'doughnut',
+            data: {
+                labels: ['สภาพปกติพร้อมใช้งาน', 'ชำรุด / แจ้งซ่อม'],
+                datasets: [{
+                    data: [goodCount, damagedCount],
+                    backgroundColor: ['#198754', '#dc3545'],
+                    borderWidth: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: { legend: { position: 'bottom', labels: { color: '#fff' } } }
+            }
+        });
+    }
+}
+
+// ------------------------------------------
 
 window.loadUsersToAdminTable = function() {
     const tableBody = document.getElementById("adminUserTableBody"); if(!tableBody) return; tableBody.innerHTML = ""; 
@@ -429,7 +500,7 @@ window.exportToCSV = async function() {
 }
 
 /* ==========================================
-   🔥 APP INITIALIZATION (เริ่มทำงาน) 🔥
+   🔥 APP INITIALIZATION 🔥
    ========================================== */
 function initApp() {
     if(document.getElementById('loginForm')) {

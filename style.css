@@ -456,3 +456,18 @@ nav { background: rgba(0,0,0,0.95); padding: 15px 30px; display: flex; justify-c
     opacity: 0.5;
     cursor: not-allowed;
 }
+/* =========================================
+   📊 CHARTS LAYOUT (กราฟสถิติ)
+   ========================================= */
+.chart-layout {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+@media screen and (min-width: 1024px) {
+    .chart-layout {
+        display: grid;
+        grid-template-columns: 2fr 1fr; /* กราฟแท่งใหญ่กว่ากราฟวงกลม */
+        align-items: start;
+    }
+}
