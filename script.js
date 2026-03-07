@@ -31,12 +31,16 @@ let borrowRequests = [];
 let users = [];
 let cart = []; 
 let currentPickupId = null;
-let currentReturnId = null; // 🔥 ตัวแปรใหม่สำหรับเก็บ ID ตอนคืนของ
+let currentReturnId = null; 
 
 // Pagination
 let currentPage = 1;
 const itemsPerPage = 8; 
 let searchQuery = ""; 
+
+// ตัวแปรกราฟ
+let borrowChartInstance = null;
+let conditionChartInstance = null;
 
 // สร้างช่องอัปโหลดรูปตอนคืนของ (ซ่อนไว้)
 if (!document.getElementById('returnProofInput')) {
@@ -77,7 +81,6 @@ lightbox.innerHTML = `<img id="lightbox-img" style="max-width:90%; max-height:85
 lightbox.onclick = () => lightbox.style.display = 'none';
 document.body.appendChild(lightbox);
 
-// 🔥 ปรับฟังก์ชันดูรูปให้แยกได้ว่าเป็นรูปตอนมารับ หรือรูปตอนมาคืน
 window.viewPhoto = function(reqId, type = 'pickup') {
     const req = borrowRequests.find(r => r.id === reqId);
     let photoData = (type === 'return') ? req.returnProofPhoto : req.proofPhoto;
@@ -147,6 +150,9 @@ window.listenToData = function() {
         if(document.getElementById('itemGrid')) window.renderItems();
         if(document.getElementById('inventoryTableBody')) window.renderInventory();
         if(window.updateDashboardStats) window.updateDashboardStats();
+        if(document.getElementById('section-stats') && document.getElementById('section-stats').style.display === 'block') {
+            window.renderStats();
+        }
     });
 
     onSnapshot(collection(db, "requests"), (snapshot) => {
@@ -155,6 +161,9 @@ window.listenToData = function() {
         if(document.getElementById('requestTableBody')) window.renderRequests();
         if(document.getElementById('inventoryTableBody')) window.renderInventory();
         if(window.updateDashboardStats) window.updateDashboardStats();
+        if(document.getElementById('section-stats') && document.getElementById('section-stats').style.display === 'block') {
+            window.renderStats();
+        }
     });
 
     onSnapshot(collection(db, "users"), (snapshot) => {
@@ -171,7 +180,6 @@ window.renderItems = (cat = 'all') => {
     items.forEach(item => {
         if(cat !== 'all' && item.category !== cat) return;
         
-        // 🔥 รวมสถานะ 'pending_return' เข้าไปด้วย (ตอนรอแอดมินตรวจรับของคืน ถือว่าของยังไม่ว่าง)
         const activeReq = borrowRequests.find(r => (r.item && r.item.includes(item.name)) && ['pending', 'approved_pickup', 'borrowed', 'pending_return'].includes(r.status));
         let cartItem = cart.find(c => c.id === item.id);
         
@@ -275,7 +283,6 @@ window.openHistoryModal = () => {
         }
         else if (r.status === 'borrowed') { 
             statusBadge = '<span style="color:#198754">✅ กำลังยืม</span>'; 
-            // 🔥 แสดงปุ่มดูรูปตอนรับของ และ ปุ่มถ่ายรูปตอนส่งคืน 🔥
             actionBtn = `<div style="display:flex; gap:5px; align-items:center;">
                             <button onclick="viewPhoto('${r.id}', 'pickup')" style="background:none; border:none; color:#0dcaf0; cursor:pointer; text-decoration:underline; font-size:12px;">ดูรูปรับ</button>
                             <button onclick="triggerReturn('${r.id}')" class="btn-confirm" style="padding:5px; font-size:12px; background:#ff9800; margin:0;">📷 ส่งรูปคืน</button>
@@ -304,9 +311,7 @@ window.closeHistoryModal = () => document.getElementById('historyModal').style.d
 window.filterItems = (cat) => { document.querySelectorAll('.filters button').forEach(b=>b.classList.remove('active')); event.target.classList.add('active'); window.renderItems(cat); }
 window.searchItem = (t) => { Array.from(document.getElementsByClassName('card')).forEach(c => c.style.display = c.querySelector('h4').innerText.toLowerCase().includes(t.toLowerCase()) ? 'flex' : 'none'); }
 
-// ทริกเกอร์อัปโหลดรูปรับของ
 window.triggerPickup = (reqId) => { currentPickupId = reqId; const f = document.getElementById('pickupProofInput'); if(f) f.click(); }
-// ทริกเกอร์อัปโหลดรูปคืนของ
 window.triggerReturn = (reqId) => { currentReturnId = reqId; const f = document.getElementById('returnProofInput'); if(f) f.click(); }
 
 /* ==========================================
@@ -342,7 +347,6 @@ window.renderRequests = () => {
     if (paginatedReqs.length === 0) { tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:#888; padding:20px;">ไม่พบข้อมูล</td></tr>`; }
 
     paginatedReqs.forEach(r => {
-        // 🔥 จัดการคอลัมน์แสดงรูปภาพให้เห็น 2 รูป (รับ กับ คืน)
         let photoDisplay = '<div style="display:flex; gap:5px;">';
         if (r.proofPhoto) photoDisplay += `<button onclick="viewPhoto('${r.id}', 'pickup')" style="background:none; border:none; color:#0dcaf0; cursor:pointer; text-decoration:underline; font-size:12px;">📷 รับ</button>`;
         if (r.returnProofPhoto) photoDisplay += `<button onclick="viewPhoto('${r.id}', 'return')" style="background:none; border:none; color:#ff9800; cursor:pointer; text-decoration:underline; font-size:12px;">📷 คืน</button>`;
@@ -357,14 +361,13 @@ window.renderRequests = () => {
         } 
         else if (r.status === 'approved_pickup') { 
             badge = '<span class="badge" style="background:#0dcaf0; color:black;">กำลังดำเนินการ</span>'; 
-            btns = `<span style="font-size:12px; color:#aaa; margin-right:10px;">รอถ่ายรูปรัย</span> <button class="btn-action btn-reject" onclick="updateStatus('${r.id}','pending')" title="ยกเลิกกลับไปรออนุมัติ"><i class="fas fa-undo"></i> ยกเลิก</button>`; 
+            // 🔥 แก้ไขคำผิด "รอถ่ายรูปรัย" เป็น "รอถ่ายรูปรับ" ตรงนี้ครับ 🔥
+            btns = `<span style="font-size:12px; color:#aaa; margin-right:10px;">รอถ่ายรูปรับ</span> <button class="btn-action btn-reject" onclick="updateStatus('${r.id}','pending')" title="ยกเลิกกลับไปรออนุมัติ"><i class="fas fa-undo"></i> ยกเลิก</button>`; 
         } 
         else if(r.status === 'borrowed') { 
             badge = '<span class="badge status-approved">ถูกยืม</span>'; 
-            // แอดมินสามารถกดรับคืนได้เลย กรณีนักศึกษาลืมถ่ายรูปส่ง
             btns = `<button class="btn-action" style="background:#666;" onclick="updateStatus('${r.id}','returned')">รับคืน (ข้ามรูป)</button>`; 
         } 
-        // 🔥 สถานะใหม่: รอแอดมินตรวจรับคืน 🔥
         else if (r.status === 'pending_return') {
             badge = '<span class="badge" style="background:#ff9800; color:white;">รอตรวจรับคืน</span>';
             btns = `<button class="btn-action" style="background:#28a745;" onclick="updateStatus('${r.id}','returned')">ยืนยันรับคืน</button> 
