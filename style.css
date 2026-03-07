@@ -62,10 +62,11 @@ nav { background: rgba(0,0,0,0.95); padding: 15px 30px; display: flex; justify-c
 .status-badge { position: absolute; top: 10px; right: 10px; padding: 4px 10px; border-radius: 4px; font-size: 10px; font-weight: bold; color: black; text-transform: uppercase; box-shadow: 0 2px 5px rgba(0,0,0,0.8); }
 .status-badge.available { background: var(--success); }
 .status-badge.borrowed { background: var(--danger); color: white; }
+.status-badge.incart { background: var(--warning); color: black; } /* เพิ่มสีป้าย "ในตะกร้า" */
 .card-body { padding: 15px; flex-grow: 1; display: flex; flex-direction: column; justify-content: space-between; }
 .card-body h4 { margin: 0 0 5px; font-size: 16px; font-weight: 600; line-height: 1.4; height: 44px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; color: #fff; }
 .category-tag { font-size: 10px; color: #aaa; background: #000; padding: 2px 6px; border-radius: 4px; margin-bottom: 10px; display: inline-block; border: 1px solid #333; }
-.btn-borrow { margin-top: auto; width: 100%; padding: 10px; border: none; border-radius: 6px; font-weight: 600; background: var(--theme-primary); color: #000; cursor: pointer; text-transform: uppercase; }
+.btn-borrow { margin-top: auto; width: 100%; padding: 10px; border: none; border-radius: 6px; font-weight: 600; background: var(--theme-primary); color: #000; cursor: pointer; text-transform: uppercase; transition: 0.3s; }
 .btn-borrow:hover { box-shadow: 0 0 15px rgba(255, 102, 0, 0.6); color: black; background: white; }
 .btn-disabled { margin-top: auto; width: 100%; padding: 10px; border: none; border-radius: 6px; background: #333; color: #666; cursor: not-allowed; }
 
@@ -110,6 +111,48 @@ nav { background: rgba(0,0,0,0.95); padding: 15px 30px; display: flex; justify-c
 .btn-approve { background: var(--success); color: black; }
 .btn-reject { background: var(--danger); color: white; }
 
+/* =========================================
+   📄 PAGINATION (ระบบแบ่งหน้า) 
+   ========================================= */
+.pagination-container {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 5px;
+    margin-top: 20px;
+    padding-top: 15px;
+    border-top: 1px solid #333;
+}
+
+.page-btn {
+    background: #1a1a1a;
+    color: #aaa;
+    border: 1px solid #333;
+    padding: 8px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-family: 'Poppins', 'Kanit', sans-serif;
+    font-weight: 600;
+    transition: 0.3s;
+}
+
+.page-btn:hover:not(:disabled) {
+    background: #333;
+    color: white;
+}
+
+.page-btn.active {
+    background: var(--theme-primary);
+    color: black;
+    border-color: var(--theme-primary);
+    box-shadow: 0 0 10px rgba(255, 102, 0, 0.5);
+}
+
+.page-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
 /* --- Login & Modal (หน้าล็อกอินสวยๆ) --- */
 .login-wrapper { display: flex; justify-content: center; align-items: center; height: 100vh; position: relative; overflow: hidden; background: url('https://cdn.pixabay.com/photo/2016/11/29/05/45/astronomy-1867616_960_720.jpg') center/cover no-repeat; }
 .login-wrapper::before { content: ''; position: absolute; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.7); backdrop-filter: blur(5px); }
@@ -130,16 +173,66 @@ nav { background: rgba(0,0,0,0.95); padding: 15px 30px; display: flex; justify-c
 
 /* Modal */
 .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 1000; justify-content: center; align-items: center; }
-.modal-content { background: #1a1a1a; padding: 30px; width: 500px; border-radius: 12px; border: 1px solid var(--theme-primary); box-shadow: 0 0 40px rgba(255, 102, 0, 0.2); color: white; position: relative; }
+.modal-content { background: #1a1a1a; padding: 30px; width: 500px; border-radius: 12px; border: 1px solid var(--theme-primary); box-shadow: 0 0 40px rgba(255, 102, 0, 0.2); color: white; position: relative; max-height: 90vh; overflow-y: auto; }
 .close { position: absolute; top: 15px; right: 20px; font-size: 24px; cursor: pointer; color: #888; }
 .close:hover { color: white; }
 .modal-content input, .modal-content textarea { width: 100%; padding: 12px; margin: 10px 0; background: #000; border: 1px solid #333; color: white; border-radius: 6px; }
 .modal-content input:focus, .modal-content textarea:focus { border-color: var(--theme-primary); outline: none; }
-.btn-confirm { width: 100%; background: var(--theme-primary); border: none; padding: 12px; border-radius: 6px; font-weight: bold; cursor: pointer; margin-top: 10px; color: black; }
-.btn-cancel { width: 100%; background: transparent; border: 1px solid #333; color: #888; padding: 12px; border-radius: 6px; cursor: pointer; margin-top: 10px; }
+.btn-confirm { width: 100%; background: var(--theme-primary); border: none; padding: 12px; border-radius: 6px; font-weight: bold; cursor: pointer; margin-top: 10px; color: black; transition: 0.3s; }
+.btn-confirm:hover { box-shadow: 0 0 15px rgba(255, 102, 0, 0.6); background: white; }
+.btn-cancel { width: 100%; background: transparent; border: 1px solid #333; color: #888; padding: 12px; border-radius: 6px; cursor: pointer; margin-top: 10px; transition: 0.3s; }
+.btn-cancel:hover { background: #333; color: white; }
 .hidden { display: none; }
 
-/* --- Responsive (มือถือ) --- */
+/* =========================================
+   📰 TICKER (แถบข่าววิ่ง)
+   ========================================= */
+.ticker-wrap {
+    width: 100%; height: 40px; background: #000; border-bottom: 1px solid #333; display: flex; overflow: hidden; position: relative; z-index: 200;
+}
+.ticker-heading {
+    background: var(--theme-primary); color: #000; padding: 0 20px; font-weight: bold; font-size: 14px; display: flex; align-items: center; gap: 10px; text-transform: uppercase; letter-spacing: 1px; position: relative; z-index: 2; box-shadow: 5px 0 15px rgba(0,0,0,0.8);
+}
+.ticker-heading::after {
+    content: ''; position: absolute; top: 0; right: -15px; width: 30px; height: 100%; background: var(--theme-primary); transform: skewX(20deg); z-index: -1;
+}
+.ticker-move {
+    flex-grow: 1; display: flex; align-items: center; overflow: hidden; position: relative; mask-image: linear-gradient(to right, black 90%, transparent 100%); -webkit-mask-image: linear-gradient(to right, black 90%, transparent 100%);
+}
+.ticker-item {
+    display: inline-block; white-space: nowrap; padding-left: 100%; animation: ticker-scroll 25s linear infinite; color: var(--theme-primary); font-size: 14px; text-shadow: 0 0 5px rgba(255, 102, 0, 0.5);
+}
+@keyframes ticker-scroll { 0% { transform: translate3d(0, 0, 0); } 100% { transform: translate3d(-100%, 0, 0); } }
+.ticker-wrap:hover .ticker-item { animation-play-state: paused; }
+
+/* =========================================
+   👨‍💻 ABOUT PAGE (หน้าผู้พัฒนา)
+   ========================================= */
+.about-page { display: flex; justify-content: center; align-items: center; min-height: 100vh; overflow: hidden; }
+.about-container { position: relative; z-index: 10; }
+.profile-card { background: rgba(20, 20, 20, 0.85); border: 1px solid rgba(255, 102, 0, 0.3); padding: 50px; border-radius: 20px; text-align: center; max-width: 500px; width: 90%; margin: 0 auto; box-shadow: 0 0 50px rgba(0,0,0,0.8); backdrop-filter: blur(10px); animation: fadeInUp 1s ease; }
+.profile-img-wrapper { width: 150px; height: 150px; margin: 0 auto 30px; position: relative; display: flex; justify-content: center; align-items: center; }
+.profile-img-wrapper img { width: 130px; height: 130px; border-radius: 50%; object-fit: cover; border: 3px solid #000; z-index: 2; }
+.ring { position: absolute; width: 100%; height: 100%; border-radius: 50%; border: 2px solid transparent; border-top-color: var(--theme-primary); border-right-color: var(--theme-primary); animation: spin 3s linear infinite; box-shadow: 0 0 20px rgba(255, 102, 0, 0.5); }
+@keyframes spin { 100% { transform: rotate(360deg); } }
+@keyframes fadeInUp { from { opacity:0; transform:translateY(30px); } to { opacity:1; transform:translateY(0); } }
+.role-badge { background: var(--theme-primary); color: #000; padding: 5px 10px; border-radius: 4px; font-size: 10px; font-weight: bold; letter-spacing: 1px; }
+.profile-content h1 { font-size: 24px; margin: 15px 0 5px; color: white; }
+.subtitle { color: var(--theme-primary); margin-bottom: 20px; font-size: 14px; }
+.description { color: #aaa; font-size: 13px; line-height: 1.6; margin-bottom: 30px; font-style: italic; }
+.social-links { display: flex; justify-content: center; gap: 15px; margin-bottom: 30px; }
+.social-btn { width: 45px; height: 45px; border-radius: 50%; background: #333; display: flex; justify-content: center; align-items: center; color: #fff; font-size: 20px; transition: 0.3s; border: 1px solid #444; }
+.social-btn:hover { transform: translateY(-5px); border-color: transparent; }
+.social-btn.fb:hover { background: #1877F2; box-shadow: 0 0 15px #1877F2; }
+.social-btn.ig:hover { background: linear-gradient(45deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888); box-shadow: 0 0 15px #cc2366; }
+.social-btn.line:hover { background: #00C300; box-shadow: 0 0 15px #00C300; }
+.social-btn.mail:hover { background: #ea4335; box-shadow: 0 0 15px #ea4335; }
+.btn-back-home { display: inline-block; color: #888; font-size: 14px; border: 1px solid #444; padding: 8px 20px; border-radius: 30px; transition: 0.3s; }
+.btn-back-home:hover { background: #fff; color: #000; }
+
+/* =========================================
+   📱 MOBILE RESPONSIVE FIXES (แก้ UI แตกในมือถือ)
+   ========================================= */
 @media screen and (max-width: 768px) {
     .glass-card { width: 90%; padding: 30px 20px; }
     .admin-layout { flex-direction: column; }
@@ -156,284 +249,17 @@ nav { background: rgba(0,0,0,0.95); padding: 15px 30px; display: flex; justify-c
     .table-card { padding: 10px; }
     .table-header { flex-direction: column; gap: 10px; align-items: flex-start; }
     .table-header .search-box { width: 100%; }
-} /* ✅ ปิดปีกกาของ Responsive ตรงนี้ (ก่อนเริ่ม Ticker) */
 
-
-
-/* =========================================
-   📰 TICKER (แถบข่าววิ่ง)
-   ========================================= */
-.ticker-wrap {
-    width: 100%;
-    height: 40px;
-    background: #000;
-    border-bottom: 1px solid #333;
-    display: flex;
-    overflow: hidden;
-    position: relative;
-    z-index: 200;
-}
-
-.ticker-heading {
-    background: var(--theme-primary);
-    color: #000;
-    padding: 0 20px;
-    font-weight: bold;
-    font-size: 14px;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    position: relative;
-    z-index: 2;
-    box-shadow: 5px 0 15px rgba(0,0,0,0.8);
-}
-
-.ticker-heading::after {
-    content: '';
-    position: absolute;
-    top: 0; right: -15px;
-    width: 30px; height: 100%;
-    background: var(--theme-primary);
-    transform: skewX(20deg);
-    z-index: -1;
-}
-
-.ticker-move {
-    flex-grow: 1;
-    display: flex;
-    align-items: center;
-    overflow: hidden;
-    position: relative;
-    mask-image: linear-gradient(to right, black 90%, transparent 100%);
-    -webkit-mask-image: linear-gradient(to right, black 90%, transparent 100%);
-}
-
-.ticker-item {
-    display: inline-block;
-    white-space: nowrap;
-    padding-left: 100%;
-    animation: ticker-scroll 25s linear infinite;
-    color: var(--theme-primary);
-    font-size: 14px;
-    text-shadow: 0 0 5px rgba(255, 102, 0, 0.5);
-}
-
-@keyframes ticker-scroll {
-    0% { transform: translate3d(0, 0, 0); }
-    100% { transform: translate3d(-100%, 0, 0); }
-}
-
-.ticker-wrap:hover .ticker-item {
-    animation-play-state: paused;
-}
-/* =========================================
-   👨‍💻 ABOUT PAGE (หน้าผู้พัฒนา)
-   ========================================= */
-.about-page {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    min-height: 100vh;
-    overflow: hidden;
-}
-
-.about-container {
-    position: relative;
-    z-index: 10;
-}
-
-/* การ์ดกระจก (Glassmorphism) */
-.profile-card {
-    background: rgba(20, 20, 20, 0.85);
-    border: 1px solid rgba(255, 102, 0, 0.3); /* ขอบส้มจางๆ */
-    padding: 50px;
-    border-radius: 20px;
-    text-align: center;
-    max-width: 500px;
-    width: 90%;
-    margin: 0 auto;
-    box-shadow: 0 0 50px rgba(0,0,0,0.8);
-    backdrop-filter: blur(10px);
-    animation: fadeInUp 1s ease;
-}
-
-/* รูปโปรไฟล์ + วงแหวนหมุน */
-.profile-img-wrapper {
-    width: 150px;
-    height: 150px;
-    margin: 0 auto 30px;
-    position: relative;
-    display: flex; justify-content: center; align-items: center;
-}
-
-.profile-img-wrapper img {
-    width: 130px; height: 130px;
-    border-radius: 50%;
-    object-fit: cover;
-    border: 3px solid #000;
-    z-index: 2;
-}
-
-/* วงแหวนนีออนหมุนรอบรูป */
-.ring {
-    position: absolute;
-    width: 100%; height: 100%;
-    border-radius: 50%;
-    border: 2px solid transparent;
-    border-top-color: var(--theme-primary); /* สีส้ม */
-    border-right-color: var(--theme-primary);
-    animation: spin 3s linear infinite;
-    box-shadow: 0 0 20px rgba(255, 102, 0, 0.5);
-}
-
-@keyframes spin { 100% { transform: rotate(360deg); } }
-@keyframes fadeInUp { from { opacity:0; transform:translateY(30px); } to { opacity:1; transform:translateY(0); } }
-
-/* ข้อความ */
-.role-badge {
-    background: var(--theme-primary);
-    color: #000;
-    padding: 5px 10px;
-    border-radius: 4px;
-    font-size: 10px; font-weight: bold; letter-spacing: 1px;
-}
-
-.profile-content h1 {
-    font-size: 24px; margin: 15px 0 5px; color: white;
-}
-
-.subtitle { color: var(--theme-primary); margin-bottom: 20px; font-size: 14px; }
-.description { color: #aaa; font-size: 13px; line-height: 1.6; margin-bottom: 30px; font-style: italic; }
-
-/* --- ปุ่มโซเชียล (Highlight) --- */
-.social-links {
-    display: flex; justify-content: center; gap: 15px; margin-bottom: 30px;
-}
-
-.social-btn {
-    width: 45px; height: 45px;
-    border-radius: 50%;
-    background: #333;
-    display: flex; justify-content: center; align-items: center;
-    color: #fff;
-    font-size: 20px;
-    transition: 0.3s;
-    border: 1px solid #444;
-}
-
-/* Hover แล้วเปลี่ยนสีตามแบรนด์ */
-.social-btn:hover { transform: translateY(-5px); border-color: transparent; }
-.social-btn.fb:hover { background: #1877F2; box-shadow: 0 0 15px #1877F2; }
-.social-btn.ig:hover { background: linear-gradient(45deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888); box-shadow: 0 0 15px #cc2366; }
-.social-btn.line:hover { background: #00C300; box-shadow: 0 0 15px #00C300; }
-.social-btn.mail:hover { background: #ea4335; box-shadow: 0 0 15px #ea4335; }
-
-/* ปุ่มกลับ */
-.btn-back-home {
-    display: inline-block;
-    color: #888;
-    font-size: 14px;
-    border: 1px solid #444;
-    padding: 8px 20px;
-    border-radius: 30px;
-    transition: 0.3s;
-}
-.btn-back-home:hover { background: #fff; color: #000; }
-
-/* =========================================
-   📱 MOBILE RESPONSIVE FIXES (แก้ UI แตกในมือถือ)
-   ========================================= */
-
-@media screen and (max-width: 768px) {
-    /* --- 1. จัดการ Header (แถบบน) ให้ไม่เบียดกัน --- */
-    header, .navbar, .top-bar, .user-info {
-        display: flex;
-        flex-wrap: wrap; /* หัวใจหลัก: สั่งให้ปัดตกลงบรรทัดใหม่ถ้าจอไม่พอ */
-        justify-content: center; /* จัดให้อยู่ตรงกลาง */
-        align-items: center;
-        gap: 10px;
-        padding: 10px 5px;
-    }
-    
-    /* ซ่อนคำว่า User หรือชื่อยาวๆ ถ้าจำเป็น หรือปรับให้เล็กลง */
-    .user-info span {
-        font-size: 14px;
-    }
-
-    /* --- 2. จัดการปุ่มหมวดหมู่ (Filters) ให้มีช่องไฟ --- */
-    .filters {
-        display: flex;
-        flex-wrap: wrap;
-        justify-content: center;
-        gap: 8px;
-        margin-bottom: 20px;
-    }
-    
-    .filters button {
-        font-size: 13px;
-        padding: 6px 12px;
-    }
-
-    /* --- 3. จัดการตาราง Grid การ์ด ให้สวยงาม ไม่แน่น --- */
-    #itemGrid {
-        display: grid;
-        /* บังคับให้แสดง 2 คอลัมน์เป๊ะๆ และเพิ่มระยะห่าง (gap) เป็น 12px ให้ดูโปร่งขึ้น */
-        grid-template-columns: repeat(2, 1fr); 
-        gap: 12px;
-        padding: 0 10px;
-    }
-
-    /* --- 4. ปรับขนาดฟอนต์และช่องว่าง "ภายในการ์ด" --- */
-    .card {
-        border-radius: 12px; /* ลบมุมการ์ดให้มนสวย */
-        display: flex;
-        flex-direction: column;
-    }
-
-    .card-img img {
-        height: 120px; /* ลดความสูงรูปลงนิดหน่อย จะได้ไม่กินพื้นที่ */
-        object-fit: cover;
-    }
-
-    .card-body {
-        padding: 10px; /* ลดขอบเขตด้านในลง */
-        display: flex;
-        flex-direction: column;
-        gap: 8px; /* เว้นระยะแต่ละบรรทัดภายในการ์ด */
-        flex-grow: 1;
-    }
-
-    .card-body h4 {
-        font-size: 14px !important; /* บังคับลดขนาดชื่ออุปกรณ์ */
-        margin: 0;
-        line-height: 1.4;
-        /* ทริค: ถ้าชื่ออุปกรณ์ยาวเกิน 2 บรรทัด ให้ตัดเป็น ... ทันที */
-        display: -webkit-box;
-        -webkit-line-clamp: 2;
-        -webkit-box-orient: vertical;
-        overflow: hidden;
-        white-space: normal;
-    }
-
-    .category-tag {
-        font-size: 10px;
-        padding: 3px 6px;
-        align-self: flex-start; /* ให้ป้ายแท็กชิดซ้าย ไม่ยืดเต็ม */
-    }
-
-    .card-body button {
-        font-size: 13px;
-        padding: 8px;
-        margin-top: auto; /* ดันปุ่ม "จองทันที" ไปอยู่ขอบล่างสุดของการ์ดเสมอ */
-    }
-
-    /* --- 5. จัดการ Popup (Modal) ให้พอดีมือถือ --- */
-    .modal-content {
-        width: 90% !important;
-        padding: 20px !important;
-        margin: 15% auto;
-        border-radius: 15px;
-    }
+    header, .navbar, .top-bar, .user-info { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 10px; padding: 10px 5px; }
+    .user-info span { font-size: 14px; }
+    .filters { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-bottom: 20px; }
+    .filters button { font-size: 13px; padding: 6px 12px; }
+    #itemGrid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; padding: 0 10px; }
+    .card { border-radius: 12px; display: flex; flex-direction: column; }
+    .card-img img { height: 120px; object-fit: cover; }
+    .card-body { padding: 10px; display: flex; flex-direction: column; gap: 8px; flex-grow: 1; }
+    .card-body h4 { font-size: 14px !important; margin: 0; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; white-space: normal; }
+    .category-tag { font-size: 10px; padding: 3px 6px; align-self: flex-start; }
+    .card-body button { font-size: 13px; padding: 8px; margin-top: auto; }
+    .modal-content { width: 90% !important; padding: 20px !important; margin: 15% auto; border-radius: 15px; }
 }

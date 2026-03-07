@@ -1,5 +1,5 @@
 /* =========================================
-   script.js - MMD BORROW SYSTEM (PREVENT DOUBLE BOOKING + CART + UNDO)
+   script.js - MMD BORROW SYSTEM (FULL MEGA UPDATE + PAGINATION + UNDO)
    ========================================= */
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
@@ -10,14 +10,15 @@ try { emailjs.init("Rj2WpB-v7fZqvEu08"); } catch (e) { console.warn("⚠️ Emai
 
 const LINE_API_URL = "https://script.google.com/macros/s/AKfycbzw0gLpeZEdB8rUofNdPTLKHBQYhfcYcD1S72t_PRI-tSfdfi2-ZqGUw-Hwa4wRP17crg/exec";
 
-// 🔴 ใส่ Config ของคุณกายตรงนี้
+// 🔴 Firebase Config ของคุณกาย (ใส่ให้ครบถ้วนแล้วครับ) 🔴
 const firebaseConfig = {
   apiKey: "AIzaSyCJNX3-vN5bceDczdKxrqb0N8uaBpgDhTE",
   authDomain: "mmd-borrow-app.firebaseapp.com",
   projectId: "mmd-borrow-app",
   storageBucket: "mmd-borrow-app.firebasestorage.app",
   messagingSenderId: "525869633986",
-  appId: "1:525869633986:web:ed7a1cbdaa038a098e065b"
+  appId: "1:525869633986:web:ed7a1cbdaa038a098e065b",
+  measurementId: "G-G4PV2T14DK"
 };
 
 const app = initializeApp(firebaseConfig);
@@ -30,6 +31,11 @@ let borrowRequests = [];
 let users = [];
 let cart = []; 
 let currentPickupId = null;
+
+// ตัวแปรสำหรับ Pagination
+let currentPage = 1;
+const itemsPerPage = 8; 
+let searchQuery = ""; 
 
 /* --- Helpers --- */
 function resizeImage(file) {
@@ -267,8 +273,9 @@ window.filterItems = (cat) => { document.querySelectorAll('.filters button').for
 window.searchItem = (t) => { Array.from(document.getElementsByClassName('card')).forEach(c => c.style.display = c.querySelector('h4').innerText.toLowerCase().includes(t.toLowerCase()) ? 'flex' : 'none'); }
 window.triggerPickup = (reqId) => { currentPickupId = reqId; const f = document.getElementById('pickupProofInput'); if(f) f.click(); }
 
+
 /* ==========================================
-   🔥 ADMIN SYSTEM FUNCTIONS 🔥
+   🔥 ADMIN SYSTEM FUNCTIONS (PAGINATION + UNDO) 🔥
    ========================================== */
 window.switchTab = (t) => { 
     document.querySelectorAll('.content-section').forEach(e => e.style.display = 'none'); 
@@ -277,23 +284,51 @@ window.switchTab = (t) => {
     document.getElementById(`menu-${t}`).classList.add('active'); 
 }
 
+window.searchRequest = function(query) {
+    searchQuery = query.toLowerCase();
+    currentPage = 1; 
+    window.renderRequests();
+}
+
 window.renderRequests = () => {
-    const tbody = document.getElementById('requestTableBody'); if(!tbody) return; tbody.innerHTML = '';
-    const sortedReqs = [...borrowRequests].sort((a,b) => (b.timestamp?.seconds||0) - (a.timestamp?.seconds||0));
-    sortedReqs.forEach(r => {
+    const tbody = document.getElementById('requestTableBody'); 
+    if(!tbody) return; 
+    tbody.innerHTML = '';
+
+    let sortedReqs = [...borrowRequests].sort((a,b) => (b.timestamp?.seconds||0) - (a.timestamp?.seconds||0));
+
+    if (searchQuery) {
+        sortedReqs = sortedReqs.filter(r => 
+            (r.user && r.user.toLowerCase().includes(searchQuery)) || 
+            (r.item && r.item.toLowerCase().includes(searchQuery))
+        );
+    }
+
+    const totalItems = sortedReqs.length;
+    const totalPages = Math.ceil(totalItems / itemsPerPage) || 1;
+
+    if (currentPage > totalPages) currentPage = totalPages; 
+
+    const startIdx = (currentPage - 1) * itemsPerPage;
+    const endIdx = startIdx + itemsPerPage;
+    
+    const paginatedReqs = sortedReqs.slice(startIdx, endIdx);
+
+    if (paginatedReqs.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:#888; padding:20px;">ไม่พบข้อมูล</td></tr>`;
+    }
+
+    paginatedReqs.forEach(r => {
         let badge, btns, photoDisplay = r.proofPhoto ? `<button onclick="viewPhoto('${r.id}')" style="background:none; border:none; color:#ff6600; cursor:pointer; font-weight:bold; text-decoration:underline;">📷 รูปรับของ</button>` : '-';
         
         if(r.status === 'pending') { 
             badge = '<span class="badge status-pending">ใหม่</span>'; 
             btns = `<button class="btn-action" style="background:#28a745;" onclick="updateStatus('${r.id}','approved_pickup')">อนุญาต</button> <button class="btn-action btn-reject" onclick="updateStatus('${r.id}','rejected')">ปฏิเสธ</button>`; 
         }
-        
-        // 🔥 เพิ่มปุ่ม "ยกเลิก" สำหรับสถานะ "กำลังดำเนินการ" ตรงนี้ครับ 🔥
         else if (r.status === 'approved_pickup') { 
             badge = '<span class="badge" style="background:#0dcaf0; color:black;">กำลังดำเนินการ</span>'; 
             btns = `<span style="font-size:12px; color:#aaa; margin-right:10px;">รอถ่ายรูป</span> <button class="btn-action btn-reject" onclick="updateStatus('${r.id}','pending')" title="ยกเลิกกลับไปรออนุมัติ"><i class="fas fa-undo"></i> ยกเลิก</button>`; 
         }
-        
         else if(r.status === 'borrowed') { 
             badge = '<span class="badge status-approved">ถูกยืม</span>'; 
             btns = `<button class="btn-action" style="background:#0099cc;" onclick="updateStatus('${r.id}','returned')">รับคืน</button>`; 
@@ -305,6 +340,31 @@ window.renderRequests = () => {
         
         tbody.innerHTML += `<tr><td>${r.user}</td><td>${r.item}</td><td>${r.date}</td><td>${badge}</td><td>${photoDisplay}</td><td>${btns}</td></tr>`;
     });
+
+    window.renderPagination(totalItems, totalPages);
+}
+
+window.renderPagination = function(totalItems, totalPages) {
+    const container = document.getElementById('paginationControls');
+    if (!container) return;
+
+    if (totalItems <= itemsPerPage) {
+        container.innerHTML = ''; 
+        return;
+    }
+
+    let html = '';
+    html += `<button class="page-btn" onclick="changePage(${currentPage - 1})" ${currentPage === 1 ? 'disabled' : ''}><i class="fas fa-chevron-left"></i></button>`;
+    for (let i = 1; i <= totalPages; i++) {
+        html += `<button class="page-btn ${i === currentPage ? 'active' : ''}" onclick="changePage(${i})">${i}</button>`;
+    }
+    html += `<button class="page-btn" onclick="changePage(${currentPage + 1})" ${currentPage === totalPages ? 'disabled' : ''}><i class="fas fa-chevron-right"></i></button>`;
+    container.innerHTML = html;
+}
+
+window.changePage = function(page) {
+    currentPage = page;
+    window.renderRequests(); 
 }
 
 window.updateStatus = async (id, s) => { await updateDoc(doc(db, "requests", id), { status: s }); }
