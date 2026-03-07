@@ -1,5 +1,5 @@
 /* =========================================
-   script.js - MMD BORROW SYSTEM (FULL + ADMIN ROLE MGMT)
+   script.js - MMD BORROW SYSTEM (FULL + ADMIN + CART)
    ========================================= */
 
 // 1. นำเข้า Firebase
@@ -17,7 +17,7 @@ try {
 // 3. ลิงก์ LINE Notify
 const LINE_API_URL = "https://script.google.com/macros/s/AKfycbzw0gLpeZEdB8rUofNdPTLKHBQYhfcYcD1S72t_PRI-tSfdfi2-ZqGUw-Hwa4wRP17crg/exec";
 
-// 4. การตั้งค่า Firebase
+// 4. การตั้งค่า Firebase (ของกาย)
 const firebaseConfig = {
   apiKey: "AIzaSyCJNX3-vN5bceDczdKxrqb0N8uaBpgDhTE",
   authDomain: "mmd-borrow-app.firebaseapp.com",
@@ -36,6 +36,7 @@ let currentUser = JSON.parse(localStorage.getItem('currentUser')) || null;
 let items = [];
 let borrowRequests = [];
 let users = [];
+let cart = []; // 🔥 เพิ่มตัวแปรตะกร้าสินค้า
 let currentPickupId = null;
 
 /* --- Helper: ระบบย่อรูป --- */
@@ -97,16 +98,13 @@ function listenToData() {
     onSnapshot(collection(db, "requests"), (snapshot) => {
         borrowRequests = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         if(window.location.pathname.includes('dashboard.html') || window.location.pathname.includes('index.html')) renderItems(); 
-        if(window.location.pathname.includes('admin.html')) { renderRequests(); updateDashboardStats(); }
+        if(window.location.pathname.includes('admin.html')) { renderRequests(); renderInventory(); updateDashboardStats(); }
     });
 
     onSnapshot(collection(db, "users"), (snapshot) => {
         users = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        if(window.location.pathname.includes('admin.html')) renderUsers();
-        // อัปเดตตารางจัดการสิทธิ์แอดมินถ้าเปิดค้างไว้
-        const adminTable = document.getElementById('adminUserTableBody');
-        if(adminTable && document.getElementById('adminModal') && document.getElementById('adminModal').style.display === 'block') {
-            loadUsersToAdminTable();
+        if(window.location.pathname.includes('admin.html')) {
+            if(window.loadUsersToAdminTable) window.loadUsersToAdminTable();
         }
     });
 }
@@ -115,31 +113,18 @@ function listenToData() {
 window.checkAuth = function() {
     if (!currentUser) { 
         if (!window.location.pathname.includes('login.html') && !window.location.pathname.endsWith('/')) {
-            window.location.href = 'index.html'; // ส่งกลับไปหน้าแรกถ้ายังไม่ล็อกอิน
+            window.location.href = 'index.html'; 
         }
         return null; 
     }
     
-    // โชว์ชื่อบน Navbar
     const display = document.getElementById('userNameDisplay') || document.querySelector('.user-info span') || document.querySelector('.admin-profile span');
     if(display) display.innerText = currentUser.name || currentUser.username;
     
-    // 🔥 จัดการปุ่ม Admin 🔥
+    // จัดการปุ่ม Admin
     if (currentUser.role === 'admin') {
-        // แสดงปุ่ม "จัดการระบบ (Admin Modal)" ในหน้า Index/Dashboard
         const btnAdminManage = document.getElementById('btnAdminManage');
         if (btnAdminManage) btnAdminManage.style.display = 'inline-flex';
-
-        // เผื่อมีปุ่มกลับหน้า Admin แบบเก่า
-        const ui = document.querySelector('.user-info');
-        if (ui && window.location.pathname.includes('dashboard.html') && !document.getElementById('backToAdminBtn')) {
-            const btn = document.createElement('button');
-            btn.id = 'backToAdminBtn';
-            btn.innerHTML = '<i class="fas fa-user-shield"></i> กลับหน้า Admin';
-            btn.className = 'btn-history'; btn.style.marginRight = '10px';
-            btn.onclick = () => window.location.href = 'admin.html';
-            ui.insertBefore(btn, ui.firstChild);
-        }
     }
 
     return currentUser;
@@ -157,7 +142,6 @@ window.login = async function(u, p) {
             localStorage.setItem('currentUser', JSON.stringify(d));
             
             await Swal.fire({ icon: 'success', title: 'สำเร็จ!', text: 'ยินดีต้อนรับคุณ ' + (d.name || d.username), timer: 1500, showConfirmButton: false });
-            // ถ้าหน้าปัจจุบันคือหน้า Login/Index ให้ไปที่ Dashboard, แต่ถ้าอยู่ในหน้าไหนแล้วให้รีเฟรชโชว์ข้อมูล
             window.location.reload();
         } else { 
             Swal.fire({ icon: 'error', title: 'เข้าสู่ระบบล้มเหลว', text: 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง' });
@@ -194,221 +178,166 @@ window.logout = () => {
     }).then((result) => {
         if (result.isConfirmed) {
             localStorage.removeItem('currentUser'); 
-            window.location.reload(); // รีเฟรชกลับหน้าล็อกอิน
+            window.location.reload(); 
         }
     });
 }
 
-// === โลจิกหน้า Login ===
 if(document.getElementById('loginForm')) {
     window.toggleForm = () => { document.getElementById('loginForm').classList.toggle('hidden'); document.getElementById('registerForm').classList.toggle('hidden'); }
     document.getElementById('loginForm').onsubmit = (e) => { e.preventDefault(); login(document.getElementById('username').value, document.getElementById('password').value); };
     document.getElementById('registerForm').onsubmit = (e) => { e.preventDefault(); register(document.getElementById('regUser').value, document.getElementById('regPass').value, document.getElementById('regName').value); };
     
-    // ถ้ามีคนล็อกอินอยู่แล้วในหน้า Login ให้ไปที่ Dashboard หรือ โหลด Data
     if(currentUser) {
-        document.querySelector('.login-wrapper').style.display = 'none'; // ซ่อนฟอร์มล็อกอิน
+        document.querySelector('.login-wrapper').style.display = 'none'; 
         listenToData(); 
         window.onload = () => checkAuth();
     }
 }
 
-// === ADMIN ROLE MANAGEMENT MODAL ===
-window.openAdminModal = function() {
-    document.getElementById("adminModal").style.display = "block";
-    loadUsersToAdminTable(); 
-}
-
-window.closeAdminModal = function() {
-    document.getElementById("adminModal").style.display = "none";
-}
-
-window.loadUsersToAdminTable = function() {
-    const tableBody = document.getElementById("adminUserTableBody");
-    if(!tableBody) return;
-    tableBody.innerHTML = ""; 
-
-    if (users.length === 0) {
-        tableBody.innerHTML = "<tr><td colspan='4' style='text-align:center;'>กำลังโหลดข้อมูล...</td></tr>";
-        return;
-    }
-
-    users.forEach((u) => {
-        const userName = u.name || "ไม่มีชื่อ";
-        const userEmail = u.username || "-";
-        const currentRole = u.role || "user"; // ป้องกันค่า null
-
-        const roleBadge = currentRole === 'admin' 
-            ? `<span style="background:#ff9800; color:#fff; padding:3px 10px; border-radius:15px; font-size:12px;"><i class="fas fa-crown"></i> Admin</span>`
-            : `<span style="background:#444; color:#fff; padding:3px 10px; border-radius:15px; font-size:12px;">User</span>`;
-
-        // ป้องกันไม่ให้แอดมินปลดสิทธิ์ตัวเอง หรือ แบนตัวเอง
-        let actionBtn = "";
-        if (currentUser && currentUser.id === u.id) {
-            actionBtn = `<span style="color: #888; font-size: 12px;">(ตัวคุณเอง)</span>`;
-        } else {
-            actionBtn = `<button onclick="window.changeUserRole('${u.id}', '${currentRole}', '${userName}')" 
-                style="background: #28a745; color: white; border: none; padding: 6px 12px; border-radius: 5px; cursor: pointer; font-size: 12px; transition: 0.2s;">
-                <i class="fas fa-exchange-alt"></i> เปลี่ยนสิทธิ์
-            </button>`;
-        }
-
-        const row = `<tr style="border-bottom: 1px solid rgba(255,255,255,0.1);">
-            <td style="padding:12px;">${userName}</td>
-            <td style="padding:12px;">${userEmail}</td>
-            <td style="padding:12px;">${roleBadge}</td>
-            <td style="padding:12px;">${actionBtn}</td>
-        </tr>`;
-        tableBody.innerHTML += row;
-    });
-}
-
-window.changeUserRole = async function(userId, currentRole, userName) {
-    const newRole = currentRole === 'admin' ? 'user' : 'admin';
-    const actionText = newRole === 'admin' ? 'เลื่อนขั้นเป็น Admin' : 'ปลดเป็นนักศึกษาทั่วไป';
-
-    const result = await Swal.fire({
-        title: 'ยืนยันการเปลี่ยนสิทธิ์?',
-        html: `คุณต้องการ <b>${actionText}</b> ให้กับ <br/><span style="color:#ff9800">${userName}</span> ใช่หรือไม่?`,
-        icon: 'warning',
-        showCancelButton: true,
-        confirmButtonColor: '#ff9800',
-        cancelButtonColor: '#444',
-        confirmButtonText: 'ยืนยันการเปลี่ยน',
-        cancelButtonText: 'ยกเลิก',
-        background: '#1a1a1a',
-        color: '#fff'
-    });
-
-    if (result.isConfirmed) {
-        try {
-            const userRef = doc(db, "users", userId);
-            await updateDoc(userRef, { role: newRole });
-            
-            Swal.fire({
-                title: 'สำเร็จ!',
-                text: `เปลี่ยนสิทธิ์ของ ${userName} เรียบร้อยแล้ว`,
-                icon: 'success',
-                background: '#1a1a1a',
-                color: '#fff',
-                timer: 1500,
-                showConfirmButton: false
-            });
-            // ข้อมูลจะโหลดใหม่ผ่าน onSnapshot อัตโนมัติ
-        } catch (error) {
-            console.error("Error updating role: ", error);
-            Swal.fire('เกิดข้อผิดพลาด!', 'ไม่สามารถเปลี่ยนสิทธิ์ได้', 'error');
-        }
-    }
-}
-
-
-// === USER DASHBOARD CORE LOGIC ===
-// (โหลดเฉพาะตอนเข้าหน้า Dashboard หรือ Index ที่มี Grid)
+// ==========================================
+// 🔥 USER DASHBOARD & CART SYSTEM 🔥
+// ==========================================
 if(document.getElementById('itemGrid') && currentUser) {
     
+    // โหลดของมาโชว์ใน Grid
     window.renderItems = (cat = 'all') => {
         const grid = document.getElementById('itemGrid'); if(!grid) return; grid.innerHTML = '';
         items.forEach(item => {
             if(cat !== 'all' && item.category !== cat) return;
-            const isBorrowed = borrowRequests.some(r => (r.item === item.name) && (r.status === 'borrowed' || r.status === 'approved_pickup'));
             
-            const status = isBorrowed ? 'borrowed' : 'available';
-            const btnClass = status === 'available' ? 'btn-borrow' : 'btn-disabled';
-            const btnText = status === 'available' ? 'จองทันที' : 'ไม่ว่าง';
-            const btnAction = status === 'available' ? `openModal('${item.name}', '${item.id}')` : '';
-            grid.innerHTML += `<div class="card"><div class="card-img"><img src="${item.image}"><div class="status-badge ${status}">${status==='available'?'ว่าง':'ถูกยืม'}</div></div><div class="card-body"><h4>${item.name}</h4><span class="category-tag">${item.category.toUpperCase()}</span><button class="${btnClass}" onclick="${btnAction}">${btnText}</button></div></div>`;
+            // 🔥 เช็คว่าของชิ้นนี้ถูกยืมไปแล้ว หรืออยู่ในตะกร้าของเรา
+            const isBorrowed = borrowRequests.some(r => (r.item && r.item.includes(item.name)) && (r.status === 'borrowed' || r.status === 'approved_pickup'));
+            const inCart = cart.some(c => c.id === item.id);
+            
+            let status = isBorrowed ? 'borrowed' : (inCart ? 'incart' : 'available');
+            let btnClass = status === 'available' ? 'btn-borrow' : 'btn-disabled';
+            let btnText = status === 'available' ? '<i class="fas fa-cart-plus"></i> ลงตะกร้า' : (inCart ? 'อยู่ในตะกร้าแล้ว' : 'ไม่ว่าง');
+            let btnAction = status === 'available' ? `addToCart('${item.id}', '${item.name}')` : '';
+            
+            let badgeText = status === 'available' ? 'ว่าง' : (inCart ? 'เลือกแล้ว' : 'ถูกยืม');
+            
+            grid.innerHTML += `<div class="card"><div class="card-img"><img src="${item.image}"><div class="status-badge ${status}">${badgeText}</div></div><div class="card-body"><h4>${item.name}</h4><span class="category-tag">${item.category.toUpperCase()}</span><button class="${btnClass}" onclick="${btnAction}">${btnText}</button></div></div>`;
         });
     }
 
-    window.openModal = (n, id) => { 
-        document.getElementById('modalItemName').innerText = n; 
-        document.getElementById('modalItemName').dataset.id = id; 
-        document.getElementById('borrowerName').value = currentUser.name; 
-        
-        const dateInput = document.querySelector('#borrowForm input[type="date"]');
+    // ฟังก์ชันตะกร้าสินค้า
+    window.addToCart = function(id, name) {
+        cart.push({ id, name });
+        updateCartCount();
+        renderItems(); 
+        Swal.fire({icon: 'success', title: 'เพิ่มลงตะกร้าแล้ว', showConfirmButton: false, timer: 1000, position: 'top-end', toast: true});
+    }
+
+    window.updateCartCount = function() {
+        const badge = document.getElementById('cartCountBadge');
+        if(badge) badge.innerText = cart.length;
+    }
+
+    window.openCartModal = function() {
+        if(cart.length === 0) {
+            Swal.fire('ตะกร้าว่างเปล่า', 'กรุณาเลือกอุปกรณ์ก่อนทำการจอง', 'info');
+            return;
+        }
+        document.getElementById('cartBorrowerName').value = currentUser.name || currentUser.username;
+
+        const dateInput = document.getElementById('cartBorrowDate');
         if (dateInput) {
             const today = new Date();
-            const formatDate = (dateObj) => {
-                const y = dateObj.getFullYear();
-                const m = String(dateObj.getMonth() + 1).padStart(2, '0');
-                const d = String(dateObj.getDate()).padStart(2, '0');
-                return `${y}-${m}-${d}`;
-            };
-            dateInput.min = formatDate(today); 
-            dateInput.removeAttribute("max"); 
-            dateInput.value = ""; 
+            const y = today.getFullYear();
+            const m = String(today.getMonth() + 1).padStart(2, '0');
+            const d = String(today.getDate()).padStart(2, '0');
+            dateInput.min = `${y}-${m}-${d}`;
+            dateInput.value = "";
         }
-        document.getElementById('borrowModal').style.display = 'flex'; 
+
+        const listDiv = document.getElementById('cartItemsList');
+        listDiv.innerHTML = cart.map((item, index) =>
+            `<div style="display:flex; justify-content:space-between; color:white; padding:8px 0; border-bottom:1px solid #444;">
+                <span>${index+1}. ${item.name}</span>
+                <button type="button" onclick="removeFromCart('${item.id}')" style="background:none; border:none; color:#dc3545; cursor:pointer;"><i class="fas fa-trash"></i></button>
+            </div>`
+        ).join('');
+
+        document.getElementById('cartModal').style.display = 'flex';
     }
-    window.closeModal = () => document.getElementById('borrowModal').style.display = 'none';
 
-    document.getElementById('borrowForm').onsubmit = async (e) => {
-        e.preventDefault();
-        const itemName = document.getElementById('modalItemName').innerText;
-        const date = document.querySelector('input[type="date"]').value;
-        const submitBtn = document.querySelector('#borrowForm button[type="submit"]');
+    window.removeFromCart = function(id) {
+        cart = cart.filter(i => i.id !== id);
+        updateCartCount();
+        renderItems();
+        if(cart.length === 0) closeCartModal(); else openCartModal();
+    }
+    
+    window.closeCartModal = () => document.getElementById('cartModal').style.display = 'none';
 
-        const selectedDate = new Date(date);
-        selectedDate.setHours(0,0,0,0);
-        
-        const today = new Date();
-        today.setHours(0,0,0,0);
+    // ยืนยันจองของในตะกร้า (หลายชิ้น)
+    if(document.getElementById('cartForm')) {
+        document.getElementById('cartForm').onsubmit = async (e) => {
+            e.preventDefault();
+            const date = document.getElementById('cartBorrowDate').value;
+            const reason = document.getElementById('cartReason').value;
+            const submitBtn = document.querySelector('#cartForm button[type="submit"]');
 
-        const maxAllowedDate = new Date(today);
-        maxAllowedDate.setDate(today.getDate() + 5);
+            const selectedDate = new Date(date); selectedDate.setHours(0,0,0,0);
+            const today = new Date(); today.setHours(0,0,0,0);
+            const maxAllowedDate = new Date(today); maxAllowedDate.setDate(today.getDate() + 5);
 
-        if(selectedDate < today) {
-            Swal.fire({ icon: 'error', title: 'วันที่ไม่ถูกต้อง', text: 'ไม่สามารถเลือกวันที่ย้อนหลังได้ครับ' });
-            return;
-        }
-        if(selectedDate > maxAllowedDate) {
-            Swal.fire({ icon: 'error', title: 'วันที่ไม่ถูกต้อง', text: 'สามารถจองล่วงหน้าได้ไม่เกิน 5 วันครับ' });
-            return;
-        }
+            if(selectedDate < today) { Swal.fire({ icon: 'error', title: 'วันที่ไม่ถูกต้อง', text: 'ไม่สามารถเลือกวันที่ย้อนหลังได้ครับ' }); return; }
+            if(selectedDate > maxAllowedDate) { Swal.fire({ icon: 'error', title: 'วันที่ไม่ถูกต้อง', text: 'สามารถจองล่วงหน้าได้ไม่เกิน 5 วันครับ' }); return; }
 
-        try {
-            submitBtn.innerText = "⏳ กำลังบันทึก...";
-            submitBtn.disabled = true;
+            try {
+                submitBtn.innerHTML = "⏳ กำลังบันทึก...";
+                submitBtn.disabled = true;
 
-            await addDoc(collection(db, "requests"), { 
-                user: currentUser.name, 
-                userId: currentUser.id, 
-                item: itemName, 
-                date: date, 
-                status: "pending", 
-                proofPhoto: null, 
-                timestamp: new Date() 
-            });
-            
-            fetch(LINE_API_URL, {
-                method: 'POST',
-                mode: 'no-cors',
-                headers: { 'Content-Type': 'text/plain' },
-                body: JSON.stringify({ user: currentUser.name, item: itemName, date: date })
-            }).catch(err => console.error("Line Error", err));
+                // รวมชื่ออุปกรณ์ เช่น "กล้อง Sony, ขาตั้งกล้อง, ไมค์"
+                const itemNamesStr = cart.map(i => i.name).join(', ');
 
-            const emailParams = {
-                user_name: currentUser.name,
-                item_name: itemName,
-                borrow_date: date,
-                status: 'pending'
-            };
-            if(typeof emailjs !== 'undefined') {
-                emailjs.send("service_8q17oo9", "template_4ch9467", emailParams);
+                await addDoc(collection(db, "requests"), { 
+                    user: currentUser.name || currentUser.username, 
+                    userId: currentUser.id, 
+                    item: itemNamesStr, 
+                    date: date, 
+                    reason: reason || "-",
+                    status: "pending", 
+                    proofPhoto: null, 
+                    timestamp: new Date() 
+                });
+                
+                fetch(LINE_API_URL, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    headers: { 'Content-Type': 'text/plain' },
+                    body: JSON.stringify({ user: currentUser.name || currentUser.username, item: itemNamesStr, date: date })
+                }).catch(err => console.error("Line Error", err));
+
+                const emailParams = {
+                    user_name: currentUser.name || currentUser.username,
+                    item_name: itemNamesStr,
+                    borrow_date: date,
+                    status: 'pending'
+                };
+                if(typeof emailjs !== 'undefined') {
+                    emailjs.send("service_8q17oo9", "template_4ch9467", emailParams);
+                }
+
+                Swal.fire({ icon: 'success', title: 'ส่งคำขอจองสำเร็จ!', text: 'ระบบได้แจ้งเตือนไปยัง Admin แล้ว โปรดรอการอนุมัติ', timer: 2500, showConfirmButton: false });
+                
+                cart = []; // เคลียร์ตะกร้า
+                updateCartCount();
+                renderItems();
+                closeCartModal();
+
+            } catch(e) { 
+                Swal.fire({ icon: 'error', title: 'เกิดข้อผิดพลาด', text: e.message });
+            } finally {
+                submitBtn.innerHTML = '<i class="fas fa-check-circle"></i> ยืนยันการจองทั้งหมด';
+                submitBtn.disabled = false;
             }
+        };
+    }
 
-            Swal.fire({ icon: 'success', title: 'ส่งคำขอจองสำเร็จ!', text: 'ระบบได้แจ้งเตือนไปยัง Admin แล้ว โปรดรอการอนุมัติ', timer: 2500, showConfirmButton: false });
-            closeModal();
-
-        } catch(e) { 
-            Swal.fire({ icon: 'error', title: 'เกิดข้อผิดพลาด', text: e.message });
-        } finally {
-            submitBtn.innerText = "ยืนยันการจอง";
-            submitBtn.disabled = false;
-        }
-    };
-
+    // รับของ (Upload Proof)
     window.triggerPickup = (reqId) => {
         currentPickupId = reqId;
         const fileInput = document.getElementById('pickupProofInput');
@@ -440,9 +369,10 @@ if(document.getElementById('itemGrid') && currentUser) {
         };
     }
 
+    // แสดงประวัติ
     window.openHistoryModal = () => {
         const tbody = document.getElementById('historyTableBody'); tbody.innerHTML = '';
-        const myReqs = borrowRequests.filter(r => r.user === currentUser.name).sort((a,b) => {
+        const myReqs = borrowRequests.filter(r => r.user === (currentUser.name||currentUser.username)).sort((a,b) => {
              const tA = a.timestamp && a.timestamp.seconds ? a.timestamp.seconds : 0;
              const tB = b.timestamp && b.timestamp.seconds ? b.timestamp.seconds : 0;
              return tB - tA;
@@ -474,10 +404,13 @@ if(document.getElementById('itemGrid') && currentUser) {
     window.searchItem = (t) => { Array.from(document.getElementsByClassName('card')).forEach(c => c.style.display = c.querySelector('h4').innerText.toLowerCase().includes(t.toLowerCase()) ? 'flex' : 'none'); }
 }
 
-// === ADMIN SYSTEM LOGIC ===
+
+// ==========================================
+// 🔥 ADMIN SYSTEM LOGIC 🔥
+// ==========================================
 if(window.location.pathname.includes('admin.html')) {
     listenToData(); window.onload = () => { checkAuth(); updateDashboardStats(); document.getElementById('section-requests').style.display = 'block'; }
-    window.switchTab = (t) => { document.querySelectorAll('.content-section').forEach(e => e.style.display = 'none'); document.querySelectorAll('.sidebar-menu a').forEach(e => e.classList.remove('active')); document.getElementById(`section-${t}`).style.display = 'block'; document.getElementById(`menu-${t}`).classList.add('active'); if(t==='requests') renderRequests(); if(t==='inventory') renderInventory(); if(t==='users') renderUsers(); }
+    window.switchTab = (t) => { document.querySelectorAll('.content-section').forEach(e => e.style.display = 'none'); document.querySelectorAll('.sidebar-menu a').forEach(e => e.classList.remove('active')); document.getElementById(`section-${t}`).style.display = 'block'; document.getElementById(`menu-${t}`).classList.add('active'); if(t==='requests') renderRequests(); if(t==='inventory') renderInventory(); if(t==='users') { if(window.loadUsersToAdminTable) window.loadUsersToAdminTable(); } }
 
     window.renderRequests = () => {
         const tbody = document.getElementById('requestTableBody'); if(!tbody) return; tbody.innerHTML = '';
@@ -517,7 +450,18 @@ if(window.location.pathname.includes('admin.html')) {
     }
     window.updateStatus = async (id, s) => { try { await updateDoc(doc(db, "requests", id), { status: s }); } catch(e) { Swal.fire('Error', e.message, 'error'); } }
     
-    window.renderInventory = () => { const tbody = document.getElementById('inventoryTableBody'); tbody.innerHTML = ''; items.forEach(i => { const st = borrowRequests.some(r => r.item === i.name && (r.status === 'borrowed' || r.status === 'approved_pickup')) ? '<span style="color:var(--danger)">ไม่ว่าง</span>' : '<span style="color:var(--success)">ว่าง</span>'; tbody.innerHTML += `<tr><td><img src="${i.image}" width="40"></td><td style="color:white">${i.name}</td><td>${i.category}</td><td>${st}</td><td><button onclick="deleteItem('${i.id}')" class="btn-action btn-reject"><i class="fas fa-trash"></i></button></td></tr>`; }); }
+    window.renderInventory = () => { 
+        const tbody = document.getElementById('inventoryTableBody'); 
+        if(!tbody) return;
+        tbody.innerHTML = ''; 
+        items.forEach(i => { 
+            // เช็คการยืมแบบ string.includes() เพื่อรองรับระบบตะกร้า
+            const st = borrowRequests.some(r => r.item && r.item.includes(i.name) && (r.status === 'borrowed' || r.status === 'approved_pickup')) 
+                ? '<span style="color:var(--danger)">ไม่ว่าง</span>' 
+                : '<span style="color:var(--success)">ว่าง</span>'; 
+            tbody.innerHTML += `<tr><td><img src="${i.image}" width="40"></td><td style="color:white">${i.name}</td><td>${i.category}</td><td>${st}</td><td><button onclick="deleteItem('${i.id}')" class="btn-action btn-reject"><i class="fas fa-trash"></i></button></td></tr>`; 
+        }); 
+    }
     
     window.addNewItem = async () => { 
         const { value: n } = await Swal.fire({ title: 'เพิ่มอุปกรณ์ใหม่', input: 'text', inputLabel: 'ชื่ออุปกรณ์', inputPlaceholder: 'พิมพ์ชื่ออุปกรณ์ที่นี่...', showCancelButton: true });
@@ -528,13 +472,77 @@ if(window.location.pathname.includes('admin.html')) {
         if(result.isConfirmed) { await deleteDoc(doc(db, "items", id)); Swal.fire('ลบแล้ว!', '', 'success'); }
     }
     
-    window.renderUsers = () => { const tbody = document.getElementById('usersTableBody'); tbody.innerHTML = ''; users.forEach(u => { tbody.innerHTML += `<tr><td style="color:white">${u.name}</td><td>${u.username}</td><td>${u.role}</td><td><button onclick="banUser('${u.id}', '${u.username}')" class="btn-action" style="background:#333; color:#666">Ban</button></td></tr>`; }); }
-    window.banUser = async (id, u) => { 
-        if(u.includes('admin')||u.includes('rmuti')) return Swal.fire('ปฏิเสธ', 'ไม่สามารถแบน Admin ได้', 'error'); 
-        const result = await Swal.fire({ title: 'แบนผู้ใช้นี้?', text: "ผู้ใช้นี้จะถูกลบออกจากระบบ!", icon: 'warning', showCancelButton: true, confirmButtonColor: '#d33', confirmButtonText: 'แบนเลย' });
-        if(result.isConfirmed) { await deleteDoc(doc(db, "users", id)); Swal.fire('แบนสำเร็จ', '', 'success'); }
+    window.updateDashboardStats = () => { 
+        const elPending = document.getElementById('stat-pending');
+        const elBorrowed = document.getElementById('stat-borrowed');
+        const elTotal = document.getElementById('stat-total-items');
+        if(elPending) elPending.innerText = borrowRequests.filter(r => r.status === 'pending').length; 
+        if(elBorrowed) elBorrowed.innerText = borrowRequests.filter(r => r.status === 'borrowed').length; 
+        if(elTotal) elTotal.innerText = items.length; 
     }
-    window.updateDashboardStats = () => { document.getElementById('stat-pending').innerText = borrowRequests.filter(r => r.status === 'pending').length; document.getElementById('stat-borrowed').innerText = borrowRequests.filter(r => r.status === 'borrowed').length; document.getElementById('stat-total-items').innerText = items.length; }
+
+    // --- Admin Role Mgmt ---
+    window.loadUsersToAdminTable = function() {
+        const tableBody = document.getElementById("adminUserTableBody");
+        if(!tableBody) return;
+        tableBody.innerHTML = ""; 
+        if (users.length === 0) {
+            tableBody.innerHTML = "<tr><td colspan='4' style='text-align:center;'>กำลังโหลดข้อมูล...</td></tr>";
+            return;
+        }
+        users.forEach((u) => {
+            const userName = u.name || "ไม่มีชื่อ";
+            const userEmail = u.username || "-";
+            const currentRole = u.role || "user"; 
+            const roleBadge = currentRole === 'admin' 
+                ? `<span style="background:#ff9800; color:#fff; padding:3px 10px; border-radius:15px; font-size:12px;"><i class="fas fa-crown"></i> Admin</span>`
+                : `<span style="background:#444; color:#fff; padding:3px 10px; border-radius:15px; font-size:12px;">User</span>`;
+            
+            let actionBtn = "";
+            if (currentUser && currentUser.id === u.id) {
+                actionBtn = `<span style="color: #888; font-size: 12px;">(ตัวคุณเอง)</span>`;
+            } else {
+                actionBtn = `<button onclick="window.changeUserRole('${u.id}', '${currentRole}', '${userName}')" 
+                    style="background: #28a745; color: white; border: none; padding: 6px 12px; border-radius: 5px; cursor: pointer; font-size: 12px; transition: 0.2s;">
+                    <i class="fas fa-exchange-alt"></i> เปลี่ยนสิทธิ์
+                </button>`;
+            }
+            const row = `<tr style="border-bottom: 1px solid rgba(255,255,255,0.1);">
+                <td style="padding:12px;">${userName}</td>
+                <td style="padding:12px;">${userEmail}</td>
+                <td style="padding:12px;">${roleBadge}</td>
+                <td style="padding:12px;">${actionBtn}</td>
+            </tr>`;
+            tableBody.innerHTML += row;
+        });
+    }
+
+    window.changeUserRole = async function(userId, currentRole, userName) {
+        const newRole = currentRole === 'admin' ? 'user' : 'admin';
+        const actionText = newRole === 'admin' ? 'เลื่อนขั้นเป็น Admin' : 'ปลดเป็นนักศึกษาทั่วไป';
+        const result = await Swal.fire({
+            title: 'ยืนยันการเปลี่ยนสิทธิ์?',
+            html: `คุณต้องการ <b>${actionText}</b> ให้กับ <br/><span style="color:#ff9800">${userName}</span> ใช่หรือไม่?`,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#ff9800',
+            cancelButtonColor: '#444',
+            confirmButtonText: 'ยืนยันการเปลี่ยน',
+            cancelButtonText: 'ยกเลิก',
+            background: '#1a1a1a',
+            color: '#fff'
+        });
+        if (result.isConfirmed) {
+            try {
+                const userRef = doc(db, "users", userId);
+                await updateDoc(userRef, { role: newRole });
+                Swal.fire({ title: 'สำเร็จ!', text: `เปลี่ยนสิทธิ์ของ ${userName} เรียบร้อยแล้ว`, icon: 'success', background: '#1a1a1a', color: '#fff', timer: 1500, showConfirmButton: false });
+            } catch (error) {
+                console.error("Error updating role: ", error);
+                Swal.fire('เกิดข้อผิดพลาด!', 'ไม่สามารถเปลี่ยนสิทธิ์ได้', 'error');
+            }
+        }
+    }
 }
 
 // ฟังก์ชัน Export CSV
@@ -562,12 +570,13 @@ window.exportToCSV = async function() {
 
             let statusThai = status;
             if(status === 'pending') statusThai = "รออนุมัติ";
-            else if(status === 'approved_pickup') statusThai = "รอรับของ";
+            else if(status === 'approved_pickup') statusThai = "รอรับ বিন্দু";
             else if(status === 'borrowed') statusThai = "กำลังยืม";
             else if(status === 'returned') statusThai = "คืนแล้ว";
             else if(status === 'rejected') statusThai = "ถูกปฏิเสธ";
 
-            csvContent += `"${timeString}","${userName}","${itemName}","${borrowDate}","${statusThai}"\n`;
+            // ป้องกันปัญหาการตัดคำผิดพลาดจากคอมม่าในตะกร้าสินค้า
+            csvContent += `"${timeString}","${userName}","${itemName.replace(/"/g, '""')}","${borrowDate}","${statusThai}"\n`;
         });
 
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
