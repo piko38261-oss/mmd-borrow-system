@@ -1,5 +1,5 @@
 /* =========================================
-   script.js - MMD BORROW SYSTEM (STABLE VERSION + CART + ADMIN)
+   script.js - MMD BORROW SYSTEM (PREVENT DOUBLE BOOKING + CART)
    ========================================= */
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
@@ -156,19 +156,38 @@ window.renderItems = (cat = 'all') => {
     const grid = document.getElementById('itemGrid'); if(!grid) return; grid.innerHTML = '';
     items.forEach(item => {
         if(cat !== 'all' && item.category !== cat) return;
-        const isBorrowed = borrowRequests.some(r => (r.item && r.item.includes(item.name)) && (r.status === 'borrowed' || r.status === 'approved_pickup'));
-        const inCart = cart.some(c => c.id === item.id);
         
+        // 🔥 ค้นหาว่าของชิ้นนี้มีการทำรายการค้างอยู่ไหม (รออนุมัติ, รอรับของ, กำลังยืม)
+        const activeReq = borrowRequests.find(r => (r.item && r.item.includes(item.name)) && ['pending', 'approved_pickup', 'borrowed'].includes(r.status));
         let cartItem = cart.find(c => c.id === item.id);
-        let status = isBorrowed ? 'borrowed' : (inCart ? 'incart' : 'available');
-        let btnClass = status === 'available' ? 'btn-borrow' : 'btn-disabled';
         
-        // 🔥 เปลี่ยนคำจาก "เลือกแล้ว" เป็น "กำลังจอง" ตรงนี้ครับ 🔥
-        let btnText = status === 'available' ? '<i class="fas fa-cart-plus"></i> ลงตะกร้า' : (inCart ? `กำลังจอง (${cartItem.qty})` : 'ไม่ว่าง');
-        let btnAction = status === 'available' ? `addToCart('${item.id}', '${item.name}')` : '';
-        let badgeText = status === 'available' ? 'ว่าง' : (inCart ? 'ในตะกร้า' : 'ถูกยืม');
+        let statusCSS = 'available';
+        let btnClass = 'btn-borrow';
+        let btnText = '<i class="fas fa-cart-plus"></i> ลงตะกร้า';
+        let btnAction = `addToCart('${item.id}', '${item.name}')`;
+        let badgeText = 'ว่าง';
+
+        if (activeReq) {
+            // ถ้ามีคิวอยู่แล้ว
+            statusCSS = 'borrowed'; // ใช้คลาสสีแดง/เทา
+            btnClass = 'btn-disabled';
+            btnAction = ''; // กดไม่ได้
+            
+            if (activeReq.status === 'pending') {
+                btnText = '<i class="fas fa-user-clock"></i> ติดจองแล้ว';
+                badgeText = 'รออนุมัติ';
+            } else {
+                btnText = '<i class="fas fa-ban"></i> ไม่ว่าง';
+                badgeText = 'ถูกยืม';
+            }
+        } else if (cartItem) {
+            // ถ้าอยู่ในตะกร้าเราเอง
+            statusCSS = 'incart';
+            btnText = `กำลังจอง (${cartItem.qty})`;
+            badgeText = 'ในตะกร้า';
+        }
         
-        grid.innerHTML += `<div class="card"><div class="card-img"><img src="${item.image}"><div class="status-badge ${status}">${badgeText}</div></div><div class="card-body"><h4>${item.name}</h4><span class="category-tag">${item.category.toUpperCase()}</span><button class="${btnClass}" onclick="${btnAction}">${btnText}</button></div></div>`;
+        grid.innerHTML += `<div class="card"><div class="card-img"><img src="${item.image}"><div class="status-badge ${statusCSS}">${badgeText}</div></div><div class="card-body"><h4>${item.name}</h4><span class="category-tag">${item.category.toUpperCase()}</span><button class="${btnClass}" onclick="${btnAction}">${btnText}</button></div></div>`;
     });
 }
 
@@ -280,7 +299,15 @@ window.deleteRequest = async (id) => { if((await Swal.fire({title:'ลบ?',icon
 window.renderInventory = () => { 
     const tbody = document.getElementById('inventoryTableBody'); if(!tbody) return; tbody.innerHTML = ''; 
     items.forEach(i => { 
-        const st = borrowRequests.some(r => r.item && r.item.includes(i.name) && (r.status === 'borrowed' || r.status === 'approved_pickup')) ? '<span style="color:var(--danger)">ไม่ว่าง</span>' : '<span style="color:var(--success)">ว่าง</span>'; 
+        // 🔥 อัปเดตในตารางแอดมินให้ขึ้นว่า "ติดจอง" ถ้ามีคิว
+        const activeReq = borrowRequests.find(r => r.item && r.item.includes(i.name) && ['pending', 'approved_pickup', 'borrowed'].includes(r.status));
+        
+        let st = '<span style="color:var(--success)">ว่าง</span>';
+        if (activeReq) {
+            if(activeReq.status === 'pending') st = '<span style="color:#ffc107">ติดจอง (รออนุมัติ)</span>';
+            else st = '<span style="color:var(--danger)">ไม่ว่าง</span>';
+        }
+        
         tbody.innerHTML += `<tr><td><img src="${i.image}" width="40"></td><td style="color:white">${i.name}</td><td>${i.category}</td><td>${st}</td><td><button onclick="deleteItem('${i.id}')" class="btn-action btn-reject"><i class="fas fa-trash"></i></button></td></tr>`; 
     }); 
 }
