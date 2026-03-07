@@ -6,9 +6,7 @@
     <title>Admin Dashboard - MMD BORROW</title>
     
     <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600&family=Poppins:wght@400;600&display=swap" rel="stylesheet">
-    
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
     <link rel="stylesheet" href="style.css">
     
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
@@ -27,9 +25,10 @@
             <ul class="sidebar-menu">
                 <li><a href="#" id="menu-requests" class="active" onclick="switchTab('requests')"><i class="fas fa-clipboard-list"></i> <span>คำขอยืม</span></a></li>
                 <li><a href="#" id="menu-inventory" onclick="switchTab('inventory')"><i class="fas fa-box-open"></i> <span>คลังของ</span></a></li>
-                <li><a href="#" id="menu-users" onclick="switchTab('users')"><i class="fas fa-users"></i> <span>ผู้ใช้งาน</span></a></li>
-                <li><a href="dashboard.html" class="btn-back"><i class="fas fa-home"></i> <span>ไปหน้าเว็บหลัก</span></a></li>
                 
+                <li><a href="#" id="menu-users" onclick="switchTab('users'); if(window.loadUsersToAdminTable) window.loadUsersToAdminTable();"><i class="fas fa-users-cog"></i> <span>จัดการผู้ใช้งาน</span></a></li>
+                
+                <li><a href="dashboard.html" class="btn-back"><i class="fas fa-home"></i> <span>ไปหน้าเว็บหลัก</span></a></li>
                 <li><a href="#" onclick="window.logout(); return false;" class="btn-logout-menu"><i class="fas fa-sign-out-alt"></i> <span>ออกระบบ</span></a></li>
             </ul>
         </aside>
@@ -38,7 +37,7 @@
             <header>
                 <h2>Dashboard Overview</h2>
                 <div class="admin-profile">
-                    <span>Admin</span> <i class="fas fa-user-circle"></i>
+                    <span id="userNameDisplay">Admin</span> <i class="fas fa-user-circle"></i>
                 </div>
             </header>
 
@@ -122,20 +121,23 @@
 
             <div id="section-users" class="content-section" style="display:none;">
                 <div class="section-header">
-                    <h3>จัดการผู้ใช้งาน</h3>
-                    <input type="text" placeholder="ค้นหา user..." onkeyup="searchUser(this.value)" style="padding:5px; border-radius:5px;">
+                    <h3><i class="fas fa-users-cog"></i> จัดการสิทธิ์ผู้ใช้งาน</h3>
+                    <div class="search-box" style="display: flex; align-items: center; background: #222; padding: 5px 15px; border-radius: 5px; border: 1px solid #444;">
+                        <i class="fas fa-search" style="color: #666; margin-right: 10px;"></i>
+                        <input type="text" placeholder="ค้นหาชื่อผู้ใช้..." onkeyup="searchUser(this.value)" style="background: transparent; border: none; color: white; outline: none;">
+                    </div>
                 </div>
                 <div class="table-responsive">
-                    <table class="data-table">
+                    <table class="data-table" style="width:100%; text-align: left;">
                         <thead>
                             <tr>
-                                <th>ชื่อ-สกุล</th>
-                                <th>Username</th>
-                                <th>Role</th>
-                                <th>Action</th>
+                                <th style="border-bottom:2px solid #ff9800; padding:15px;">ชื่อ-สกุล</th>
+                                <th style="border-bottom:2px solid #ff9800; padding:15px;">Username</th>
+                                <th style="border-bottom:2px solid #ff9800; padding:15px;">สิทธิ์ปัจจุบัน</th>
+                                <th style="border-bottom:2px solid #ff9800; padding:15px;">จัดการสิทธิ์</th>
                             </tr>
                         </thead>
-                        <tbody id="usersTableBody">
+                        <tbody id="adminUserTableBody">
                             </tbody>
                     </table>
                 </div>
