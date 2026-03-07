@@ -70,32 +70,6 @@
         </div>
     </div>
 
-    <div id="adminModal" class="modal" style="display: none; position: fixed; z-index: 9999; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.8);">
-        <div class="modal-content" style="background: rgba(20, 20, 20, 0.95); margin: 10% auto; padding: 25px; border: 1px solid #ff9800; border-radius: 10px; width: 800px; max-width: 90%; color: white; box-shadow: 0 0 20px rgba(255, 152, 0, 0.3);">
-            <span class="close" onclick="window.closeAdminModal()" style="color: #aaa; float: right; font-size: 28px; font-weight: bold; cursor: pointer;">&times;</span>
-            <h3 style="color:#ff9800; margin-top:0; font-family: 'Kanit', sans-serif;"><i class="fas fa-users-cog"></i> จัดการสิทธิ์ผู้ใช้งาน (Admin Only)</h3>
-            
-            <div class="table-responsive" style="margin-top: 20px; max-height: 400px; overflow-y: auto;">
-                <table class="data-table" style="width:100%; color:white; font-size:14px; text-align:left; border-collapse: collapse;">
-                    <thead>
-                        <tr>
-                            <th style="border-bottom:1px solid #ff9800; padding:12px; font-family: 'Kanit', sans-serif;">ชื่อผู้ใช้งาน</th>
-                            <th style="border-bottom:1px solid #ff9800; padding:12px; font-family: 'Kanit', sans-serif;">อีเมล / รหัส</th>
-                            <th style="border-bottom:1px solid #ff9800; padding:12px; font-family: 'Kanit', sans-serif;">สิทธิ์ปัจจุบัน</th>
-                            <th style="border-bottom:1px solid #ff9800; padding:12px; font-family: 'Kanit', sans-serif;">จัดการ</th>
-                        </tr>
-                    </thead>
-                    <tbody id="adminUserTableBody">
-                        </tbody>
-                </table>
-            </div>
-            
-            <div style="margin-top:25px; text-align:right;">
-                <button onclick="window.closeAdminModal()" class="btn-cancel" style="background: #444; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-family: 'Kanit', sans-serif; transition: 0.3s;">ปิดหน้าต่าง</button>
-            </div>
-        </div>
-    </div>
-
     <script type="module" src="script.js"></script>
 </body>
 </html>
