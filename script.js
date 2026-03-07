@@ -1,5 +1,5 @@
 /* =========================================
-   script.js - MMD BORROW SYSTEM (STABLE VERSION + CART + ADMIN)
+   script.js - MMD BORROW SYSTEM (CART MULTI-QTY + ADMIN)
    ========================================= */
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
@@ -10,7 +10,7 @@ try { emailjs.init("Rj2WpB-v7fZqvEu08"); } catch (e) { console.warn("⚠️ Emai
 
 const LINE_API_URL = "https://script.google.com/macros/s/AKfycbzw0gLpeZEdB8rUofNdPTLKHBQYhfcYcD1S72t_PRI-tSfdfi2-ZqGUw-Hwa4wRP17crg/exec";
 
-// 🔴 ใส่ Config ของคุณกายตรงนี้
+// 🔴 1. ใส่ Config ของคุณกายตรงนี้ 🔴
 const firebaseConfig = {
   apiKey: "AIzaSyCJNX3-vN5bceDczdKxrqb0N8uaBpgDhTE",
   authDomain: "mmd-borrow-app.firebaseapp.com",
@@ -28,7 +28,7 @@ let currentUser = JSON.parse(localStorage.getItem('currentUser')) || null;
 let items = [];
 let borrowRequests = [];
 let users = [];
-let cart = []; 
+let cart = []; // เก็บของในตะกร้าแบบ {id, name, qty}
 let currentPickupId = null;
 
 /* --- Helpers --- */
@@ -150,33 +150,57 @@ window.listenToData = function() {
 }
 
 /* ==========================================
-   🔥 DASHBOARD & CART FUNCTIONS 🔥
+   🔥 DASHBOARD & CART FUNCTIONS (MULTI-QTY) 🔥
    ========================================== */
 window.renderItems = (cat = 'all') => {
     const grid = document.getElementById('itemGrid'); if(!grid) return; grid.innerHTML = '';
     items.forEach(item => {
         if(cat !== 'all' && item.category !== cat) return;
-        const isBorrowed = borrowRequests.some(r => (r.item && r.item.includes(item.name)) && (r.status === 'borrowed' || r.status === 'approved_pickup'));
-        const inCart = cart.some(c => c.id === item.id);
         
-        let status = isBorrowed ? 'borrowed' : (inCart ? 'incart' : 'available');
+        const isBorrowed = borrowRequests.some(r => (r.item && r.item.includes(item.name)) && (r.status === 'borrowed' || r.status === 'approved_pickup'));
+        
+        let cartItem = cart.find(c => c.id === item.id);
+        
+        let status = isBorrowed ? 'borrowed' : (cartItem ? 'incart' : 'available');
         let btnClass = status === 'available' ? 'btn-borrow' : 'btn-disabled';
-        let btnText = status === 'available' ? '<i class="fas fa-cart-plus"></i> ลงตะกร้า' : (inCart ? 'อยู่ในตะกร้าแล้ว' : 'ไม่ว่าง');
+        
+        // ถ้าอยู่ในตะกร้าแล้ว ให้โชว์จำนวนบนปุ่ม
+        let btnText = status === 'available' ? '<i class="fas fa-cart-plus"></i> ลงตะกร้า' : (cartItem ? `เลือกแล้ว (${cartItem.qty})` : 'ไม่ว่าง');
         let btnAction = status === 'available' ? `addToCart('${item.id}', '${item.name}')` : '';
-        let badgeText = status === 'available' ? 'ว่าง' : (inCart ? 'เลือกแล้ว' : 'ถูกยืม');
+        let badgeText = status === 'available' ? 'ว่าง' : (cartItem ? 'ในตะกร้า' : 'ถูกยืม');
         
         grid.innerHTML += `<div class="card"><div class="card-img"><img src="${item.image}"><div class="status-badge ${status}">${badgeText}</div></div><div class="card-body"><h4>${item.name}</h4><span class="category-tag">${item.category.toUpperCase()}</span><button class="${btnClass}" onclick="${btnAction}">${btnText}</button></div></div>`;
     });
 }
 
-window.addToCart = function(id, name) {
-    cart.push({ id, name }); window.updateCartCount(); window.renderItems(); 
-    Swal.fire({icon: 'success', title: 'เพิ่มลงตะกร้าแล้ว', showConfirmButton: false, timer: 1000, position: 'top-end', toast: true});
+// 📌 เด้ง Popup ถามจำนวนตอนกดลงตะกร้า
+window.addToCart = async function(id, name) {
+    const { value: qty } = await Swal.fire({
+        title: 'ระบุจำนวนที่ต้องการยืม',
+        html: `อุปกรณ์: <b style="color:#ff9800">${name}</b>`,
+        input: 'number',
+        inputValue: 1,
+        inputAttributes: { min: 1, step: 1 },
+        showCancelButton: true,
+        confirmButtonText: '<i class="fas fa-check"></i> ยืนยัน',
+        cancelButtonText: 'ยกเลิก',
+        confirmButtonColor: '#28a745',
+        background: '#1a1a1a',
+        color: '#fff'
+    });
+
+    if (qty && qty > 0) {
+        cart.push({ id, name, qty: parseInt(qty) });
+        window.updateCartCount();
+        window.renderItems(); 
+        Swal.fire({icon: 'success', title: 'เพิ่มลงตะกร้าแล้ว', text: `จำนวน ${qty} ชิ้น`, showConfirmButton: false, timer: 1500, position: 'top-end', toast: true});
+    }
 }
 
 window.updateCartCount = function() {
     const badge = document.getElementById('cartCountBadge');
-    if(badge) badge.innerText = cart.length;
+    const totalItems = cart.reduce((sum, item) => sum + item.qty, 0); // นับรวมชิ้น
+    if(badge) badge.innerText = totalItems;
 }
 
 window.openCartModal = function() {
@@ -193,9 +217,10 @@ window.openCartModal = function() {
         dateInput.value = "";
     }
 
+    // โชว์รายชื่อพร้อมจำนวนในตะกร้า
     document.getElementById('cartItemsList').innerHTML = cart.map((item, index) =>
-        `<div style="display:flex; justify-content:space-between; color:white; padding:8px 0; border-bottom:1px solid #444;">
-            <span>${index+1}. ${item.name}</span>
+        `<div style="display:flex; justify-content:space-between; align-items:center; color:white; padding:8px 0; border-bottom:1px solid #444;">
+            <span>${index+1}. ${item.name} <strong style="color:#ff9800; margin-left:10px;">(x${item.qty})</strong></span>
             <button type="button" onclick="removeFromCart('${item.id}')" style="background:none; border:none; color:#dc3545; cursor:pointer;"><i class="fas fa-trash"></i></button>
         </div>`
     ).join('');
@@ -287,30 +312,10 @@ window.changeUserRole = async function(userId, currentRole, userName) {
     }
 }
 
-window.exportToCSV = async function() {
-    try {
-        Swal.fire({ title: 'กำลังเตรียมรายงาน...', timer: 1000, timerProgressBar: true, didOpen: () => { Swal.showLoading(); }});
-        const querySnapshot = await getDocs(collection(db, "requests"));
-        let csvContent = "\uFEFFวันที่ส่งคำขอ,ชื่อผู้ยืม,อุปกรณ์ที่ยืม,วันที่ต้องการยืม,สถานะ\n";
-        querySnapshot.forEach((doc) => {
-            const data = doc.data();
-            let timeString = data.timestamp ? (data.timestamp.toDate ? data.timestamp.toDate().toLocaleString('th-TH') : new Date(data.timestamp).toLocaleString('th-TH')) : "-";
-            const userName = data.user || "-", itemName = data.item || "-", borrowDate = data.date || "-", status = data.status || "-";
-            let statusThai = status === 'pending' ? "รออนุมัติ" : (status === 'approved_pickup' ? "รอรับของ" : (status === 'borrowed' ? "กำลังยืม" : (status === 'returned' ? "คืนแล้ว" : "ถูกปฏิเสธ")));
-            csvContent += `"${timeString}","${userName}","${itemName.replace(/"/g, '""')}","${borrowDate}","${statusThai}"\n`;
-        });
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-        const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = `MMD_Borrow_Report.csv`;
-        document.body.appendChild(link); link.click(); document.body.removeChild(link);
-        setTimeout(() => Swal.fire({ icon: 'success', title: 'สำเร็จ!', showConfirmButton: false, timer: 1500 }), 1000);
-    } catch (error) { Swal.fire({ icon: 'error', title: 'ผิดพลาด', text: 'โหลดรายงานไม่ได้' }); }
-}
-
 /* ==========================================
-   🔥 APP INITIALIZATION (จัดการเปิดหน้าเว็บ) 🔥
+   🔥 APP INITIALIZATION (เริ่มทำงาน) 🔥
    ========================================== */
 function initApp() {
-    // 1. ตรวจสอบหน้า Login
     if(document.getElementById('loginForm')) {
         window.toggleForm = () => { document.getElementById('loginForm').classList.toggle('hidden'); document.getElementById('registerForm').classList.toggle('hidden'); }
         document.getElementById('loginForm').onsubmit = (e) => { e.preventDefault(); window.login(document.getElementById('username').value, document.getElementById('password').value); };
@@ -318,13 +323,11 @@ function initApp() {
         if(currentUser) window.location.href = 'dashboard.html'; 
     }
     
-    // 2. ตรวจสอบหน้า Dashboard
     else if(document.getElementById('itemGrid')) {
         if(window.checkAuth()) { 
             window.listenToData();
             window.updateCartCount();
 
-            // ผูก Event Cart Form
             if(document.getElementById('cartForm')) {
                 document.getElementById('cartForm').onsubmit = async (e) => {
                     e.preventDefault();
@@ -341,7 +344,9 @@ function initApp() {
 
                     try {
                         submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> กำลังบันทึก...'; submitBtn.disabled = true;
-                        const itemNamesStr = cart.map(i => i.name).join(', ');
+                        
+                        // 📌 แปลงชื่ออุปกรณ์พร้อมจำนวนเพื่อส่งให้แอดมิน
+                        const itemNamesStr = cart.map(i => `${i.name} (${i.qty} ชิ้น)`).join(', ');
 
                         await addDoc(collection(db, "requests"), { 
                             user: currentUser.name || currentUser.username, userId: currentUser.id, 
@@ -358,7 +363,6 @@ function initApp() {
                 };
             }
 
-            // ผูก Event อัปโหลดรูป
             const pickupInput = document.getElementById('pickupProofInput');
             if(pickupInput) {
                 pickupInput.onchange = async (e) => {
@@ -375,7 +379,6 @@ function initApp() {
         }
     }
 
-    // 3. ตรวจสอบหน้า Admin
     else if(document.getElementById('section-requests')) {
         const user = window.checkAuth();
         if(user) {
@@ -389,5 +392,4 @@ function initApp() {
     }
 }
 
-// สั่งให้ระบบเริ่มทำงานทันทีที่โหลดไฟล์สคริปต์เสร็จ
 initApp();
