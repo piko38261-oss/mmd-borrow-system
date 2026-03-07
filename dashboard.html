@@ -117,42 +117,6 @@
         </div>
     </div>
 
-    <audio id="bgMusic"></audio> 
-    <div id="musicControl" onclick="toggleMusic()" style="
-        position: fixed; bottom: 20px; left: 20px; z-index: 9999;
-        background: rgba(0, 0, 0, 0.6); backdrop-filter: blur(5px);
-        border: 1px solid rgba(255, 255, 255, 0.2); color: white; 
-        padding: 10px 15px; border-radius: 30px; cursor: pointer; 
-        font-family: 'Poppins', sans-serif; font-size: 14px;
-        display: flex; align-items: center; gap: 8px;
-        transition: all 0.3s ease; box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-    ">
-        <div id="musicIcon">🔇</div>
-        <span id="musicText">Click to Play</span>
-    </div>
-
-    <script>
-        const playlist = [
-            "https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3?filename=lofi-study-112191.mp3", 
-            "https://cdn.pixabay.com/download/audio/2022/03/10/audio_c8c8a73467.mp3?filename=spirit-blossom-15285.mp3",
-            "https://cdn.pixabay.com/download/audio/2022/01/18/audio_d0a13f69d2.mp3?filename=lofi-chill-medium-version-159456.mp3"
-        ];
-        let currentTrack = 0;
-        const music = document.getElementById('bgMusic');
-        const btn = document.getElementById('musicControl');
-        const icon = document.getElementById('musicIcon');
-        const text = document.getElementById('musicText');
-        music.volume = 0.3; 
-        function loadTrack(index) { music.src = playlist[index]; music.load(); }
-        function nextTrack() { currentTrack++; if (currentTrack >= playlist.length) currentTrack = 0; loadTrack(currentTrack); music.play(); updateButtonState(true); }
-        music.addEventListener('ended', nextTrack);
-        function updateButtonState(isPlaying) { if (isPlaying) { btn.style.background = "var(--theme-primary)"; btn.style.color = "black"; icon.innerText = "🎵"; icon.style.animation = "spin 2s linear infinite"; text.innerText = `Track ${currentTrack + 1}`; } else { btn.style.background = "rgba(0, 0, 0, 0.6)"; btn.style.color = "white"; icon.innerText = "🔇"; icon.style.animation = "none"; text.innerText = "Music Paused"; } }
-        function toggleMusic() { if (music.paused) { music.play(); updateButtonState(true); } else { music.pause(); updateButtonState(false); } }
-        loadTrack(currentTrack);
-        window.addEventListener('load', () => { const playPromise = music.play(); if (playPromise !== undefined) { playPromise.then(_ => { updateButtonState(true); }).catch(error => { console.log("Autoplay blocked."); document.body.addEventListener('click', () => { music.play(); updateButtonState(true); }, { once: true }); }); } });
-        const styleSheet = document.createElement("style"); styleSheet.innerText = `@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } } #musicControl:hover { transform: scale(1.05); }`; document.head.appendChild(styleSheet);
-    </script>
-
     <script type="module" src="script.js"></script>
 </body>
 </html>
