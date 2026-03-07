@@ -157,7 +157,7 @@ window.renderItems = (cat = 'all') => {
     items.forEach(item => {
         if(cat !== 'all' && item.category !== cat) return;
         
-        // 🔥 ค้นหาว่าของชิ้นนี้มีการทำรายการค้างอยู่ไหม (รออนุมัติ, รอรับของ, กำลังยืม)
+        // 🔥 ค้นหาว่าของชิ้นนี้มีการทำรายการค้างอยู่ไหม (รออนุมัติ, กำลังดำเนินการ, กำลังยืม)
         const activeReq = borrowRequests.find(r => (r.item && r.item.includes(item.name)) && ['pending', 'approved_pickup', 'borrowed'].includes(r.status));
         let cartItem = cart.find(c => c.id === item.id);
         
@@ -257,7 +257,7 @@ window.openHistoryModal = () => {
     else myReqs.forEach(r => {
         let statusBadge = '', actionBtn = '-';
         if(r.status === 'pending') statusBadge = '<span style="color:#ffc107">⏳ รออนุมัติ</span>';
-        else if (r.status === 'approved_pickup') { statusBadge = '<span style="color:#0dcaf0">📦 รอรับของ</span>'; actionBtn = `<button onclick="triggerPickup('${r.id}')" class="btn-confirm" style="padding:5px; font-size:12px;">📷 ยืนยันรับของ</button>`; }
+        else if (r.status === 'approved_pickup') { statusBadge = '<span style="color:#0dcaf0">📦 กำลังดำเนินการ</span>'; actionBtn = `<button onclick="triggerPickup('${r.id}')" class="btn-confirm" style="padding:5px; font-size:12px;">📷 ยืนยันรับของ</button>`; }
         else if (r.status === 'borrowed') { statusBadge = '<span style="color:#198754">✅ กำลังยืม</span>'; actionBtn = `<button onclick="viewPhoto('${r.id}')" style="background:none; border:none; color:#ff9800; cursor:pointer; text-decoration:underline;">ดูรูป</button>`; }
         else if (r.status === 'returned') statusBadge = '<span style="color:#aaa">↩️ คืนแล้ว</span>';
         else statusBadge = '<span style="color:red">❌ ปฏิเสธ</span>';
@@ -286,7 +286,7 @@ window.renderRequests = () => {
     sortedReqs.forEach(r => {
         let badge, btns, photoDisplay = r.proofPhoto ? `<button onclick="viewPhoto('${r.id}')" style="background:none; border:none; color:#ff6600; cursor:pointer; font-weight:bold; text-decoration:underline;">📷 รูปรับของ</button>` : '-';
         if(r.status === 'pending') { badge = '<span class="badge status-pending">ใหม่</span>'; btns = `<button class="btn-action" style="background:#28a745;" onclick="updateStatus('${r.id}','approved_pickup')">อนุญาต</button> <button class="btn-action btn-reject" onclick="updateStatus('${r.id}','rejected')">ปฏิเสธ</button>`; }
-        else if (r.status === 'approved_pickup') { badge = '<span class="badge" style="background:#0dcaf0; color:black;">รอรับของ</span>'; btns = '<span style="font-size:12px; color:#aaa;">รอถ่ายรูป</span>'; }
+        else if (r.status === 'approved_pickup') { badge = '<span class="badge" style="background:#0dcaf0; color:black;">กำลังดำเนินการ</span>'; btns = '<span style="font-size:12px; color:#aaa;">รอถ่ายรูป</span>'; }
         else if(r.status === 'borrowed') { badge = '<span class="badge status-approved">ถูกยืม</span>'; btns = `<button class="btn-action" style="background:#0099cc;" onclick="updateStatus('${r.id}','returned')">รับคืน</button>`; }
         else { badge = `<span class="badge" style="background:#333; color:#aaa">${r.status}</span>`; btns = `<button class="btn-action btn-reject" onclick="deleteRequest('${r.id}')"><i class="fas fa-trash"></i></button>`; }
         tbody.innerHTML += `<tr><td>${r.user}</td><td>${r.item}</td><td>${r.date}</td><td>${badge}</td><td>${photoDisplay}</td><td>${btns}</td></tr>`;
@@ -345,7 +345,7 @@ window.exportToCSV = async function() {
             const data = doc.data();
             let timeString = data.timestamp ? (data.timestamp.toDate ? data.timestamp.toDate().toLocaleString('th-TH') : new Date(data.timestamp).toLocaleString('th-TH')) : "-";
             const userName = data.user || "-", itemName = data.item || "-", borrowDate = data.date || "-", status = data.status || "-";
-            let statusThai = status === 'pending' ? "รออนุมัติ" : (status === 'approved_pickup' ? "รอรับของ" : (status === 'borrowed' ? "กำลังยืม" : (status === 'returned' ? "คืนแล้ว" : "ถูกปฏิเสธ")));
+            let statusThai = status === 'pending' ? "รออนุมัติ" : (status === 'approved_pickup' ? "กำลังดำเนินการ" : (status === 'borrowed' ? "กำลังยืม" : (status === 'returned' ? "คืนแล้ว" : "ถูกปฏิเสธ")));
             csvContent += `"${timeString}","${userName}","${itemName.replace(/"/g, '""')}","${borrowDate}","${statusThai}"\n`;
         });
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
