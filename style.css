@@ -489,40 +489,56 @@ nav { background: rgba(0,0,0,0.95); padding: 15px 30px; display: flex; justify-c
         align-items: start;
     }
 }
+
 /* =========================================
-   🛠️ แก้ปัญหาตารางประวัติการจองล้นจอ (ครอบคลุมทั้ง PC และ Mobile)
+   🛠️ แก้ปัญหาตารางประวัติการจองล้นจอ (PC & Mobile + เลื่อนขึ้นลงได้)
    ========================================= */
 
-/* 1. ขยายหน้าต่าง Popup ให้กว้างขึ้น */
+/* 1. ล็อคความสูงของหน้าต่าง Popup และความกว้าง */
 #historyModal .modal-content {
     width: 95% !important;
-    max-width: 1000px !important; /* ขยายจากเดิม 800px เป็น 1000px บน PC */
+    max-width: 1000px !important;
+    max-height: 90vh; /* บังคับให้กล่องสูงไม่เกิน 90% ของหน้าจอ */
+    overflow: hidden; /* ป้องกันการล้น */
+    display: flex;
+    flex-direction: column;
 }
 
-/* 2. ทำให้ตารางมีแถบเลื่อนซ้าย-ขวาได้ (ถ้าจำเป็น) */
+/* 2. ทำให้ตารางมีแถบเลื่อน เลื่อนขึ้น-ลง และ ซ้าย-ขวา ได้ */
 #historyModal .table-responsive {
     width: 100%;
-    overflow-x: auto;
+    max-height: 60vh; /* ล็อคความสูงตาราง ให้เลื่อนสกอร์เมาส์/ปัดนิ้วเอา */
+    overflow-y: auto; /* เลื่อนแนวตั้ง */
+    overflow-x: auto; /* เลื่อนแนวนอน */
     -webkit-overflow-scrolling: touch;
     border: 1px solid #333;
     border-radius: 8px;
     margin-top: 15px;
 }
 
-/* 3. ล็อคความกว้างขั้นต่ำ ไม่ให้ปุ่มเบียดกัน */
+/* 3. ล็อค "หัวตาราง" ให้อยู่กับที่เวลาเลื่อนลงมาดูข้อมูลด้านล่าง (Sticky Header) */
+#historyModal .data-table thead th {
+    position: sticky;
+    top: 0;
+    background: #1a1a1a; /* ใส่สีพื้นหลังให้หัวตารางทึบ */
+    z-index: 10; /* ให้อยู่ชั้นบนสุด */
+    box-shadow: 0 2px 5px rgba(0,0,0,0.5); /* ใส่เงาให้ดูมีมิติ */
+}
+
+/* 4. ล็อคความกว้างขั้นต่ำ ไม่ให้ปุ่มเบียดกัน */
 #historyModal .data-table {
     width: 100%;
     min-width: 650px; 
 }
 
-/* 4. อนุญาตให้ "ชื่ออุปกรณ์" (คอลัมน์แรก) ขึ้นบรรทัดใหม่ได้ถ้าข้อความยาวเกินไป */
+/* 5. อนุญาตให้ "ชื่ออุปกรณ์" (คอลัมน์แรก) ขึ้นบรรทัดใหม่ได้ */
 #historyModal .data-table td:nth-child(1) {
     white-space: normal !important; 
     line-height: 1.6;
     min-width: 250px;
 }
 
-/* 5. บังคับช่อง วันที่, สถานะ, ดำเนินการ ให้อยู่บรรทัดเดียวเสมอ (ไม่เละ) */
+/* 6. บังคับช่อง วันที่, สถานะ, ดำเนินการ ให้อยู่บรรทัดเดียวเสมอ */
 #historyModal .data-table td:nth-child(2),
 #historyModal .data-table td:nth-child(3),
 #historyModal .data-table td:nth-child(4) {
