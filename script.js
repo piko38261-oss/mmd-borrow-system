@@ -1,5 +1,5 @@
 /* =========================================
-   script.js - MMD BORROW SYSTEM (FULL MEGA + RETURN PHOTO + STATS + DELETE USER)
+   script.js - MMD BORROW SYSTEM (FULL MEGA + RETURN PHOTO + STATS + DELETE & SEARCH USER)
    ========================================= */
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
@@ -168,7 +168,7 @@ window.listenToData = function() {
 
     onSnapshot(collection(db, "users"), (snapshot) => {
         users = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        if(document.getElementById('adminUserTableBody')) window.loadUsersToAdminTable();
+        if(document.getElementById('adminUserTableBody')) window.loadUsersToAdminTable(); // อัปเดตตารางพร้อมระบบค้นหา
     });
 }
 
@@ -484,24 +484,49 @@ window.renderStats = function() {
 /* ==========================================
    🔥 การจัดการผู้ใช้งาน (User Management) 🔥
    ========================================== */
-window.loadUsersToAdminTable = function() {
+
+// 1. ฟังก์ชันรับข้อความจากช่องค้นหา
+window.searchUser = function(query) {
+    window.loadUsersToAdminTable(query);
+}
+
+// 2. ฟังก์ชันโหลดตารางผู้ใช้ (พร้อมระบบกรองค้นหา)
+window.loadUsersToAdminTable = function(searchQuery = "") {
     const tableBody = document.getElementById("adminUserTableBody"); if(!tableBody) return; tableBody.innerHTML = ""; 
-    users.forEach((u) => {
-        const roleBadge = u.role === 'admin' ? `<span style="background:#ff9800; color:#fff; padding:3px 10px; border-radius:15px; font-size:12px;">Admin</span>` : `<span style="background:#444; color:#fff; padding:3px 10px; border-radius:15px; font-size:12px;">User</span>`;
+    
+    // กรองข้อมูลตามคำค้นหา
+    let filteredUsers = users;
+    if (searchQuery.trim() !== "") {
+        const q = searchQuery.toLowerCase();
+        filteredUsers = users.filter(u => 
+            (u.name && u.name.toLowerCase().includes(q)) || 
+            (u.username && u.username.toLowerCase().includes(q))
+        );
+    }
+
+    // ถ้าค้นหาแล้วไม่เจอใครเลย ให้แสดงข้อความ
+    if (filteredUsers.length === 0) {
+        tableBody.innerHTML = `<tr><td colspan=\"4\" style=\"text-align:center; color:#888; padding:20px;\">ไม่พบรายชื่อที่ค้นหา</td></tr>`;
+        return;
+    }
+
+    // นำข้อมูลที่กรองแล้วมาแสดงผล
+    filteredUsers.forEach((u) => {
+        const roleBadge = u.role === 'admin' ? `<span style=\"background:#ff9800; color:#fff; padding:3px 10px; border-radius:15px; font-size:12px;\">Admin</span>` : `<span style=\"background:#444; color:#fff; padding:3px 10px; border-radius:15px; font-size:12px;\">User</span>`;
         
         let actionBtns = '';
         if (currentUser && currentUser.id === u.id) {
-            actionBtns = `<span style="color:#888;">(คุณเอง)</span>`;
+            actionBtns = `<span style=\"color:#888;\">(คุณเอง)</span>`; // ป้องกันการลบหรือสลับสิทธิ์ตัวเอง
         } else {
             actionBtns = `
-                <div style="display:flex; gap:5px;">
-                    <button onclick="changeUserRole('${u.id}', '${u.role}', '${u.name || u.username}')" class="btn-action" style="background:#28a745;">สลับสิทธิ์</button>
-                    <button onclick="deleteUser('${u.id}', '${u.name || u.username}')" class="btn-action btn-reject" title="ลบผู้ใช้นี้"><i class="fas fa-trash"></i> ลบ</button>
+                <div style=\"display:flex; gap:5px;\">
+                    <button onclick=\"changeUserRole('${u.id}', '${u.role}', '${u.name || u.username}')\" class=\"btn-action\" style=\"background:#28a745;\">สลับสิทธิ์</button>
+                    <button onclick=\"deleteUser('${u.id}', '${u.name || u.username}')\" class=\"btn-action btn-reject\" title=\"ลบผู้ใช้นี้\"><i class=\"fas fa-trash\"></i> ลบ</button>
                 </div>
             `;
         }
 
-        tableBody.innerHTML += `<tr style="border-bottom: 1px solid rgba(255,255,255,0.1);"><td style="padding:12px;">${u.name||"ไม่มีชื่อ"}</td><td style="padding:12px;">${u.username}</td><td style="padding:12px;">${roleBadge}</td><td style="padding:12px;">${actionBtns}</td></tr>`;
+        tableBody.innerHTML += `<tr style=\"border-bottom: 1px solid rgba(255,255,255,0.1);\"><td style=\"padding:12px;\">${u.name||\"ไม่มีชื่อ\"}</td><td style=\"padding:12px;\">${u.username}</td><td style=\"padding:12px;\">${roleBadge}</td><td style=\"padding:12px;\">${actionBtns}</td></tr>`;
     });
 }
 
@@ -512,7 +537,7 @@ window.changeUserRole = async function(userId, currentRole, userName) {
     }
 }
 
-// ฟังก์ชันลบผู้ใช้ออก (เพิ่มใหม่)
+// ฟังก์ชันลบผู้ใช้ออก
 window.deleteUser = async function(userId, userName) {
     Swal.fire({
         title: 'ลบบัญชีผู้ใช้?',
