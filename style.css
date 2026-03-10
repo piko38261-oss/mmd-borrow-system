@@ -489,3 +489,43 @@ nav { background: rgba(0,0,0,0.95); padding: 15px 30px; display: flex; justify-c
         align-items: start;
     }
 }
+/* =========================================
+   🛠️ แก้ปัญหาตารางประวัติการจองล้นจอ (ครอบคลุมทั้ง PC และ Mobile)
+   ========================================= */
+
+/* 1. ขยายหน้าต่าง Popup ให้กว้างขึ้น */
+#historyModal .modal-content {
+    width: 95% !important;
+    max-width: 1000px !important; /* ขยายจากเดิม 800px เป็น 1000px บน PC */
+}
+
+/* 2. ทำให้ตารางมีแถบเลื่อนซ้าย-ขวาได้ (ถ้าจำเป็น) */
+#historyModal .table-responsive {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    border: 1px solid #333;
+    border-radius: 8px;
+    margin-top: 15px;
+}
+
+/* 3. ล็อคความกว้างขั้นต่ำ ไม่ให้ปุ่มเบียดกัน */
+#historyModal .data-table {
+    width: 100%;
+    min-width: 650px; 
+}
+
+/* 4. อนุญาตให้ "ชื่ออุปกรณ์" (คอลัมน์แรก) ขึ้นบรรทัดใหม่ได้ถ้าข้อความยาวเกินไป */
+#historyModal .data-table td:nth-child(1) {
+    white-space: normal !important; 
+    line-height: 1.6;
+    min-width: 250px;
+}
+
+/* 5. บังคับช่อง วันที่, สถานะ, ดำเนินการ ให้อยู่บรรทัดเดียวเสมอ (ไม่เละ) */
+#historyModal .data-table td:nth-child(2),
+#historyModal .data-table td:nth-child(3),
+#historyModal .data-table td:nth-child(4) {
+    white-space: nowrap !important;
+    vertical-align: middle;
+}
