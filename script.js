@@ -10,7 +10,7 @@ try { emailjs.init("Rj2WpB-v7fZqvEu08"); } catch (e) { console.warn("⚠️ Emai
 
 const LINE_API_URL = "https://script.google.com/macros/s/AKfycbzw0gLpeZEdB8rUofNdPTLKHBQYhfcYcD1S72t_PRI-tSfdfi2-ZqGUw-Hwa4wRP17crg/exec";
 
-// 🔴 Config ของคุณกาย (ตรวจสอบครบถ้วนแล้ว)
+// 🔴 Config ของคุณกาย
 const firebaseConfig = {
   apiKey: "AIzaSyCJNX3-vN5bceDczdKxrqb0N8uaBpgDhTE",
   authDomain: "mmd-borrow-app.firebaseapp.com",
@@ -168,7 +168,7 @@ window.listenToData = function() {
 
     onSnapshot(collection(db, "users"), (snapshot) => {
         users = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        if(document.getElementById('adminUserTableBody')) window.loadUsersToAdminTable(); // อัปเดตตารางพร้อมระบบค้นหา
+        if(document.getElementById('adminUserTableBody')) window.loadUsersToAdminTable(); 
     });
 }
 
@@ -506,27 +506,27 @@ window.loadUsersToAdminTable = function(searchQuery = "") {
 
     // ถ้าค้นหาแล้วไม่เจอใครเลย ให้แสดงข้อความ
     if (filteredUsers.length === 0) {
-        tableBody.innerHTML = `<tr><td colspan=\"4\" style=\"text-align:center; color:#888; padding:20px;\">ไม่พบรายชื่อที่ค้นหา</td></tr>`;
+        tableBody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:#888; padding:20px;">ไม่พบรายชื่อที่ค้นหา</td></tr>`;
         return;
     }
 
     // นำข้อมูลที่กรองแล้วมาแสดงผล
     filteredUsers.forEach((u) => {
-        const roleBadge = u.role === 'admin' ? `<span style=\"background:#ff9800; color:#fff; padding:3px 10px; border-radius:15px; font-size:12px;\">Admin</span>` : `<span style=\"background:#444; color:#fff; padding:3px 10px; border-radius:15px; font-size:12px;\">User</span>`;
+        const roleBadge = u.role === 'admin' ? `<span style="background:#ff9800; color:#fff; padding:3px 10px; border-radius:15px; font-size:12px;">Admin</span>` : `<span style="background:#444; color:#fff; padding:3px 10px; border-radius:15px; font-size:12px;">User</span>`;
         
         let actionBtns = '';
         if (currentUser && currentUser.id === u.id) {
-            actionBtns = `<span style=\"color:#888;\">(คุณเอง)</span>`; // ป้องกันการลบหรือสลับสิทธิ์ตัวเอง
+            actionBtns = `<span style="color:#888;">(คุณเอง)</span>`; // ป้องกันการลบหรือสลับสิทธิ์ตัวเอง
         } else {
             actionBtns = `
-                <div style=\"display:flex; gap:5px;\">
-                    <button onclick=\"changeUserRole('${u.id}', '${u.role}', '${u.name || u.username}')\" class=\"btn-action\" style=\"background:#28a745;\">สลับสิทธิ์</button>
-                    <button onclick=\"deleteUser('${u.id}', '${u.name || u.username}')\" class=\"btn-action btn-reject\" title=\"ลบผู้ใช้นี้\"><i class=\"fas fa-trash\"></i> ลบ</button>
+                <div style="display:flex; gap:5px;">
+                    <button onclick="changeUserRole('${u.id}', '${u.role}', '${u.name || u.username}')" class="btn-action" style="background:#28a745;">สลับสิทธิ์</button>
+                    <button onclick="deleteUser('${u.id}', '${u.name || u.username}')" class="btn-action btn-reject" title="ลบผู้ใช้นี้"><i class="fas fa-trash"></i> ลบ</button>
                 </div>
             `;
         }
 
-        tableBody.innerHTML += `<tr style=\"border-bottom: 1px solid rgba(255,255,255,0.1);\"><td style=\"padding:12px;\">${u.name||\"ไม่มีชื่อ\"}</td><td style=\"padding:12px;\">${u.username}</td><td style=\"padding:12px;\">${roleBadge}</td><td style=\"padding:12px;\">${actionBtns}</td></tr>`;
+        tableBody.innerHTML += `<tr style="border-bottom: 1px solid rgba(255,255,255,0.1);"><td style="padding:12px;">${u.name||"ไม่มีชื่อ"}</td><td style="padding:12px;">${u.username}</td><td style="padding:12px;">${roleBadge}</td><td style="padding:12px;">${actionBtns}</td></tr>`;
     });
 }
 
