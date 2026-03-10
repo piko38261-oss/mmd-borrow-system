@@ -1,5 +1,5 @@
 /* =========================================
-   script.js - MMD BORROW SYSTEM (FULL MEGA + RETURN PHOTO + STATS)
+   script.js - MMD BORROW SYSTEM (FULL MEGA + RETURN PHOTO + STATS + DELETE USER)
    ========================================= */
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
@@ -38,7 +38,7 @@ let currentPage = 1;
 const itemsPerPage = 8; 
 let searchQuery = ""; 
 
-// 🔥 ตัวแปรกราฟ (เติมใหม่) 🔥
+// ตัวแปรกราฟ
 let borrowChartInstance = null;
 let conditionChartInstance = null;
 
@@ -150,7 +150,6 @@ window.listenToData = function() {
         if(document.getElementById('itemGrid')) window.renderItems();
         if(document.getElementById('inventoryTableBody')) window.renderInventory();
         if(window.updateDashboardStats) window.updateDashboardStats();
-        // 🔥 อัปเดตกราฟอัตโนมัติเมื่อข้อมูลเปลี่ยน 🔥
         if(document.getElementById('section-stats') && document.getElementById('section-stats').style.display === 'block') {
             window.renderStats();
         }
@@ -162,7 +161,6 @@ window.listenToData = function() {
         if(document.getElementById('requestTableBody')) window.renderRequests();
         if(document.getElementById('inventoryTableBody')) window.renderInventory();
         if(window.updateDashboardStats) window.updateDashboardStats();
-        // 🔥 อัปเดตกราฟอัตโนมัติเมื่อประวัติเปลี่ยน 🔥
         if(document.getElementById('section-stats') && document.getElementById('section-stats').style.display === 'block') {
             window.renderStats();
         }
@@ -483,19 +481,61 @@ window.renderStats = function() {
     }
 }
 
+/* ==========================================
+   🔥 การจัดการผู้ใช้งาน (User Management) 🔥
+   ========================================== */
 window.loadUsersToAdminTable = function() {
     const tableBody = document.getElementById("adminUserTableBody"); if(!tableBody) return; tableBody.innerHTML = ""; 
     users.forEach((u) => {
         const roleBadge = u.role === 'admin' ? `<span style="background:#ff9800; color:#fff; padding:3px 10px; border-radius:15px; font-size:12px;">Admin</span>` : `<span style="background:#444; color:#fff; padding:3px 10px; border-radius:15px; font-size:12px;">User</span>`;
-        let actionBtn = (currentUser && currentUser.id === u.id) ? `<span style="color:#888;">(คุณเอง)</span>` : `<button onclick="changeUserRole('${u.id}', '${u.role}', '${u.name}')" class="btn-action" style="background:#28a745;">สลับสิทธิ์</button>`;
-        tableBody.innerHTML += `<tr style="border-bottom: 1px solid rgba(255,255,255,0.1);"><td style="padding:12px;">${u.name||"ไม่มีชื่อ"}</td><td style="padding:12px;">${u.username}</td><td style="padding:12px;">${roleBadge}</td><td style="padding:12px;">${actionBtn}</td></tr>`;
+        
+        let actionBtns = '';
+        if (currentUser && currentUser.id === u.id) {
+            actionBtns = `<span style="color:#888;">(คุณเอง)</span>`;
+        } else {
+            actionBtns = `
+                <div style="display:flex; gap:5px;">
+                    <button onclick="changeUserRole('${u.id}', '${u.role}', '${u.name || u.username}')" class="btn-action" style="background:#28a745;">สลับสิทธิ์</button>
+                    <button onclick="deleteUser('${u.id}', '${u.name || u.username}')" class="btn-action btn-reject" title="ลบผู้ใช้นี้"><i class="fas fa-trash"></i> ลบ</button>
+                </div>
+            `;
+        }
+
+        tableBody.innerHTML += `<tr style="border-bottom: 1px solid rgba(255,255,255,0.1);"><td style="padding:12px;">${u.name||"ไม่มีชื่อ"}</td><td style="padding:12px;">${u.username}</td><td style="padding:12px;">${roleBadge}</td><td style="padding:12px;">${actionBtns}</td></tr>`;
     });
 }
+
 window.changeUserRole = async function(userId, currentRole, userName) {
     if((await Swal.fire({title:'เปลี่ยนสิทธิ์?',html:`ยืนยันการเปลี่ยนสิทธิ์ <b>${userName}</b>`, icon:'warning',showCancelButton:true, background:'#1a1a1a', color:'#fff'})).isConfirmed) {
         await updateDoc(doc(db, "users", userId), { role: currentRole === 'admin' ? 'user' : 'admin' });
-        Swal.fire({title:'สำเร็จ!',icon:'success',timer:1500,showConfirmButton:false});
+        Swal.fire({title:'สำเร็จ!',icon:'success',timer:1500,showConfirmButton:false, background:'#1a1a1a', color:'#fff'});
     }
+}
+
+// ฟังก์ชันลบผู้ใช้ออก (เพิ่มใหม่)
+window.deleteUser = async function(userId, userName) {
+    Swal.fire({
+        title: 'ลบบัญชีผู้ใช้?',
+        html: `คุณต้องการลบผู้ใช้ <b>${userName}</b> ออกจากระบบใช่หรือไม่?<br><span style="color:#ff3333; font-size:13px;">(ข้อมูลการล็อกอินของคนนี้จะหายไปถาวร)</span>`,
+        icon: 'error',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#444',
+        confirmButtonText: '<i class="fas fa-trash"></i> ใช่, ลบเลย',
+        cancelButtonText: 'ยกเลิก',
+        background: '#1a1a1a',
+        color: '#fff'
+    }).then(async (result) => {
+        if (result.isConfirmed) {
+            try {
+                Swal.fire({ title: 'กำลังลบข้อมูล...', allowOutsideClick: false, didOpen: () => Swal.showLoading(), background:'#1a1a1a', color:'#fff' });
+                await deleteDoc(doc(db, "users", userId));
+                Swal.fire({ title: 'ลบสำเร็จ!', icon: 'success', timer: 1500, showConfirmButton: false, background:'#1a1a1a', color:'#fff' });
+            } catch (error) {
+                Swal.fire({ icon: 'error', title: 'เกิดข้อผิดพลาด', text: error.message, background:'#1a1a1a', color:'#fff' });
+            }
+        }
+    });
 }
 
 window.exportToCSV = async function() {
