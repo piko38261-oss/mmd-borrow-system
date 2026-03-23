@@ -1,5 +1,5 @@
 /* =========================================
-   script.js - MMD BORROW SYSTEM (FULL COMPLETE MEGA VERSION + IMAGE UPLOAD FIX)
+   script.js - MMD BORROW SYSTEM (FULL COMPLETE MEGA VERSION)
    ========================================= */
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
@@ -189,7 +189,14 @@ window.triggerReturn = (id) => { currentReturnId = id; document.getElementById('
 /* ==========================================
    🔥 ADMIN SYSTEM 🔥
    ========================================== */
-window.switchTab = (t) => { document.querySelectorAll('.content-section').forEach(e => e.style.display = 'none'); document.querySelectorAll('.sidebar-menu a').forEach(e => e.classList.remove('active')); document.getElementById(`section-${t}`).style.display = 'block'; document.getElementById(`menu-${t}`).classList.add('active'); }
+window.switchTab = (t) => { 
+    document.querySelectorAll('.content-section').forEach(e => e.style.display = 'none'); 
+    document.querySelectorAll('.sidebar-menu a').forEach(e => e.classList.remove('active')); 
+    document.getElementById(`section-${t}`).style.display = 'block'; 
+    document.getElementById(`menu-${t}`).classList.add('active'); 
+    if (t === 'stats') { window.renderStats(); } // 🟢 สั่งวาดกราฟเมื่อคลิกแท็บสถิติ
+}
+
 window.searchRequest = (query) => { searchQuery = query.toLowerCase(); currentPage = 1; window.renderRequests(); }
 
 window.renderRequests = () => {
@@ -200,20 +207,45 @@ window.renderRequests = () => {
     const pages = Math.ceil(reqs.length / itemsPerPage) || 1; if(currentPage > pages) currentPage = pages; 
     const pagedReqs = reqs.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
-    if (pagedReqs.length === 0) tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:20px;">ไม่พบข้อมูล</td></tr>`;
+    if (pagedReqs.length === 0) { tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:20px;">ไม่พบข้อมูล</td></tr>`; return; }
+    
     pagedReqs.forEach(r => {
         let photoDisplay = `<div style="display:flex; gap:5px;">${r.proofPhoto ? `<button onclick="viewPhoto('${r.id}', 'pickup')" style="background:none; border:none; color:#0dcaf0; cursor:pointer;">📷 รับ</button>` : ''}${r.returnProofPhoto ? `<button onclick="viewPhoto('${r.id}', 'return')" style="background:none; border:none; color:#ff9800; cursor:pointer;">📷 คืน</button>` : ''}</div>`;
         if(!r.proofPhoto && !r.returnProofPhoto) photoDisplay = '-';
-        let badge, btns;
-        if(r.status === 'pending') { badge = '<span class="badge status-pending">ใหม่</span>'; btns = `<button class="btn-action btn-approve" onclick="updateStatus('${r.id}','approved_pickup')">อนุญาต</button> <button class="btn-action btn-reject" onclick="updateStatus('${r.id}','rejected')">ปฏิเสธ</button>`; } 
-        else if (r.status === 'approved_pickup') { badge = '<span class="badge" style="background:#0dcaf0; color:black;">ดำเนินการ</span>'; btns = `<button class="btn-action btn-reject" onclick="updateStatus('${r.id}','pending')"><i class="fas fa-undo"></i> ยกเลิก</button>`; } 
-        else if(r.status === 'borrowed') { badge = '<span class="badge status-approved">ถูกยืม</span>'; btns = `<button class="btn-action" style="background:#666;" onclick="updateStatus('${r.id}','returned')">รับคืน(ข้ามรูป)</button>`; } 
-        else if (r.status === 'pending_return') { badge = '<span class="badge" style="background:#ff9800;">รอตรวจคืน</span>'; btns = `<button class="btn-action btn-approve" onclick="updateStatus('${r.id}','returned')">ยืนยัน</button> <button class="btn-action btn-reject" onclick="updateStatus('${r.id}','borrowed')">ตีกลับ</button>`; }
-        else { badge = `<span class="badge" style="background:#333;">${r.status}</span>`; btns = `<button class="btn-action btn-reject" onclick="deleteRequest('${r.id}')"><i class="fas fa-trash"></i></button>`; }
+        
+        let badge = '', btns = '';
+        
+        // 🟢 บังคับสีปุ่มแบบ Inline ให้ชัดเจน 100%
+        if(r.status === 'pending') { 
+            badge = '<span class="badge" style="background:transparent; color:#ffc107; border:1px solid #ffc107;">ใหม่</span>'; 
+            btns = `<button onclick="updateStatus('${r.id}','approved_pickup')" style="background:#28a745; color:#fff; border:none; padding:6px 12px; border-radius:4px; font-weight:bold; cursor:pointer; margin-right:5px;">อนุญาต</button> 
+                    <button onclick="updateStatus('${r.id}','rejected')" style="background:#dc3545; color:#fff; border:none; padding:6px 12px; border-radius:4px; font-weight:bold; cursor:pointer;">ปฏิเสธ</button>`; 
+        } 
+        else if (r.status === 'approved_pickup') { 
+            badge = '<span class="badge" style="background:#0dcaf0; color:black;">ดำเนินการ</span>'; 
+            btns = `<button onclick="updateStatus('${r.id}','pending')" style="background:#ffc107; color:#000; border:none; padding:6px 12px; border-radius:4px; font-weight:bold; cursor:pointer;"><i class="fas fa-undo"></i> ยกเลิก</button>`; 
+        } 
+        else if(r.status === 'borrowed') { 
+            badge = '<span class="badge" style="background:#198754; color:white;">ถูกยืม</span>'; 
+            btns = `<button onclick="updateStatus('${r.id}','returned')" style="background:#6c757d; color:#fff; border:none; padding:6px 12px; border-radius:4px; font-weight:bold; cursor:pointer;">รับคืน(ข้ามรูป)</button>`; 
+        } 
+        else if (r.status === 'pending_return') { 
+            badge = '<span class="badge" style="background:#ff9800; color:#fff;">รอตรวจคืน</span>'; 
+            btns = `<button onclick="updateStatus('${r.id}','returned')" style="background:#28a745; color:#fff; border:none; padding:6px 12px; border-radius:4px; font-weight:bold; cursor:pointer; margin-right:5px;">ยืนยัน</button> 
+                    <button onclick="updateStatus('${r.id}','borrowed')" style="background:#dc3545; color:#fff; border:none; padding:6px 12px; border-radius:4px; font-weight:bold; cursor:pointer;">ตีกลับ</button>`; 
+        }
+        else { 
+            let statusText = r.status === 'returned' ? 'คืนแล้ว' : 'ปฏิเสธ';
+            let statusColor = r.status === 'returned' ? '#6c757d' : '#dc3545';
+            badge = `<span class="badge" style="background:#333; color:${statusColor};">${statusText}</span>`; 
+            btns = `<button onclick="deleteRequest('${r.id}')" style="background:#dc3545; color:#fff; border:none; padding:6px 12px; border-radius:4px; font-weight:bold; cursor:pointer;"><i class="fas fa-trash"></i> ลบ</button>`; 
+        }
+        
         tbody.innerHTML += `<tr><td>${r.user}</td><td>${r.item}</td><td>${r.date}</td><td>${badge}</td><td>${photoDisplay}</td><td>${btns}</td></tr>`;
     });
     if(window.renderPagination) window.renderPagination(reqs.length, pages);
 }
+
 window.renderPagination = (total, pages) => {
     const c = document.getElementById('paginationControls'); if(!c) return; if (total <= itemsPerPage) { c.innerHTML = ''; return; }
     let h = `<button class="page-btn" onclick="changePage(${currentPage - 1})" ${currentPage === 1 ? 'disabled' : ''}><i class="fas fa-chevron-left"></i></button>`;
@@ -231,18 +263,17 @@ window.renderInventory = () => {
         let st = '<span style="color:var(--success)">ว่าง</span>';
         if (activeReq) st = activeReq.status === 'pending' ? '<span style="color:#ffc107">ติดจอง</span>' : (activeReq.status === 'pending_return' ? '<span style="color:#ff9800">รอตรวจ</span>' : '<span style="color:var(--danger)">ไม่ว่าง</span>');
         
-        // 🟢 อัปเดตสีปุ่มสถานะของให้เห็นชัดเจน
         let condBtn = i.condition === 'damaged' 
             ? `<button onclick="toggleCondition('${i.id}', 'good')" style="background:#dc3545; color:#fff; border:none; padding:6px 12px; border-radius:4px; font-size:12px; font-weight:bold; cursor:pointer;">ชำรุด (ส่งซ่อม)</button>` 
             : `<button onclick="toggleCondition('${i.id}', 'damaged')" style="background:#198754; color:#fff; border:none; padding:6px 12px; border-radius:4px; font-size:12px; font-weight:bold; cursor:pointer;">ปกติ (ใช้งานได้)</button>`;
             
-        tbody.innerHTML += `<tr><td><img src="${i.image}" width="40"></td><td style="color:white">${i.name}</td><td>${i.category}</td><td>${st}</td><td>${condBtn}</td><td><button onclick="deleteItem('${i.id}')" class="btn-action btn-reject"><i class="fas fa-trash"></i></button></td></tr>`; 
+        tbody.innerHTML += `<tr><td><img src="${i.image}" width="40"></td><td style="color:white">${i.name}</td><td>${i.category}</td><td>${st}</td><td>${condBtn}</td><td><button onclick="deleteItem('${i.id}')" style="background:#dc3545; color:#fff; border:none; padding:6px 12px; border-radius:4px; font-size:12px; font-weight:bold; cursor:pointer;"><i class="fas fa-trash"></i></button></td></tr>`; 
     }); 
 }
 window.toggleCondition = async (id, n) => { if((await Swal.fire({title:'เปลี่ยนสภาพของ?', icon:'question',showCancelButton:true, background:'#1a1a1a', color:'#fff'})).isConfirmed) { await updateDoc(doc(db, "items", id), { condition: n }); } }
 window.deleteItem = async (id) => { if((await Swal.fire({title:'ลบ?',icon:'warning',showCancelButton:true})).isConfirmed) { await deleteDoc(doc(db, "items", id)); } }
 
-// 🟢 อัปเกรดฟอร์มเพิ่มอุปกรณ์ (รองรับการอัปโหลดรูปภาพ)
+// 🟢 อัปเกรดฟอร์มเพิ่มอุปกรณ์ (รองรับการอัปโหลดรูปภาพ Base64 แบบเต็มระบบ)
 window.addNewItem = async () => {
     const { value: formValues } = await Swal.fire({
         title: '📦 เพิ่มอุปกรณ์ใหม่',
@@ -260,7 +291,7 @@ window.addNewItem = async () => {
                             <option value="camera">กล้อง</option>
                             <option value="tripod">ขาตั้ง/Gimbal</option>
                             <option value="audio">เสียง</option>
-                            <option value="light">ไฟ</option>
+                            <option value="light">ไฟสตูดิโอ</option>
                             <option value="general">ทั่วไป</option>
                         </select>
                     </div>
@@ -315,11 +346,37 @@ window.addNewItem = async () => {
 }
 
 window.updateDashboardStats = () => { document.getElementById('stat-pending').innerText = borrowRequests.filter(r => r.status === 'pending').length; document.getElementById('stat-borrowed').innerText = borrowRequests.filter(r => r.status === 'borrowed').length; document.getElementById('stat-total-items').innerText = items.length; }
+
+// 🟢 อัปเกรดระบบแสดงสถิติ (วาดกราฟทันที)
 window.renderStats = () => {
-    let freq = {}; borrowRequests.filter(r => r.status !== 'rejected').forEach(req => { let m; let r = /([^,]+)\s*\((\d+)\s*ชิ้น\)/g; let f=false; while((m=r.exec(req.item))!==null){f=true; freq[m[1].trim()] = (freq[m[1].trim()]||0)+parseInt(m[2]);} if(!f&&req.item) req.item.split(',').forEach(it=>{freq[it.trim()]=(freq[it.trim()]||0)+1;}); });
+    let freq = {}; 
+    borrowRequests.filter(r => r.status !== 'rejected').forEach(req => { 
+        let m; let r = /([^,]+)\s*\((\d+)\s*ชิ้น\)/g; let f=false; 
+        while((m=r.exec(req.item))!==null){ f=true; freq[m[1].trim()] = (freq[m[1].trim()]||0)+parseInt(m[2]); } 
+        if(!f&&req.item) req.item.split(',').forEach(it=>{ freq[it.trim()]=(freq[it.trim()]||0)+1; }); 
+    });
+    
     let s = Object.keys(freq).map(k => ({n:k, c:freq[k]})).sort((a,b)=>b.c-a.c).slice(0,10);
-    const ctxB = document.getElementById('borrowChart'); if(ctxB) { if(borrowChartInstance) borrowChartInstance.destroy(); borrowChartInstance = new Chart(ctxB, { type:'bar', data: {labels: s.map(i=>i.n), datasets:[{data:s.map(i=>i.c), backgroundColor:'#ff6600'}]}, options:{plugins:{legend:{display:false}}, scales:{y:{ticks:{color:'#aaa', stepSize:1}},x:{ticks:{color:'#aaa'}}}}}); }
-    const ctxP = document.getElementById('conditionChart'); if(ctxP) { if(conditionChartInstance) conditionChartInstance.destroy(); conditionChartInstance = new Chart(ctxP, { type:'doughnut', data: {labels:['ปกติ','ซ่อม'], datasets:[{data:[items.filter(i=>i.condition!=='damaged').length, items.filter(i=>i.condition==='damaged').length], backgroundColor:['#198754','#dc3545'], borderWidth:0}]}, options:{plugins:{legend:{labels:{color:'#fff'}}}}}); }
+    
+    const ctxB = document.getElementById('borrowChart'); 
+    if(ctxB) { 
+        if(borrowChartInstance) borrowChartInstance.destroy(); 
+        borrowChartInstance = new Chart(ctxB, { 
+            type:'bar', 
+            data: {labels: s.map(i=>i.n), datasets:[{label:'จำนวนการยืม (ครั้ง)', data:s.map(i=>i.c), backgroundColor:'#ff6600'}]}, 
+            options:{plugins:{legend:{display:false}}, scales:{y:{beginAtZero: true, ticks:{color:'#aaa', stepSize:1}},x:{ticks:{color:'#aaa'}}}}
+        }); 
+    }
+    
+    const ctxP = document.getElementById('conditionChart'); 
+    if(ctxP) { 
+        if(conditionChartInstance) conditionChartInstance.destroy(); 
+        conditionChartInstance = new Chart(ctxP, { 
+            type:'doughnut', 
+            data: {labels:['ปกติ','ชำรุด/ซ่อม'], datasets:[{data:[items.filter(i=>i.condition!=='damaged').length, items.filter(i=>i.condition==='damaged').length], backgroundColor:['#198754','#dc3545'], borderWidth:0}]}, 
+            options:{plugins:{legend:{labels:{color:'#fff'}}}}
+        }); 
+    }
 }
 
 window.searchUser = (q) => window.loadUsersToAdminTable(q);
@@ -330,7 +387,6 @@ window.loadUsersToAdminTable = (q = "") => {
     fUsers.forEach((u) => {
         const badge = u.role === 'admin' ? `<span style="background:#ff9800; color:#fff; padding:3px 10px; border-radius:15px; font-size:12px;">Admin</span>` : `<span style="background:#444; color:#fff; padding:3px 10px; border-radius:15px; font-size:12px;">User</span>`;
         
-        // 🟢 อัปเดตสีปุ่มสลับสิทธิ์และลบให้เห็นชัดเจน
         let btns = currentUser && currentUser.id === u.id 
             ? `<span style="color:#888;">(คุณเอง)</span>` 
             : `<button onclick="changeUserRole('${u.id}', '${u.role}')" style="background:#28a745; color:#fff; border:none; padding:6px 12px; border-radius:4px; font-size:12px; font-weight:bold; cursor:pointer; margin-right:5px;">สลับสิทธิ์</button>
