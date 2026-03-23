@@ -1,5 +1,5 @@
 /* =========================================
-   script.js - MMD BORROW SYSTEM (FULL COMPLETE MEGA VERSION)
+   script.js - MMD BORROW SYSTEM (FULL COMPLETE MEGA VERSION + IMAGE UPLOAD FIX)
    ========================================= */
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
@@ -9,7 +9,7 @@ from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 try { emailjs.init("Rj2WpB-v7fZqvEu08"); } catch (e) { console.warn("⚠️ EmailJS ไม่ถูกโหลด"); }
 const LINE_API_URL = "https://script.google.com/macros/s/AKfycbzw0gLpeZEdB8rUofNdPTLKHBQYhfcYcD1S72t_PRI-tSfdfi2-ZqGUw-Hwa4wRP17crg/exec";
 
-// 🔴 Config Firebase
+// 🔴 Config Firebase ของคุณกาย
 const firebaseConfig = {
   apiKey: "AIzaSyCJNX3-vN5bceDczdKxrqb0N8uaBpgDhTE",
   authDomain: "mmd-borrow-app.firebaseapp.com",
@@ -125,7 +125,7 @@ window.openItemDetail = function(id) {
     const item = items.find(i => i.id === id); if (!item) return;
     const diff = item.difficulty || "ระดับปานกลาง (Medium)";
     const desc = item.description || "ยังไม่มีข้อมูลเพิ่มเติม...";
-    const ref = item.reference || "คู่มือเบื้องต้น";
+    const ref = item.reference || "อ้างอิงข้อมูลพื้นฐาน";
     
     const activeReq = borrowRequests.find(r => (r.item && r.item.includes(item.name)) && ['pending', 'approved_pickup', 'borrowed', 'pending_return'].includes(r.status));
     let btn = (item.condition === 'damaged' || activeReq) ? `<button class="btn-disabled" style="width:100%; padding:12px; border-radius:8px;"><i class="fas fa-ban"></i> ไม่พร้อม</button>` : `<button class="btn-borrow" onclick="addToCart('${item.id}', '${item.name}'); window.closeItemDetail();" style="width:100%; padding:12px; border-radius:8px; background:var(--theme-primary);"><i class="fas fa-cart-plus"></i> เพิ่มลงตะกร้า</button>`;
@@ -137,7 +137,7 @@ window.openItemDetail = function(id) {
                 <span class="category-tag" style="background:#333;">${item.category.toUpperCase()}</span>
                 <h2 style="margin: 5px 0 15px; color:var(--theme-primary);">${item.name}</h2>
                 <div style="background: #111; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #333; font-size: 14px;">
-                    <div style="display:flex; justify-content:space-between; margin-bottom: 10px; border-bottom: 1px dashed #444; padding-bottom: 10px;"><span style="color:#aaa;">สภาพ:</span><strong style="color:${item.condition === 'damaged' ? 'var(--danger)' : 'var(--success)'}">${item.condition === 'damaged' ? 'ซ่อม' : 'ปกติ'}</strong></div>
+                    <div style="display:flex; justify-content:space-between; margin-bottom: 10px; border-bottom: 1px dashed #444; padding-bottom: 10px;"><span style="color:#aaa;">สภาพ:</span><strong style="color:${item.condition === 'damaged' ? 'var(--danger)' : 'var(--success)'}">${item.condition === 'damaged' ? 'ชำรุด / ส่งซ่อม' : 'ใช้งานได้ปกติ'}</strong></div>
                     <div style="display:flex; justify-content:space-between;"><span style="color:#aaa;">ระดับใช้งาน:</span><strong style="color:var(--warning);">${diff}</strong></div>
                 </div>
                 <div style="margin-bottom: 15px;"><h4 style="color:#fff; margin-bottom:8px;">รายละเอียด:</h4><p style="color:#bbb; font-size:13px; margin:0; background:#000; padding:15px; border-radius:8px;">${desc}</p></div>
@@ -230,33 +230,88 @@ window.renderInventory = () => {
         const activeReq = borrowRequests.find(r => r.item && r.item.includes(i.name) && ['pending', 'approved_pickup', 'borrowed', 'pending_return'].includes(r.status));
         let st = '<span style="color:var(--success)">ว่าง</span>';
         if (activeReq) st = activeReq.status === 'pending' ? '<span style="color:#ffc107">ติดจอง</span>' : (activeReq.status === 'pending_return' ? '<span style="color:#ff9800">รอตรวจ</span>' : '<span style="color:var(--danger)">ไม่ว่าง</span>');
-        let condBtn = i.condition === 'damaged' ? `<button onclick="toggleCondition('${i.id}', 'good')" class="btn-action btn-reject">ชำรุด</button>` : `<button onclick="toggleCondition('${i.id}', 'damaged')" class="btn-action btn-approve">ปกติ</button>`;
+        
+        // 🟢 อัปเดตสีปุ่มสถานะของให้เห็นชัดเจน
+        let condBtn = i.condition === 'damaged' 
+            ? `<button onclick="toggleCondition('${i.id}', 'good')" style="background:#dc3545; color:#fff; border:none; padding:6px 12px; border-radius:4px; font-size:12px; font-weight:bold; cursor:pointer;">ชำรุด (ส่งซ่อม)</button>` 
+            : `<button onclick="toggleCondition('${i.id}', 'damaged')" style="background:#198754; color:#fff; border:none; padding:6px 12px; border-radius:4px; font-size:12px; font-weight:bold; cursor:pointer;">ปกติ (ใช้งานได้)</button>`;
+            
         tbody.innerHTML += `<tr><td><img src="${i.image}" width="40"></td><td style="color:white">${i.name}</td><td>${i.category}</td><td>${st}</td><td>${condBtn}</td><td><button onclick="deleteItem('${i.id}')" class="btn-action btn-reject"><i class="fas fa-trash"></i></button></td></tr>`; 
     }); 
 }
 window.toggleCondition = async (id, n) => { if((await Swal.fire({title:'เปลี่ยนสภาพของ?', icon:'question',showCancelButton:true, background:'#1a1a1a', color:'#fff'})).isConfirmed) { await updateDoc(doc(db, "items", id), { condition: n }); } }
 window.deleteItem = async (id) => { if((await Swal.fire({title:'ลบ?',icon:'warning',showCancelButton:true})).isConfirmed) { await deleteDoc(doc(db, "items", id)); } }
 
-// 🟢 อัปเกรดฟอร์มเพิ่มอุปกรณ์ ครบจบ
+// 🟢 อัปเกรดฟอร์มเพิ่มอุปกรณ์ (รองรับการอัปโหลดรูปภาพ)
 window.addNewItem = async () => {
     const { value: formValues } = await Swal.fire({
         title: '📦 เพิ่มอุปกรณ์ใหม่',
+        width: 600,
         html: `
-            <div style="text-align: left; font-size: 14px;">
-                <label style="color:#aaa;">ชื่ออุปกรณ์</label><input id="swal-name" class="swal2-input" placeholder="เช่น SONY A7M4" style="width: 80%; margin: 5px auto 15px;">
-                <label style="color:#aaa;">หมวดหมู่</label><select id="swal-category" class="swal2-input" style="width: 80%; margin: 5px auto 15px;"><option value="camera">กล้อง</option><option value="tripod">ขาตั้ง/Gimbal</option><option value="audio">เสียง</option><option value="light">ไฟ</option><option value="general">ทั่วไป</option></select>
-                <label style="color:#aaa;">รูปลิงก์ URL</label><input id="swal-image" class="swal2-input" placeholder="https://..." style="width: 80%; margin: 5px auto 15px;">
-                <label style="color:#aaa;">ความยาก</label><select id="swal-difficulty" class="swal2-input" style="width: 80%; margin: 5px auto 15px;"><option value="ระดับง่ายมาก (Beginner)">🟢 ง่ายมาก (Beginner)</option><option value="ระดับปานกลาง (Medium)">🟡 ปานกลาง (Medium)</option><option value="ระดับค่อนข้างยาก (Advanced)">🟠 ค่อนข้างยาก (Advanced)</option><option value="ระดับมืออาชีพ (Pro)">🔴 มืออาชีพ (Pro)</option></select>
-                <label style="color:#aaa;">อ้างอิง</label><input id="swal-ref" class="swal2-input" placeholder="อ้างอิงจาก..." style="width: 80%; margin: 5px auto 15px;">
-                <label style="color:#aaa;">รายละเอียด</label><textarea id="swal-desc" class="swal2-textarea" style="width: 80%; margin: 5px auto;"></textarea>
+            <div style="text-align: left; font-size: 14px; display: flex; flex-direction: column; gap: 12px;">
+                <div>
+                    <label style="color:#aaa; display:block; margin-bottom:5px;">ชื่ออุปกรณ์</label>
+                    <input id="swal-name" class="swal2-input" placeholder="เช่น SONY A7M4" style="width: 100%; margin: 0; box-sizing: border-box;">
+                </div>
+                <div style="display: flex; gap: 10px;">
+                    <div style="flex: 1;">
+                        <label style="color:#aaa; display:block; margin-bottom:5px;">หมวดหมู่</label>
+                        <select id="swal-category" class="swal2-input" style="width: 100%; margin: 0; box-sizing: border-box;">
+                            <option value="camera">กล้อง</option>
+                            <option value="tripod">ขาตั้ง/Gimbal</option>
+                            <option value="audio">เสียง</option>
+                            <option value="light">ไฟ</option>
+                            <option value="general">ทั่วไป</option>
+                        </select>
+                    </div>
+                    <div style="flex: 1;">
+                        <label style="color:#aaa; display:block; margin-bottom:5px;">ระดับความยาก</label>
+                        <select id="swal-difficulty" class="swal2-input" style="width: 100%; margin: 0; box-sizing: border-box;">
+                            <option value="ระดับง่ายมาก (Beginner)">🟢 ง่ายมาก</option>
+                            <option value="ระดับปานกลาง (Medium)">🟡 ปานกลาง</option>
+                            <option value="ระดับค่อนข้างยาก (Advanced)">🟠 ค่อนข้างยาก</option>
+                            <option value="ระดับมืออาชีพ (Pro)">🔴 มืออาชีพ</option>
+                        </select>
+                    </div>
+                </div>
+                <div>
+                    <label style="color:#aaa; display:block; margin-bottom:5px;">อัปโหลดรูปภาพอุปกรณ์ (คลิกเพื่อเลือกไฟล์)</label>
+                    <input type="file" id="swal-image-file" accept="image/*" style="width: 100%; color: #fff; background: #222; padding: 12px; border-radius: 5px; border: 1px solid #444; box-sizing: border-box;">
+                </div>
+                <div>
+                    <label style="color:#aaa; display:block; margin-bottom:5px;">อ้างอิงความยากจาก</label>
+                    <input id="swal-ref" class="swal2-input" placeholder="เช่น คู่มือผู้ใช้, DPreview" style="width: 100%; margin: 0; box-sizing: border-box;">
+                </div>
+                <div>
+                    <label style="color:#aaa; display:block; margin-bottom:5px;">รายละเอียด / คำแนะนำเพิ่มเติม</label>
+                    <textarea id="swal-desc" class="swal2-textarea" style="width: 100%; margin: 0; box-sizing: border-box; height: 80px;" placeholder="คำอธิบายสเปค หรือ ข้อควรระวัง..."></textarea>
+                </div>
             </div>`,
-        showCancelButton: true, confirmButtonText: 'บันทึก', confirmButtonColor: '#28a745', background: '#1a1a1a', color: '#fff',
-        preConfirm: () => {
-            const n = document.getElementById('swal-name').value; if(!n){Swal.showValidationMessage('กรอกชื่อด้วยครับ');return false;}
-            return { name: n, category: document.getElementById('swal-category').value, image: document.getElementById('swal-image').value || "https://placehold.co/400x300", difficulty: document.getElementById('swal-difficulty').value, reference: document.getElementById('swal-ref').value || "อ้างอิงพื้นฐาน", description: document.getElementById('swal-desc').value || "-", status: "available", condition: "good" }
+        showCancelButton: true, confirmButtonText: '<i class="fas fa-save"></i> บันทึกอุปกรณ์', confirmButtonColor: '#28a745', background: '#1a1a1a', color: '#fff',
+        preConfirm: async () => {
+            const name = document.getElementById('swal-name').value; 
+            if(!name) { Swal.showValidationMessage('กรุณากรอกชื่ออุปกรณ์ด้วยครับ'); return false; }
+            
+            const fileInput = document.getElementById('swal-image-file');
+            let base64Image = "https://placehold.co/400x300?text=No+Image"; 
+            
+            if (fileInput.files.length > 0) {
+                try {
+                    Swal.showLoading(); 
+                    base64Image = await resizeImage(fileInput.files[0]);
+                } catch (error) {
+                    Swal.showValidationMessage('เกิดข้อผิดพลาดในการประมวลผลรูปภาพ'); return false;
+                }
+            }
+            return { name: name, category: document.getElementById('swal-category').value, image: base64Image, difficulty: document.getElementById('swal-difficulty').value, reference: document.getElementById('swal-ref').value || "อ้างอิงข้อมูลพื้นฐาน", description: document.getElementById('swal-desc').value || "-", status: "available", condition: "good" }
         }
     });
-    if (formValues) { Swal.fire({ title: 'กำลังบันทึก...', allowOutsideClick: false, didOpen: () => Swal.showLoading(), background: '#1a1a1a', color: '#fff'}); try { await addDoc(collection(db, "items"), formValues); Swal.fire({ icon: 'success', title: 'สำเร็จ!', timer: 1500, background: '#1a1a1a', color: '#fff', showConfirmButton:false }); } catch(e) { Swal.fire('Error', e.message, 'error'); } }
+
+    if (formValues) { 
+        Swal.fire({ title: 'กำลังอัปโหลดขึ้นระบบ...', allowOutsideClick: false, didOpen: () => Swal.showLoading(), background: '#1a1a1a', color: '#fff'}); 
+        try { await addDoc(collection(db, "items"), formValues); Swal.fire({ icon: 'success', title: 'เพิ่มอุปกรณ์สำเร็จ!', timer: 1500, background: '#1a1a1a', color: '#fff', showConfirmButton:false }); } 
+        catch(e) { Swal.fire('Error', e.message, 'error'); } 
+    }
 }
 
 window.updateDashboardStats = () => { document.getElementById('stat-pending').innerText = borrowRequests.filter(r => r.status === 'pending').length; document.getElementById('stat-borrowed').innerText = borrowRequests.filter(r => r.status === 'borrowed').length; document.getElementById('stat-total-items').innerText = items.length; }
@@ -274,7 +329,13 @@ window.loadUsersToAdminTable = (q = "") => {
     if (fUsers.length === 0) { tb.innerHTML = `<tr><td colspan="4" style="text-align:center;">ไม่พบรายชื่อ</td></tr>`; return; }
     fUsers.forEach((u) => {
         const badge = u.role === 'admin' ? `<span style="background:#ff9800; color:#fff; padding:3px 10px; border-radius:15px; font-size:12px;">Admin</span>` : `<span style="background:#444; color:#fff; padding:3px 10px; border-radius:15px; font-size:12px;">User</span>`;
-        let btns = currentUser && currentUser.id === u.id ? `<span style="color:#888;">(คุณเอง)</span>` : `<button onclick="changeUserRole('${u.id}', '${u.role}')" class="btn-action btn-approve">สลับสิทธิ์</button><button onclick="deleteUser('${u.id}')" class="btn-action btn-reject"><i class="fas fa-trash"></i></button>`;
+        
+        // 🟢 อัปเดตสีปุ่มสลับสิทธิ์และลบให้เห็นชัดเจน
+        let btns = currentUser && currentUser.id === u.id 
+            ? `<span style="color:#888;">(คุณเอง)</span>` 
+            : `<button onclick="changeUserRole('${u.id}', '${u.role}')" style="background:#28a745; color:#fff; border:none; padding:6px 12px; border-radius:4px; font-size:12px; font-weight:bold; cursor:pointer; margin-right:5px;">สลับสิทธิ์</button>
+               <button onclick="deleteUser('${u.id}')" style="background:#dc3545; color:#fff; border:none; padding:6px 12px; border-radius:4px; font-size:12px; font-weight:bold; cursor:pointer;"><i class="fas fa-trash"></i> ลบ</button>`;
+               
         tb.innerHTML += `<tr><td style="padding:12px;">${u.name||"-"}</td><td style="padding:12px;">${u.username}</td><td style="padding:12px;">${badge}</td><td style="padding:12px;">${btns}</td></tr>`;
     });
 }
