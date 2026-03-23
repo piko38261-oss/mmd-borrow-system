@@ -1,7 +1,6 @@
 @import url('https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600&family=Poppins:wght@400;600;700&display=swap');
 
 :root {
-    /* ธีมสีหลัก (Neon Orange) */
     --bg-dark: #000000;
     --bg-card: #1a1a1a;
     --theme-primary: #ff6600;
@@ -17,7 +16,6 @@
 * { box-sizing: border-box; font-family: 'Poppins', 'Kanit', sans-serif; }
 body { margin: 0; background: var(--bg-dark); color: var(--text-main); min-height: 100vh; }
 
-/* พื้นหลังขยับได้ (Background Animation) */
 .bg-animate { 
     position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1; 
     background: linear-gradient(135deg, #000000, #1a1a1a, #2d1b0e); 
@@ -29,13 +27,12 @@ body { margin: 0; background: var(--bg-dark); color: var(--text-main); min-heigh
 a { text-decoration: none; color: inherit; transition: 0.3s; cursor: pointer; }
 ul { list-style: none; padding: 0; }
 
-/* Custom Scrollbar */
 ::-webkit-scrollbar { width: 8px; }
 ::-webkit-scrollbar-track { background: #111; }
 ::-webkit-scrollbar-thumb { background: #444; border-radius: 4px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--theme-primary); }
 
-/* --- Navbar (แถบเมนูบน) --- */
+/* --- Navbar --- */
 nav { background: rgba(0,0,0,0.95); padding: 15px 30px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #333; position: sticky; top: 0; z-index: 100; backdrop-filter: blur(10px); }
 .logo { font-size: 24px; font-weight: 700; color: var(--theme-primary); text-transform: uppercase; letter-spacing: 1px; }
 .user-info { display: flex; align-items: center; gap: 15px; }
@@ -45,7 +42,7 @@ nav { background: rgba(0,0,0,0.95); padding: 15px 30px; display: flex; justify-c
 .btn-logout { background: transparent; border: 1px solid var(--danger); color: var(--danger); padding: 5px 15px; border-radius: 20px; cursor: pointer; transition: 0.3s; }
 .btn-logout:hover { background: var(--danger); color: white; }
 
-/* --- Dashboard (หน้ายืมของ) --- */
+/* --- Dashboard --- */
 .container { padding: 30px; max-width: 1400px; margin: 0 auto; }
 .filters { display: flex; gap: 15px; margin-bottom: 30px; flex-wrap: wrap; }
 .filters button { background: #111; border: 1px solid #333; color: var(--text-muted); padding: 8px 18px; border-radius: 25px; cursor: pointer; transition: 0.3s; }
@@ -62,6 +59,7 @@ nav { background: rgba(0,0,0,0.95); padding: 15px 30px; display: flex; justify-c
 .status-badge { position: absolute; top: 10px; right: 10px; padding: 4px 10px; border-radius: 4px; font-size: 10px; font-weight: bold; color: black; text-transform: uppercase; box-shadow: 0 2px 5px rgba(0,0,0,0.8); }
 .status-badge.available { background: var(--success); }
 .status-badge.borrowed { background: var(--danger); color: white; }
+.status-badge.incart { background: var(--warning); color: black; }
 .card-body { padding: 15px; flex-grow: 1; display: flex; flex-direction: column; justify-content: space-between; }
 .card-body h4 { margin: 0 0 5px; font-size: 16px; font-weight: 600; line-height: 1.4; height: 44px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; color: #fff; }
 .category-tag { font-size: 10px; color: #aaa; background: #000; padding: 2px 6px; border-radius: 4px; margin-bottom: 10px; display: inline-block; border: 1px solid #333; }
@@ -69,12 +67,12 @@ nav { background: rgba(0,0,0,0.95); padding: 15px 30px; display: flex; justify-c
 .btn-borrow:hover { box-shadow: 0 0 15px rgba(255, 102, 0, 0.6); color: black; background: white; }
 .btn-disabled { margin-top: auto; width: 100%; padding: 10px; border: none; border-radius: 6px; background: #333; color: #666; cursor: not-allowed; }
 
-/* --- Admin Panel (หน้าแอดมิน) --- */
+/* --- Admin Panel --- */
 .admin-layout { display: flex; min-height: 100vh; }
 .sidebar { width: 260px; background: #000; border-right: 1px solid #333; display: flex; flex-direction: column; position: fixed; height: 100%; z-index: 999; }
 .sidebar-header { padding: 25px; text-align: center; border-bottom: 1px solid #333; }
 .sidebar-header h2 { color: var(--theme-primary); margin: 0; }
-.sidebar-menu a { display: flex; align-items: center; padding: 15px 25px; color: #aaa; border-left: 4px solid transparent; transition: 0.2s; }
+.sidebar-menu a { display: flex; align-items: center; padding: 15px 25px; color: #aaa; border-left: 4px solid transparent; transition: 0.2s; cursor: pointer; }
 .sidebar-menu a:hover, .sidebar-menu a.active { background: #1a1a1a; color: var(--theme-primary); border-left-color: var(--theme-primary); }
 .sidebar-menu i { width: 25px; margin-right: 10px; text-align: center; }
 
@@ -82,7 +80,6 @@ nav { background: rgba(0,0,0,0.95); padding: 15px 30px; display: flex; justify-c
 .top-bar { background: #1a1a1a; padding: 20px; border-radius: 12px; border: 1px solid #333; display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
 .avatar { width: 40px; height: 40px; border-radius: 50%; background: var(--theme-primary); color: black; display: flex; align-items: center; justify-content: center; font-weight: bold; }
 
-/* Stats Grid */
 .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 30px; }
 .stat-card { background: #1a1a1a; padding: 25px; border-radius: 12px; border: 1px solid #333; display: flex; align-items: center; gap: 20px; position: relative; overflow: hidden; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
 .stat-card::before { content: ''; position: absolute; top: 0; left: 0; width: 6px; height: 100%; }
@@ -92,25 +89,19 @@ nav { background: rgba(0,0,0,0.95); padding: 15px 30px; display: flex; justify-c
 .stat-icon { font-size: 24px; width: 50px; height: 50px; background: #000; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: #fff; border: 1px solid #333; }
 
 .table-card { background: #1a1a1a; border-radius: 12px; border: 1px solid #333; padding: 20px; overflow-x: auto; }
-.table-header { display: flex; justify-content: space-between; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid #333; }
-
-/* Table Responsive */
 .table-responsive { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
 .data-table { width: 100%; border-collapse: collapse; white-space: nowrap; }
 .data-table th { text-align: left; padding: 15px; color: #aaa; font-weight: normal; border-bottom: 1px solid #444; }
 .data-table td { padding: 15px; border-bottom: 1px solid #222; color: #fff; }
 .data-table tr:hover { background: #222; }
 
-/* Buttons & Badges */
 .badge { padding: 5px 10px; border-radius: 4px; font-size: 11px; font-weight: bold; text-transform: uppercase; }
 .status-pending { background: transparent; color: var(--warning); border: 1px solid var(--warning); }
 .status-approved { background: transparent; color: var(--success); border: 1px solid var(--success); }
-.status-rejected { background: #333; color: #666; border: 1px solid #444; }
 .btn-action { border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; transition: 0.2s; color: white; font-size: 12px; margin-right: 5px; font-weight: bold; }
-.btn-approve { background: var(--success); color: black; }
 .btn-reject { background: var(--danger); color: white; }
 
-/* --- Login & Modal (หน้าล็อกอินสวยๆ) --- */
+/* --- Login & Modal --- */
 .login-wrapper { display: flex; justify-content: center; align-items: center; height: 100vh; position: relative; overflow: hidden; background: url('https://cdn.pixabay.com/photo/2016/11/29/05/45/astronomy-1867616_960_720.jpg') center/cover no-repeat; }
 .login-wrapper::before { content: ''; position: absolute; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.7); backdrop-filter: blur(5px); }
 
@@ -128,420 +119,79 @@ nav { background: rgba(0,0,0,0.95); padding: 15px 30px; display: flex; justify-c
 .footer-links a { color: #888; transition: 0.3s; }
 .footer-links a:hover { color: var(--theme-primary); }
 
-/* Modal */
 .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 1000; justify-content: center; align-items: center; }
 .modal-content { background: #1a1a1a; padding: 30px; width: 500px; border-radius: 12px; border: 1px solid var(--theme-primary); box-shadow: 0 0 40px rgba(255, 102, 0, 0.2); color: white; position: relative; }
 .close { position: absolute; top: 15px; right: 20px; font-size: 24px; cursor: pointer; color: #888; }
 .close:hover { color: white; }
-.modal-content input, .modal-content textarea { width: 100%; padding: 12px; margin: 10px 0; background: #000; border: 1px solid #333; color: white; border-radius: 6px; }
-.modal-content input:focus, .modal-content textarea:focus { border-color: var(--theme-primary); outline: none; }
+.modal-content input, .modal-content textarea, .swal2-input, .swal2-textarea { width: 100%; padding: 12px; margin: 10px 0; background: #000; border: 1px solid #333; color: white; border-radius: 6px; }
+.modal-content input:focus, .modal-content textarea:focus, .swal2-input:focus { border-color: var(--theme-primary); outline: none; }
 .btn-confirm { width: 100%; background: var(--theme-primary); border: none; padding: 12px; border-radius: 6px; font-weight: bold; cursor: pointer; margin-top: 10px; color: black; }
 .btn-cancel { width: 100%; background: transparent; border: 1px solid #333; color: #888; padding: 12px; border-radius: 6px; cursor: pointer; margin-top: 10px; }
 .hidden { display: none; }
 
-/* =========================================
-   📰 TICKER (แถบข่าววิ่ง)
-   ========================================= */
-.ticker-wrap {
-    width: 100%;
-    height: 40px;
-    background: #000;
-    border-bottom: 1px solid #333;
-    display: flex;
-    overflow: hidden;
-    position: relative;
-    z-index: 200;
-}
+/* Ticker */
+.ticker-wrap { width: 100%; height: 40px; background: #000; border-bottom: 1px solid #333; display: flex; overflow: hidden; position: relative; z-index: 200; }
+.ticker-heading { background: var(--theme-primary); color: #000; padding: 0 20px; font-weight: bold; font-size: 14px; display: flex; align-items: center; gap: 10px; text-transform: uppercase; letter-spacing: 1px; position: relative; z-index: 2; box-shadow: 5px 0 15px rgba(0,0,0,0.8); }
+.ticker-heading::after { content: ''; position: absolute; top: 0; right: -15px; width: 30px; height: 100%; background: var(--theme-primary); transform: skewX(20deg); z-index: -1; }
+.ticker-move { flex-grow: 1; display: flex; align-items: center; overflow: hidden; position: relative; mask-image: linear-gradient(to right, black 90%, transparent 100%); -webkit-mask-image: linear-gradient(to right, black 90%, transparent 100%); }
+.ticker-item { display: inline-block; white-space: nowrap; padding-left: 100%; animation: ticker-scroll 25s linear infinite; color: var(--theme-primary); font-size: 14px; text-shadow: 0 0 5px rgba(255, 102, 0, 0.5); }
+@keyframes ticker-scroll { 0% { transform: translate3d(0, 0, 0); } 100% { transform: translate3d(-100%, 0, 0); } }
 
-.ticker-heading {
-    background: var(--theme-primary);
-    color: #000;
-    padding: 0 20px;
-    font-weight: bold;
-    font-size: 14px;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    position: relative;
-    z-index: 2;
-    box-shadow: 5px 0 15px rgba(0,0,0,0.8);
-}
-
-.ticker-heading::after {
-    content: '';
-    position: absolute;
-    top: 0; right: -15px;
-    width: 30px; height: 100%;
-    background: var(--theme-primary);
-    transform: skewX(20deg);
-    z-index: -1;
-}
-
-.ticker-move {
-    flex-grow: 1;
-    display: flex;
-    align-items: center;
-    overflow: hidden;
-    position: relative;
-    mask-image: linear-gradient(to right, black 90%, transparent 100%);
-    -webkit-mask-image: linear-gradient(to right, black 90%, transparent 100%);
-}
-
-.ticker-item {
-    display: inline-block;
-    white-space: nowrap;
-    padding-left: 100%;
-    animation: ticker-scroll 25s linear infinite;
-    color: var(--theme-primary);
-    font-size: 14px;
-    text-shadow: 0 0 5px rgba(255, 102, 0, 0.5);
-}
-
-@keyframes ticker-scroll {
-    0% { transform: translate3d(0, 0, 0); }
-    100% { transform: translate3d(-100%, 0, 0); }
-}
-
-.ticker-wrap:hover .ticker-item {
-    animation-play-state: paused;
-}
-
-/* =========================================
-   👨‍💻 ABOUT PAGE (หน้าผู้พัฒนา)
-   ========================================= */
-.about-page {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    min-height: 100vh;
-    overflow: hidden;
-}
-
-.about-container {
-    position: relative;
-    z-index: 10;
-}
-
-/* การ์ดกระจก (Glassmorphism) */
-.profile-card {
-    background: rgba(20, 20, 20, 0.85);
-    border: 1px solid rgba(255, 102, 0, 0.3);
-    padding: 50px;
-    border-radius: 20px;
-    text-align: center;
-    max-width: 500px;
-    width: 90%;
-    margin: 0 auto;
-    box-shadow: 0 0 50px rgba(0,0,0,0.8);
-    backdrop-filter: blur(10px);
-    animation: fadeInUp 1s ease;
-}
-
-/* รูปโปรไฟล์ + วงแหวนหมุน */
-.profile-img-wrapper {
-    width: 150px;
-    height: 150px;
-    margin: 0 auto 30px;
-    position: relative;
-    display: flex; justify-content: center; align-items: center;
-}
-
-.profile-img-wrapper img {
-    width: 130px; height: 130px;
-    border-radius: 50%;
-    object-fit: cover;
-    border: 3px solid #000;
-    z-index: 2;
-}
-
-/* วงแหวนนีออนหมุนรอบรูป */
-.ring {
-    position: absolute;
-    width: 100%; height: 100%;
-    border-radius: 50%;
-    border: 2px solid transparent;
-    border-top-color: var(--theme-primary);
-    border-right-color: var(--theme-primary);
-    animation: spin 3s linear infinite;
-    box-shadow: 0 0 20px rgba(255, 102, 0, 0.5);
-}
-
-@keyframes spin { 100% { transform: rotate(360deg); } }
-@keyframes fadeInUp { from { opacity:0; transform:translateY(30px); } to { opacity:1; transform:translateY(0); } }
-
-/* ข้อความ */
-.role-badge {
-    background: var(--theme-primary);
-    color: #000;
-    padding: 5px 10px;
-    border-radius: 4px;
-    font-size: 10px; font-weight: bold; letter-spacing: 1px;
-}
-
-.profile-content h1 {
-    font-size: 24px; margin: 15px 0 5px; color: white;
-}
-
-.subtitle { color: var(--theme-primary); margin-bottom: 20px; font-size: 14px; }
-.description { color: #aaa; font-size: 13px; line-height: 1.6; margin-bottom: 30px; font-style: italic; }
-
-/* --- ปุ่มโซเชียล (Highlight) --- */
-.social-links {
-    display: flex; justify-content: center; gap: 15px; margin-bottom: 30px;
-}
-
-.social-btn {
-    width: 45px; height: 45px;
-    border-radius: 50%;
-    background: #333;
-    display: flex; justify-content: center; align-items: center;
-    color: #fff;
-    font-size: 20px;
-    transition: 0.3s;
-    border: 1px solid #444;
-}
-
-/* Hover แล้วเปลี่ยนสีตามแบรนด์ */
-.social-btn:hover { transform: translateY(-5px); border-color: transparent; }
-.social-btn.fb:hover { background: #1877F2; box-shadow: 0 0 15px #1877F2; }
-.social-btn.ig:hover { background: linear-gradient(45deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888); box-shadow: 0 0 15px #cc2366; }
-.social-btn.line:hover { background: #00C300; box-shadow: 0 0 15px #00C300; }
-.social-btn.mail:hover { background: #ea4335; box-shadow: 0 0 15px #ea4335; }
-
-/* ปุ่มกลับ */
-.btn-back-home {
-    display: inline-block;
-    color: #888;
-    font-size: 14px;
-    border: 1px solid #444;
-    padding: 8px 20px;
-    border-radius: 30px;
-    transition: 0.3s;
-}
-.btn-back-home:hover { background: #fff; color: #000; }
-
-/* =========================================
-   📱 MOBILE RESPONSIVE FIXES (รองรับทั้งหน้า User และ Admin)
-   ========================================= */
+/* Mobile Responsive */
 @media screen and (max-width: 768px) {
-    /* --- 1. ส่วนหน้าล็อกอิน --- */
-    .glass-card { width: 90%; padding: 30px 20px; }
-
-    /* --- 2. จัดการ Header และ User Navbar --- */
-    header, nav, .top-bar, .user-info {
-        display: flex;
-        flex-wrap: wrap;
-        justify-content: space-between;
-        align-items: center;
-        gap: 10px;
-        padding: 10px 15px;
-    }
-    .user-info span { font-size: 14px; }
-
-    /* --- 3. จัดการหน้าแรก (Dashboard User) --- */
-    .filters {
-        display: flex;
-        flex-wrap: wrap;
-        justify-content: center;
-        gap: 8px;
-        margin-bottom: 20px;
-    }
+    header, nav, .top-bar, .user-info { flex-wrap: wrap; justify-content: space-between; gap: 10px; padding: 10px 15px; }
     .filters button { font-size: 13px; padding: 6px 12px; }
+    #itemGrid { grid-template-columns: repeat(2, 1fr); padding: 0 10px; gap: 12px; }
+    .card-img img { height: 120px; }
+    .card-body h4 { font-size: 14px !important; white-space: normal; }
     
-    #itemGrid {
-        display: grid;
-        grid-template-columns: repeat(2, 1fr); /* บังคับ 2 คอลัมน์บนมือถือ */
-        gap: 12px;
-        padding: 0 10px;
-    }
-    
-    .card { border-radius: 12px; display: flex; flex-direction: column; }
-    .card-img img { height: 120px; object-fit: cover; }
-    
-    .card-body { padding: 10px; display: flex; flex-direction: column; gap: 8px; flex-grow: 1; }
-    .card-body h4 { font-size: 14px !important; margin: 0; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; white-space: normal; }
-    
-    .category-tag { font-size: 10px; padding: 3px 6px; align-self: flex-start; }
-    .card-body button { font-size: 13px; padding: 8px; margin-top: auto; }
-    
-    /* --- 4. จัดการ Popup (Modal) --- */
-    .modal-content { width: 90% !important; padding: 20px !important; margin: 15% auto; border-radius: 15px; }
-
-    /* --- 5. จัดการหน้า Admin Dashboard --- */
-    .admin-container { flex-direction: column; }
-    
-    /* เมนูแอดมินย้ายไปด้านบน เลื่อนซ้ายขวาได้ */
-    .sidebar { 
-        width: 100%; 
-        height: auto; 
-        position: sticky; 
-        top: 0;
-        border-right: none; 
-        border-bottom: 1px solid #333; 
-        padding: 10px;
-        z-index: 999;
-    }
-    .sidebar-header { padding: 5px; border: none; display: none; } /* ซ่อนโลโก้แอดมินบนมือถือให้ประหยัดพื้นที่ */
-    .sidebar-menu { 
-        display: flex; 
-        flex-direction: row; 
-        gap: 10px; 
-        margin-top: 0; 
-        overflow-x: auto; /* ปัดซ้ายขวาได้ */
-        white-space: nowrap;
-        padding-bottom: 5px;
-    }
-    .sidebar-menu a { 
-        padding: 8px 15px; 
-        background: #222; 
-        border-radius: 20px; 
-        border-left: none; 
-        font-size: 13px;
-        display: inline-flex;
-    }
-    .sidebar-menu a.active { border-left: none; background: var(--theme-primary); color: #000; }
-    .sidebar-menu a.btn-back, .sidebar-menu a.btn-logout-menu { background: transparent; border: 1px solid #444; }
-
-    .main-content { margin-left: 0; width: 100%; padding: 15px; min-height: auto; }
-    
-    /* กล่องสถิติเรียงแนวตั้ง */
-    .stats-grid { grid-template-columns: 1fr; gap: 15px; margin-bottom: 20px; }
-    
-    /* จัดการช่องค้นหา และ Header ของตาราง */
-    .section-header { flex-direction: column; align-items: flex-start; gap: 15px; }
-    .section-header > div { width: 100%; flex-direction: column; align-items: stretch; }
-    .search-box { width: 100%; margin-top: 10px; }
-
-    /* จัดการตารางข้อมูล (ให้เลื่อนซ้ายขวาได้) */
-    .table-card { padding: 10px; }
-    .table-responsive { 
-        width: 100%; 
-        overflow-x: auto; 
-        -webkit-overflow-scrolling: touch; 
-        border: 1px solid #333;
-        border-radius: 8px;
-    }
-    .data-table th, .data-table td { padding: 10px; font-size: 13px; white-space: nowrap; }
-    
-    /* ปรับปุ่มจัดการในตารางให้เล็กลงนิดหน่อย */
-    .btn-action { padding: 5px 8px; font-size: 11px; margin-bottom: 3px; }
-    
-    /* หน้าสถิติกราฟ (Charts) */
-    .chart-layout { grid-template-columns: 1fr; } /* เรียงกราฟแนวตั้ง */
+    .admin-layout { flex-direction: column; }
+    .sidebar { width: 100%; height: auto; position: sticky; top: 0; border-right: none; border-bottom: 1px solid #333; padding: 10px; z-index: 999; }
+    .sidebar-header { display: none; }
+    .sidebar-menu { display: flex; flex-direction: row; gap: 10px; overflow-x: auto; white-space: nowrap; padding-bottom: 5px; }
+    .sidebar-menu a { padding: 8px 15px; background: #222; border-radius: 20px; font-size: 13px; display: inline-flex; border-left: none; }
+    .main-content { margin-left: 0; width: 100%; padding: 15px; }
+    .stats-grid { grid-template-columns: 1fr; }
+    .table-responsive { width: 100%; overflow-x: auto; }
 }
 
-/* =========================================
-   📄 PAGINATION (ระบบแบ่งหน้า)
-   ========================================= */
-.pagination-container {
-    display: flex;
-    justify-content: flex-end;
-    align-items: center;
-    gap: 5px;
-    margin-top: 20px;
-    padding-top: 15px;
-    border-top: 1px solid #333;
-}
-
-.page-btn {
-    background: #1a1a1a;
-    color: #aaa;
-    border: 1px solid #333;
-    padding: 8px 14px;
-    border-radius: 6px;
-    cursor: pointer;
-    font-family: 'Poppins', 'Kanit', sans-serif;
-    font-weight: 600;
-    transition: 0.3s;
-}
-
-.page-btn:hover:not(:disabled) {
-    background: #333;
-    color: white;
-}
-
-.page-btn.active {
-    background: var(--theme-primary);
-    color: black;
-    border-color: var(--theme-primary);
-    box-shadow: 0 0 10px rgba(255, 102, 0, 0.5);
-}
-
-.page-btn:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-}
-
-/* =========================================
-   📊 CHARTS LAYOUT (กราฟสถิติ)
-   ========================================= */
-.chart-layout {
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
-}
-@media screen and (min-width: 1024px) {
-    .chart-layout {
-        display: grid;
-        grid-template-columns: 2fr 1fr; /* กราฟแท่งใหญ่กว่ากราฟวงกลม */
-        align-items: start;
-    }
-}
-
-/* =========================================
-   🛠️ แก้ปัญหาตารางประวัติการจองล้นจอ (PC & Mobile + เลื่อนขึ้นลงได้)
-   ========================================= */
-
-/* 1. ล็อคความสูงของหน้าต่าง Popup และความกว้าง */
+/* History Modal Table Fix */
 #historyModal .modal-content {
     width: 95% !important;
     max-width: 1000px !important;
-    max-height: 90vh; /* บังคับให้กล่องสูงไม่เกิน 90% ของหน้าจอ */
-    overflow: hidden; /* ป้องกันการล้น */
+    max-height: 90vh;
+    overflow: hidden;
     display: flex;
     flex-direction: column;
 }
-
-/* 2. ทำให้ตารางมีแถบเลื่อน เลื่อนขึ้น-ลง และ ซ้าย-ขวา ได้ */
 #historyModal .table-responsive {
     width: 100%;
-    max-height: 60vh; /* ล็อคความสูงตาราง ให้เลื่อนสกอร์เมาส์/ปัดนิ้วเอา */
-    overflow-y: auto; /* เลื่อนแนวตั้ง */
-    overflow-x: auto; /* เลื่อนแนวนอน */
+    max-height: 60vh;
+    overflow-y: auto;
+    overflow-x: auto;
     -webkit-overflow-scrolling: touch;
     border: 1px solid #333;
     border-radius: 8px;
     margin-top: 15px;
 }
-
-/* 3. ล็อค "หัวตาราง" ให้อยู่กับที่เวลาเลื่อนลงมาดูข้อมูลด้านล่าง (Sticky Header) */
 #historyModal .data-table thead th {
     position: sticky;
     top: 0;
-    background: #1a1a1a; /* ใส่สีพื้นหลังให้หัวตารางทึบ */
-    z-index: 10; /* ให้อยู่ชั้นบนสุด */
-    box-shadow: 0 2px 5px rgba(0,0,0,0.5); /* ใส่เงาให้ดูมีมิติ */
+    background: #1a1a1a;
+    z-index: 10;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.5);
 }
-
-/* 4. ล็อคความกว้างขั้นต่ำ ไม่ให้ปุ่มเบียดกัน */
-#historyModal .data-table {
-    width: 100%;
-    min-width: 650px; 
-}
-
-/* 5. อนุญาตให้ "ชื่ออุปกรณ์" (คอลัมน์แรก) ขึ้นบรรทัดใหม่ได้ */
-#historyModal .data-table td:nth-child(1) {
-    white-space: normal !important; 
-    line-height: 1.6;
-    min-width: 250px;
-}
-
-/* 6. บังคับช่อง วันที่, สถานะ, ดำเนินการ ให้อยู่บรรทัดเดียวเสมอ */
+#historyModal .data-table { width: 100%; min-width: 650px; }
+#historyModal .data-table td:nth-child(1) { white-space: normal !important; line-height: 1.6; min-width: 250px; }
 #historyModal .data-table td:nth-child(2),
 #historyModal .data-table td:nth-child(3),
-#historyModal .data-table td:nth-child(4) {
-    white-space: nowrap !important;
-    vertical-align: middle;
-}
+#historyModal .data-table td:nth-child(4) { white-space: nowrap !important; vertical-align: middle; }
+
+/* Pagination */
+.pagination-container { display: flex; justify-content: flex-end; align-items: center; gap: 5px; margin-top: 20px; padding-top: 15px; border-top: 1px solid #333; }
+.page-btn { background: #1a1a1a; color: #aaa; border: 1px solid #333; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 600; transition: 0.3s; }
+.page-btn:hover:not(:disabled) { background: #333; color: white; }
+.page-btn.active { background: var(--theme-primary); color: black; border-color: var(--theme-primary); box-shadow: 0 0 10px rgba(255, 102, 0, 0.5); }
+.page-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.chart-layout { display: flex; flex-direction: column; gap: 20px; }
+@media screen and (min-width: 1024px) { .chart-layout { display: grid; grid-template-columns: 2fr 1fr; align-items: start; } }

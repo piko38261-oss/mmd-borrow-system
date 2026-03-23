@@ -11,52 +11,28 @@
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
     <script type="text/javascript">
-       (function(){
-          emailjs.init("Rj2WpB-v7fZqvEu08"); 
-       })();
+       (function(){ emailjs.init("Rj2WpB-v7fZqvEu08"); })();
     </script>
 </head>
 <body>
     <div class="ticker-wrap">
-        <div class="ticker-heading">
-            <i class="fas fa-tools"></i> SYSTEM UPDATE
-        </div>
+        <div class="ticker-heading"><i class="fas fa-tools"></i> SYSTEM UPDATE</div>
         <div class="ticker-move">
-            <div class="ticker-item">
-                ขณะนี้กำลังพัฒนาระบบเพื่อความสะดวกในการจัดยืมของในสาขา MMD (RMUTI Surin) &nbsp;&nbsp; • &nbsp;&nbsp; หากพบปัญหาโปรดแจ้งแอดมินทันที
-            </div>
+            <div class="ticker-item">ขณะนี้กำลังพัฒนาระบบเพื่อความสะดวกในการจัดยืมของในสาขา MMD (RMUTI Surin) &nbsp;&nbsp; • &nbsp;&nbsp; หากพบปัญหาโปรดแจ้งแอดมินทันที</div>
         </div>
     </div>
     <div class="bg-animate"></div>
     
-<nav>
-    <div class="logo"><i class="fas fa-video"></i> MMD BORROW</div>
-    
-    <div class="user-info">
-        <span id="userNameDisplay">Loading...</span> 
-
-        <button id="btnAdminManage" onclick="window.location.href='admin.html'" class="btn-history" style="display: none; background: #ff9800; border-color: #ff9800; color: #fff;">
-            <i class="fas fa-user-shield"></i> ระบบหลังบ้าน
-        </button>
-
-        <button onclick="window.openCartModal()" class="btn-history" style="background: #28a745; border-color: #28a745; color: #fff;">
-            <i class="fas fa-shopping-cart"></i> ตะกร้า 
-            <span id="cartCountBadge" style="background: #dc3545; color: white; border-radius: 50%; padding: 2px 7px; font-size: 12px; margin-left: 5px;">0</span>
-        </button>
-
-        <button onclick="window.openHistoryModal()" class="btn-history">
-            <i class="fas fa-history"></i> ประวัติการจอง
-        </button>
-
-        <a href="about.html" class="btn-history" style="border-color: #fff; color: #fff; text-decoration: none; display: inline-flex; align-items: center; gap: 5px;">
-            <i class="fas fa-user-astronaut"></i> ผู้พัฒนา
-        </a>
-
-        <button onclick="window.logout()" class="btn-logout" title="ออกจากระบบ">
-            <i class="fas fa-sign-out-alt"></i>
-        </button>
-    </div>
-</nav>
+    <nav>
+        <div class="logo"><i class="fas fa-video"></i> MMD BORROW</div>
+        <div class="user-info">
+            <span id="userNameDisplay">Loading...</span> 
+            <button id="btnAdminManage" onclick="window.location.href='admin.html'" class="btn-history" style="display: none; background: #ff9800; border-color: #ff9800; color: #fff;"><i class="fas fa-user-shield"></i> ระบบหลังบ้าน</button>
+            <button onclick="window.openCartModal()" class="btn-history" style="background: #28a745; border-color: #28a745; color: #fff;"><i class="fas fa-shopping-cart"></i> ตะกร้า <span id="cartCountBadge" style="background: #dc3545; color: white; border-radius: 50%; padding: 2px 7px; font-size: 12px; margin-left: 5px;">0</span></button>
+            <button onclick="window.openHistoryModal()" class="btn-history"><i class="fas fa-history"></i> ประวัติการจอง</button>
+            <button onclick="window.logout()" class="btn-logout" title="ออกจากระบบ"><i class="fas fa-sign-out-alt"></i></button>
+        </div>
+    </nav>
 
     <div class="container">
         <div class="filters">
@@ -73,54 +49,21 @@
         <div id="itemGrid" class="item-grid"></div>
     </div>
 
-    <div id="borrowModal" class="modal">
-        <div class="modal-content">
-            <span class="close" onclick="window.closeModal()">&times;</span>
-            <h3 style="color:var(--theme-primary); margin-top:0;"><i class="far fa-edit"></i> แบบฟอร์มยืมอุปกรณ์</h3>
-            <p>กำลังยืม: <strong id="modalItemName" style="color: #fff;">...</strong></p>
-            
-            <form id="borrowForm">
-                <label style="color:#888; font-size:12px;">ชื่อผู้ยืม</label>
-                <input type="text" id="borrowerName" readonly style="color:#666; cursor:not-allowed;">
-                
-                <label style="color:#888; font-size:12px;">วันที่ต้องการรับของ</label>
-                <input type="date" required>
-
-                <label style="color:#888; font-size:12px;">เหตุผลการยืม</label>
-                <textarea rows="3" placeholder="เช่น ใช้ถ่ายงานวิชา..."></textarea>
-                
-                <div class="modal-actions" style="display:flex; gap:10px; margin-top:15px;">
-                    <button type="button" onclick="window.closeModal()" class="btn-cancel">ยกเลิก</button>
-                    <button type="submit" class="btn-confirm">ยืนยันการจอง</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
     <div id="cartModal" class="modal">
         <div class="modal-content" style="width: 500px;">
             <span class="close" onclick="window.closeCartModal()">&times;</span>
             <h3 style="color:#28a745; margin-top:0;"><i class="fas fa-shopping-cart"></i> ตะกร้าอุปกรณ์ที่เลือก</h3>
-            
-            <div id="cartItemsList" style="background: rgba(0,0,0,0.3); padding: 15px; border-radius: 8px; margin-bottom: 15px; max-height: 200px; overflow-y: auto;">
-                <p style="color: #aaa; text-align: center; font-size: 14px;">ตะกร้ายังว่างเปล่า</p>
-            </div>
-            
+            <div id="cartItemsList" style="background: rgba(0,0,0,0.3); padding: 15px; border-radius: 8px; margin-bottom: 15px; max-height: 200px; overflow-y: auto;"></div>
             <form id="cartForm">
                 <label style="color:#888; font-size:12px;">ชื่อผู้ยืม</label>
                 <input type="text" id="cartBorrowerName" readonly style="color:#666; cursor:not-allowed;">
-                
                 <label style="color:#888; font-size:12px;">วันที่ต้องการรับของ</label>
                 <input type="date" id="cartBorrowDate" required>
-
                 <label style="color:#888; font-size:12px;">เหตุผลการยืม</label>
                 <textarea id="cartReason" rows="3" placeholder="ระบุเหตุผลการยืมและสถานที่ถ่ายทำ..."></textarea>
-                
                 <div class="modal-actions" style="display:flex; gap:10px; margin-top:15px;">
                     <button type="button" onclick="window.closeCartModal()" class="btn-cancel">ยกเลิก</button>
-                    <button type="submit" class="btn-confirm" style="background: #28a745; border-color: #28a745; width: 100%;">
-                        <i class="fas fa-check-circle"></i> ยืนยันการจองทั้งหมด
-                    </button>
+                    <button type="submit" class="btn-confirm" style="background: #28a745; border-color: #28a745; width: 100%;"><i class="fas fa-check-circle"></i> ยืนยันการจองทั้งหมด</button>
                 </div>
             </form>
         </div>
@@ -130,7 +73,6 @@
         <div class="modal-content" style="width: 800px;">
             <span class="close" onclick="window.closeHistoryModal()">&times;</span>
             <h3 style="color:var(--theme-primary); margin-top:0;"><i class="fas fa-history"></i> ประวัติการจองของฉัน</h3>
-            
             <div class="table-responsive">
                 <table class="data-table" style="width:100%; color:white; font-size:14px;">
                     <thead>
@@ -144,9 +86,7 @@
                     <tbody id="historyTableBody"></tbody>
                 </table>
             </div>
-            
             <input type="file" id="pickupProofInput" accept="image/*" style="display:none;">
-
             <div style="margin-top:20px; text-align:right;">
                 <button onclick="window.closeHistoryModal()" class="btn-cancel">ปิดหน้าต่าง</button>
             </div>
