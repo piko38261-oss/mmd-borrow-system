@@ -1,5 +1,5 @@
 /* =========================================
-   script.js - MMD BORROW SYSTEM (FULL MEGA + RETURN PHOTO + STATS + DELETE & SEARCH USER)
+   script.js - MMD BORROW SYSTEM (FULL MEGA + RETURN PHOTO + STATS + DELETE & SEARCH USER + ITEM DETAILS)
    ========================================= */
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
@@ -185,33 +185,95 @@ window.renderItems = (cat = 'all') => {
         
         let statusCSS = 'available';
         let btnClass = 'btn-borrow';
-        let btnText = '<i class="fas fa-cart-plus"></i> ลงตะกร้า';
+        let btnText = '<i class="fas fa-cart-plus"></i> จอง';
         let btnAction = `addToCart('${item.id}', '${item.name}')`;
         let badgeText = 'ว่าง';
 
         if (item.condition === 'damaged') {
-            statusCSS = 'borrowed'; 
-            btnClass = 'btn-disabled';
-            btnAction = ''; 
-            btnText = '<i class="fas fa-wrench"></i> ชำรุด/ส่งซ่อม';
-            badgeText = 'ส่งซ่อม';
+            statusCSS = 'borrowed'; btnClass = 'btn-disabled'; btnAction = ''; 
+            btnText = '<i class="fas fa-wrench"></i> ชำรุด'; badgeText = 'ส่งซ่อม';
         }
         else if (activeReq) {
-            statusCSS = 'borrowed'; 
-            btnClass = 'btn-disabled';
-            btnAction = ''; 
-            if (activeReq.status === 'pending') { btnText = '<i class="fas fa-user-clock"></i> ติดจองแล้ว'; badgeText = 'รออนุมัติ'; } 
-            else if (activeReq.status === 'pending_return') { btnText = '<i class="fas fa-spinner"></i> รอแอดมินรับคืน'; badgeText = 'รอตรวจคืน'; }
+            statusCSS = 'borrowed'; btnClass = 'btn-disabled'; btnAction = ''; 
+            if (activeReq.status === 'pending') { btnText = '<i class="fas fa-user-clock"></i> ติดจอง'; badgeText = 'รออนุมัติ'; } 
+            else if (activeReq.status === 'pending_return') { btnText = '<i class="fas fa-spinner"></i> รอตรวจ'; badgeText = 'รอตรวจคืน'; }
             else { btnText = '<i class="fas fa-ban"></i> ไม่ว่าง'; badgeText = 'ถูกยืม'; }
         } 
         else if (cartItem) {
-            statusCSS = 'incart';
-            btnText = `กำลังจอง (${cartItem.qty})`;
-            badgeText = 'ในตะกร้า';
+            statusCSS = 'incart'; btnText = `เลือกแล้ว (${cartItem.qty})`; badgeText = 'ในตะกร้า';
         }
         
-        grid.innerHTML += `<div class="card"><div class="card-img"><img src="${item.image}"><div class="status-badge ${statusCSS}">${badgeText}</div></div><div class="card-body"><h4>${item.name}</h4><span class="category-tag">${item.category.toUpperCase()}</span><button class="${btnClass}" onclick="${btnAction}">${btnText}</button></div></div>`;
+        grid.innerHTML += `
+        <div class="card">
+            <div class="card-img" onclick="window.openItemDetail('${item.id}')" style="cursor:pointer;" title="คลิกดูรายละเอียด">
+                <img src="${item.image}">
+                <div class="status-badge ${statusCSS}">${badgeText}</div>
+            </div>
+            <div class="card-body">
+                <h4>${item.name}</h4>
+                <span class="category-tag">${item.category.toUpperCase()}</span>
+                <div style="display:flex; gap:5px; margin-top:auto;">
+                    <button onclick="window.openItemDetail('${item.id}')" style="flex:1; padding:10px; border-radius:6px; background:#444; color:white; border:none; cursor:pointer; font-weight:bold;"><i class="fas fa-info-circle"></i></button>
+                    <button class="${btnClass}" onclick="${btnAction}" style="flex:3; margin-top:0;">${btnText}</button>
+                </div>
+            </div>
+        </div>`;
     });
+}
+
+// 🟢 ฟังก์ชันเปิดหน้าต่างโชว์รายละเอียด (แบบ Shopee)
+window.openItemDetail = function(id) {
+    const item = items.find(i => i.id === id);
+    if (!item) return;
+
+    const difficultyLevel = item.difficulty || "ระดับปานกลาง (Medium)";
+    const descriptionText = item.description || "อุปกรณ์นี้ยังไม่มีการเพิ่มคำอธิบายรายละเอียดเพิ่มเติม...";
+
+    const activeReq = borrowRequests.find(r => (r.item && r.item.includes(item.name)) && ['pending', 'approved_pickup', 'borrowed', 'pending_return'].includes(r.status));
+    let btnHtml = '';
+    if (item.condition === 'damaged' || activeReq) {
+        btnHtml = `<button class="btn-disabled" style="width:100%; padding:12px; border-radius:8px; font-size:16px;"><i class="fas fa-ban"></i> ไม่พร้อมให้บริการ</button>`;
+    } else {
+        btnHtml = `<button class="btn-borrow" onclick="addToCart('${item.id}', '${item.name}'); window.closeItemDetail();" style="width:100%; padding:12px; border-radius:8px; font-size:16px; background:var(--theme-primary);"><i class="fas fa-cart-plus"></i> เพิ่มลงตะกร้าเลย</button>`;
+    }
+
+    const html = `
+        <div style="display:flex; flex-direction:column; background:#1a1a1a;">
+            <div style="height: 250px; background: #000; display:flex; justify-content:center; align-items:center; border-bottom:1px solid #333;">
+                <img src="${item.image}" style="max-width:100%; max-height:100%; object-fit:contain;">
+            </div>
+            <div style="padding: 20px;">
+                <span class="category-tag" style="background:#333;">${item.category.toUpperCase()}</span>
+                <h2 style="margin: 5px 0 15px; color:var(--theme-primary); font-size: 22px;">${item.name}</h2>
+                
+                <div style="background: #111; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #333; font-size: 14px;">
+                    <div style="display:flex; justify-content:space-between; margin-bottom: 10px; border-bottom: 1px dashed #444; padding-bottom: 10px;">
+                        <span style="color:#aaa;"><i class="fas fa-stethoscope"></i> สภาพอุปกรณ์:</span>
+                        <strong style="color:${item.condition === 'damaged' ? 'var(--danger)' : 'var(--success)'}">${item.condition === 'damaged' ? 'ชำรุด / ส่งซ่อม' : 'ใช้งานได้ปกติ'}</strong>
+                    </div>
+                    <div style="display:flex; justify-content:space-between;">
+                        <span style="color:#aaa;"><i class="fas fa-tachometer-alt"></i> ความยากในการใช้งาน:</span>
+                        <strong style="color:var(--warning);">${difficultyLevel}</strong>
+                    </div>
+                </div>
+                
+                <div style="margin-bottom: 25px;">
+                    <h4 style="color:#fff; margin-bottom:8px; font-size:16px;"><i class="fas fa-align-left"></i> รายละเอียดสินค้า:</h4>
+                    <p style="color:#bbb; font-size:13px; line-height:1.6; margin:0; background:#000; padding:15px; border-radius:8px;">${descriptionText}</p>
+                </div>
+                
+                ${btnHtml}
+            </div>
+        </div>
+    `;
+    
+    document.getElementById('itemDetailBody').innerHTML = html;
+    document.getElementById('itemDetailModal').style.display = 'flex';
+}
+
+// 🟢 ฟังก์ชันปิดหน้าต่างรายละเอียด
+window.closeItemDetail = () => {
+    document.getElementById('itemDetailModal').style.display = 'none';
 }
 
 window.addToCart = async function(id, name) {
