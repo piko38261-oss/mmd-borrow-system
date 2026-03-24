@@ -194,7 +194,7 @@ window.switchTab = (t) => {
     document.querySelectorAll('.sidebar-menu a').forEach(e => e.classList.remove('active')); 
     document.getElementById(`section-${t}`).style.display = 'block'; 
     document.getElementById(`menu-${t}`).classList.add('active'); 
-    if (t === 'stats') { window.renderStats(); } // 🟢 สั่งวาดกราฟเมื่อคลิกแท็บสถิติ
+    if (t === 'stats') { window.renderStats(); }
 }
 
 window.searchRequest = (query) => { searchQuery = query.toLowerCase(); currentPage = 1; window.renderRequests(); }
@@ -215,7 +215,6 @@ window.renderRequests = () => {
         
         let badge = '', btns = '';
         
-        // 🟢 บังคับสีปุ่มแบบ Inline ให้ชัดเจน 100%
         if(r.status === 'pending') { 
             badge = '<span class="badge" style="background:transparent; color:#ffc107; border:1px solid #ffc107;">ใหม่</span>'; 
             btns = `<button onclick="updateStatus('${r.id}','approved_pickup')" style="background:#28a745; color:#fff; border:none; padding:6px 12px; border-radius:4px; font-weight:bold; cursor:pointer; margin-right:5px;">อนุญาต</button> 
@@ -267,7 +266,14 @@ window.renderInventory = () => {
             ? `<button onclick="toggleCondition('${i.id}', 'good')" style="background:#dc3545; color:#fff; border:none; padding:6px 12px; border-radius:4px; font-size:12px; font-weight:bold; cursor:pointer;">ชำรุด (ส่งซ่อม)</button>` 
             : `<button onclick="toggleCondition('${i.id}', 'damaged')" style="background:#198754; color:#fff; border:none; padding:6px 12px; border-radius:4px; font-size:12px; font-weight:bold; cursor:pointer;">ปกติ (ใช้งานได้)</button>`;
             
-        tbody.innerHTML += `<tr><td><img src="${i.image}" width="40"></td><td style="color:white">${i.name}</td><td>${i.category}</td><td>${st}</td><td>${condBtn}</td><td><button onclick="deleteItem('${i.id}')" style="background:#dc3545; color:#fff; border:none; padding:6px 12px; border-radius:4px; font-size:12px; font-weight:bold; cursor:pointer;"><i class="fas fa-trash"></i></button></td></tr>`; 
+        let actionBtns = `
+            <div style="display:flex; gap:5px;">
+                <button onclick="editItemImage('${i.id}', '${i.name}')" style="background:#0dcaf0; color:#000; border:none; padding:6px 12px; border-radius:4px; font-size:12px; font-weight:bold; cursor:pointer;" title="เปลี่ยนรูปภาพ"><i class="fas fa-image"></i></button>
+                <button onclick="deleteItem('${i.id}')" style="background:#dc3545; color:#fff; border:none; padding:6px 12px; border-radius:4px; font-size:12px; font-weight:bold; cursor:pointer;" title="ลบอุปกรณ์"><i class="fas fa-trash"></i></button>
+            </div>
+        `;
+            
+        tbody.innerHTML += `<tr><td><img src="${i.image}" width="40" style="border-radius:4px;"></td><td style="color:white">${i.name}</td><td>${i.category}</td><td>${st}</td><td>${condBtn}</td><td>${actionBtns}</td></tr>`; 
     }); 
 }
 window.toggleCondition = async (id, n) => { if((await Swal.fire({title:'เปลี่ยนสภาพของ?', icon:'question',showCancelButton:true, background:'#1a1a1a', color:'#fff'})).isConfirmed) { await updateDoc(doc(db, "items", id), { condition: n }); } }
@@ -345,9 +351,38 @@ window.addNewItem = async () => {
     }
 }
 
+// 🟢 ฟังก์ชันใหม่: จัดการเปลี่ยนรูปภาพอุปกรณ์เก่า
+window.editItemImage = async function(id, name) {
+    const { value: file } = await Swal.fire({
+        title: '📸 เปลี่ยนรูปภาพอุปกรณ์',
+        html: `อัปโหลดรูปภาพใหม่สำหรับ<br><b style="color:var(--theme-primary);">${name}</b>`,
+        input: 'file',
+        inputAttributes: {
+            'accept': 'image/*',
+            'aria-label': 'อัปโหลดรูปภาพใหม่'
+        },
+        showCancelButton: true,
+        confirmButtonText: '<i class="fas fa-upload"></i> อัปโหลด',
+        cancelButtonText: 'ยกเลิก',
+        confirmButtonColor: '#28a745',
+        background: '#1a1a1a',
+        color: '#fff'
+    });
+
+    if (file) {
+        Swal.fire({ title: 'กำลังอัปโหลด...', allowOutsideClick: false, didOpen: () => Swal.showLoading(), background: '#1a1a1a', color: '#fff'});
+        try {
+            const base64Image = await resizeImage(file);
+            await updateDoc(doc(db, "items", id), { image: base64Image });
+            Swal.fire({ icon: 'success', title: 'เปลี่ยนรูปภาพสำเร็จ!', timer: 1500, background: '#1a1a1a', color: '#fff', showConfirmButton: false });
+        } catch (error) {
+            Swal.fire({ icon: 'error', title: 'เกิดข้อผิดพลาด', text: error.message, background: '#1a1a1a', color: '#fff' });
+        }
+    }
+}
+
 window.updateDashboardStats = () => { document.getElementById('stat-pending').innerText = borrowRequests.filter(r => r.status === 'pending').length; document.getElementById('stat-borrowed').innerText = borrowRequests.filter(r => r.status === 'borrowed').length; document.getElementById('stat-total-items').innerText = items.length; }
 
-// 🟢 อัปเกรดระบบแสดงสถิติ (วาดกราฟทันที)
 window.renderStats = () => {
     let freq = {}; 
     borrowRequests.filter(r => r.status !== 'rejected').forEach(req => { 
