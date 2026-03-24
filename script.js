@@ -1,5 +1,5 @@
 /* =========================================
-   script.js - MMD BORROW SYSTEM (FULL COMPLETE MEGA VERSION + RETURN TIME)
+   script.js - MMD BORROW SYSTEM (FULL COMPLETE MEGA VERSION + MAINTENANCE LOG)
    ========================================= */
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
@@ -115,6 +115,7 @@ window.renderItems = (cat = currentCategory) => {
     });
 }
 
+// 🟢 อัปเดต: หน้าต่างรายละเอียดอุปกรณ์ (แสดงกล่องสีแดงแจ้งสาเหตุที่พัง)
 window.openItemDetail = function(id) {
     const item = items.find(i => i.id === id); if (!item) return;
     const diff = item.difficulty || "ระดับปานกลาง (Medium)";
@@ -124,6 +125,12 @@ window.openItemDetail = function(id) {
     const activeReq = borrowRequests.find(r => (r.item && r.item.includes(item.name)) && ['pending', 'approved_pickup', 'borrowed', 'pending_return'].includes(r.status));
     let btn = (item.condition === 'damaged' || activeReq) ? `<button class="btn-disabled" style="width:100%; padding:12px; border-radius:8px;"><i class="fas fa-ban"></i> ไม่พร้อม</button>` : `<button class="btn-borrow" onclick="addToCart('${item.id}', '${item.name}'); window.closeItemDetail();" style="width:100%; padding:12px; border-radius:8px; background:var(--theme-primary);"><i class="fas fa-cart-plus"></i> เพิ่มลงตะกร้า</button>`;
 
+    // ส่วนของกล่องแสดงอาการชำรุด
+    let damageHtml = '';
+    if (item.condition === 'damaged' && item.damageReason) {
+        damageHtml = `<div style="margin-top: 8px; padding: 10px; background: rgba(220, 53, 69, 0.15); border-left: 4px solid #dc3545; font-size: 13px; color: #ffcccc; border-radius: 0 4px 4px 0;"><b><i class="fas fa-wrench"></i> อาการชำรุด:</b> ${item.damageReason}</div>`;
+    }
+
     document.getElementById('itemDetailBody').innerHTML = `
         <div style="display:flex; flex-direction:column; background:#1a1a1a;">
             <div style="height: 250px; background: #000; display:flex; justify-content:center; align-items:center;"><img src="${item.image}" style="max-width:100%; max-height:100%; object-fit:contain;"></div>
@@ -131,8 +138,14 @@ window.openItemDetail = function(id) {
                 <span class="category-tag" style="background:#333;">${item.category.toUpperCase()}</span>
                 <h2 style="margin: 5px 0 15px; color:var(--theme-primary);">${item.name}</h2>
                 <div style="background: #111; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #333; font-size: 14px;">
-                    <div style="display:flex; justify-content:space-between; margin-bottom: 10px; border-bottom: 1px dashed #444; padding-bottom: 10px;"><span style="color:#aaa;">สภาพ:</span><strong style="color:${item.condition === 'damaged' ? 'var(--danger)' : 'var(--success)'}">${item.condition === 'damaged' ? 'ชำรุด / ส่งซ่อม' : 'ใช้งานได้ปกติ'}</strong></div>
-                    <div style="display:flex; justify-content:space-between;"><span style="color:#aaa;">ระดับใช้งาน:</span><strong style="color:var(--warning);">${diff}</strong></div>
+                    <div style="display:flex; justify-content:space-between; margin-bottom: ${damageHtml ? '10px' : '0'}; ${damageHtml ? '' : 'border-bottom: 1px dashed #444; padding-bottom: 10px;'}">
+                        <span style="color:#aaa;">สภาพ:</span>
+                        <strong style="color:${item.condition === 'damaged' ? 'var(--danger)' : 'var(--success)'}">${item.condition === 'damaged' ? 'ชำรุด / ส่งซ่อม' : 'ใช้งานได้ปกติ'}</strong>
+                    </div>
+                    ${damageHtml}
+                    <div style="display:flex; justify-content:space-between; margin-top: 10px; border-top: ${damageHtml ? '1px dashed #444' : 'none'}; padding-top: ${damageHtml ? '10px' : '0'};">
+                        <span style="color:#aaa;">ระดับใช้งาน:</span><strong style="color:var(--warning);">${diff}</strong>
+                    </div>
                 </div>
                 <div style="margin-bottom: 15px;"><h4 style="color:#fff; margin-bottom:8px;">รายละเอียด:</h4><p style="color:#bbb; font-size:13px; margin:0; background:#000; padding:15px; border-radius:8px; white-space: pre-wrap;">${desc}</p></div>
                 <div style="margin-bottom: 20px; font-size: 11px; color: #888; text-align: right;">อ้างอิง: <em>${ref}</em></div>
@@ -158,7 +171,7 @@ window.openCartModal = () => {
 
     const dInput = document.getElementById('cartBorrowDate'); 
     const rInput = document.getElementById('cartReturnDate');
-    const tInput = document.getElementById('cartReturnTime'); // 🟢 เพิ่มการเคลียร์เวลา
+    const tInput = document.getElementById('cartReturnTime'); 
     
     if(dInput && rInput) { 
         const today = new Date().toISOString().split('T')[0]; 
@@ -199,7 +212,6 @@ window.openHistoryModal = () => {
             printBtn = `<button onclick="printReceipt('${r.id}')" style="background:#0dcaf0; color:#000; border:none; padding:5px 8px; border-radius:4px; font-size:11px; font-weight:bold; cursor:pointer; width:100%; margin-top:3px;"><i class="fas fa-print"></i> พิมพ์ใบยืม</button>`;
         }
 
-        // 🟢 นำเวลามาต่อท้ายวันที่ให้สวยงาม
         let retStr = r.returnDate ? `${r.returnDate} ${r.returnTimeLimit ? 'เวลา ' + r.returnTimeLimit + ' น.' : ''}` : '-';
         let dateHtml = `รับ: ${r.date}<br><span style="color:var(--warning); font-size:12px;">คืน: ${retStr}</span>`;
         
@@ -270,7 +282,6 @@ window.renderRequests = () => {
         
         let printBtn = `<button onclick="printReceipt('${r.id}')" style="background:#0dcaf0; color:#000; border:none; padding:6px 12px; border-radius:4px; font-weight:bold; cursor:pointer; margin-top:5px; width:100%;"><i class="fas fa-print"></i> พิมพ์ใบยืม</button>`;
 
-        // 🟢 แสดงเวลาคืนในตารางแอดมินด้วย
         let retStr = r.returnDate ? `${r.returnDate} ${r.returnTimeLimit ? 'เวลา ' + r.returnTimeLimit + ' น.' : ''}` : '-';
         let dateHtml = `รับ: ${r.date}<br><span style="color:var(--warning); font-size:12px;">คืน: ${retStr}</span>`;
         
@@ -290,7 +301,6 @@ window.printReceipt = (id) => {
     const r = borrowRequests.find(req => req.id === id);
     if(!r) return;
 
-    // 🟢 แสดงเวลาคืนในใบ PDF ด้วย
     let retStr = r.returnDate ? `${r.returnDate} ${r.returnTimeLimit ? 'เวลา ' + r.returnTimeLimit + ' น.' : ''}` : '-';
 
     const printWindow = window.open('', '_blank', 'width=800,height=600');
@@ -374,6 +384,7 @@ window.changePage = (p) => { currentPage = p; window.renderRequests(); }
 window.updateStatus = async (id, s) => { await updateDoc(doc(db, "requests", id), { status: s }); }
 window.deleteRequest = async (id) => { if((await Swal.fire({title:'ลบ?',icon:'warning',showCancelButton:true})).isConfirmed) { await deleteDoc(doc(db, "requests", id)); Swal.fire('ลบแล้ว','','success'); } }
 
+// 🟢 อัปเดต: ระบบบันทึกอาการชำรุด (Maintenance Log)
 window.renderInventory = () => { 
     const tbody = document.getElementById('inventoryTableBody'); if(!tbody) return; tbody.innerHTML = ''; 
     items.forEach(i => { 
@@ -395,7 +406,34 @@ window.renderInventory = () => {
         tbody.innerHTML += `<tr><td><img src="${i.image}" width="40" style="border-radius:4px;"></td><td style="color:white">${i.name}</td><td>${i.category}</td><td>${st}</td><td>${condBtn}</td><td>${actionBtns}</td></tr>`; 
     }); 
 }
-window.toggleCondition = async (id, n) => { if((await Swal.fire({title:'เปลี่ยนสภาพของ?', icon:'question',showCancelButton:true, background:'#1a1a1a', color:'#fff'})).isConfirmed) { await updateDoc(doc(db, "items", id), { condition: n }); } }
+
+window.toggleCondition = async (id, n) => { 
+    if (n === 'damaged') {
+        const { value: reason } = await Swal.fire({
+            title: '🛠️ ระบุอาการชำรุด',
+            input: 'textarea',
+            inputLabel: 'สาเหตุที่อุปกรณ์ชำรุด/ส่งซ่อม',
+            inputPlaceholder: 'เช่น เลนส์เป็นรอย, แบตเตอรี่เสื่อม, เปิดไม่ติด...',
+            showCancelButton: true,
+            background: '#1a1a1a', 
+            color: '#fff',
+            confirmButtonColor: '#dc3545',
+            confirmButtonText: 'บันทึกอาการ',
+            cancelButtonText: 'ยกเลิก'
+        });
+        
+        if (reason !== undefined) { 
+            await updateDoc(doc(db, "items", id), { condition: n, damageReason: reason || "ไม่ได้ระบุอาการ" }); 
+            Swal.fire({icon: 'success', title: 'บันทึกสถานะชำรุดแล้ว', background: '#1a1a1a', color: '#fff', timer: 1500, showConfirmButton: false});
+        }
+    } else {
+        if((await Swal.fire({title:'เปลี่ยนสภาพกลับเป็น ปกติ?', icon:'question',showCancelButton:true, background:'#1a1a1a', color:'#fff'})).isConfirmed) { 
+            await updateDoc(doc(db, "items", id), { condition: n, damageReason: "" }); 
+            Swal.fire({icon: 'success', title: 'อัปเดตเป็นปกติแล้ว', background: '#1a1a1a', color: '#fff', timer: 1500, showConfirmButton: false});
+        } 
+    }
+}
+
 window.deleteItem = async (id) => { if((await Swal.fire({title:'ลบ?',icon:'warning',showCancelButton:true})).isConfirmed) { await deleteDoc(doc(db, "items", id)); } }
 
 window.addNewItem = async () => {
@@ -634,7 +672,7 @@ function initApp() {
                     e.preventDefault(); 
                     const d = document.getElementById('cartBorrowDate').value; 
                     const retD = document.getElementById('cartReturnDate').value;
-                    const retT = document.getElementById('cartReturnTime').value; // 🟢 บันทึกเวลา
+                    const retT = document.getElementById('cartReturnTime').value;
                     const r = document.getElementById('cartReason').value; 
                     const btn = document.querySelector('#cartForm button[type="submit"]');
                     
@@ -649,7 +687,7 @@ function initApp() {
                             item: itms, 
                             date: d, 
                             returnDate: retD, 
-                            returnTimeLimit: retT, // 🟢 นำเวลาใส่ DB ด้วย
+                            returnTimeLimit: retT, 
                             reason: r||"-", 
                             status: "pending", 
                             timestamp: new Date() 
