@@ -65,8 +65,11 @@
                         <input type="date" id="cartBorrowDate" required style="margin: 5px 0 0; width: 100%; box-sizing: border-box;">
                     </div>
                     <div style="flex:1;">
-                        <label style="color:#888; font-size:12px;">📅 วันที่คืนของ</label>
-                        <input type="date" id="cartReturnDate" required style="margin: 5px 0 0; width: 100%; box-sizing: border-box;">
+                        <label style="color:#888; font-size:12px;">📅 วันและเวลาที่คืน</label>
+                        <div style="display:flex; gap:5px; margin-top:5px;">
+                            <input type="date" id="cartReturnDate" required style="width: 60%; box-sizing: border-box; margin:0;">
+                            <input type="time" id="cartReturnTime" required style="width: 40%; box-sizing: border-box; margin:0;">
+                        </div>
                     </div>
                 </div>
 

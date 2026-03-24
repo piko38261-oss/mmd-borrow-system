@@ -1,5 +1,5 @@
 /* =========================================
-   script.js - MMD BORROW SYSTEM (FULL COMPLETE MEGA VERSION)
+   script.js - MMD BORROW SYSTEM (FULL COMPLETE MEGA VERSION + RETURN TIME)
    ========================================= */
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
@@ -9,7 +9,6 @@ from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 try { emailjs.init("Rj2WpB-v7fZqvEu08"); } catch (e) { console.warn("⚠️ EmailJS ไม่ถูกโหลด"); }
 const LINE_API_URL = "https://script.google.com/macros/s/AKfycbzw0gLpeZEdB8rUofNdPTLKHBQYhfcYcD1S72t_PRI-tSfdfi2-ZqGUw-Hwa4wRP17crg/exec";
 
-// 🔴 Config Firebase ของคุณกาย
 const firebaseConfig = {
   apiKey: "AIzaSyCJNX3-vN5bceDczdKxrqb0N8uaBpgDhTE",
   authDomain: "mmd-borrow-app.firebaseapp.com",
@@ -29,14 +28,13 @@ let items = [], borrowRequests = [], users = [], cart = [];
 let currentPickupId = null, currentReturnId = null;
 let currentPage = 1; const itemsPerPage = 8; let searchQuery = "";
 let borrowChartInstance = null, conditionChartInstance = null;
-let currentCategory = 'all'; // 🟢 จำหมวดหมู่ที่เลือกไว้ล่าสุด
+let currentCategory = 'all';
 
 if (!document.getElementById('returnProofInput')) {
     const returnInput = document.createElement('input'); returnInput.type = 'file'; returnInput.id = 'returnProofInput';
     returnInput.accept = 'image/*'; returnInput.style.display = 'none'; document.body.appendChild(returnInput);
 }
 
-/* --- Helpers --- */
 function resizeImage(file) {
     return new Promise((resolve) => {
         const reader = new FileReader(); reader.readAsDataURL(file);
@@ -65,9 +63,6 @@ window.viewPhoto = function(reqId, type = 'pickup') {
     else { Swal.fire({ icon: 'info', title: 'ไม่พบรูปภาพ', text: 'รายการนี้ยังไม่มีรูปภาพในระบบ' }); }
 }
 
-/* ==========================================
-   🔥 AUTHENTICATION & DATA 🔥
-   ========================================== */
 window.checkAuth = function() {
     if (!currentUser) { if (!window.location.pathname.includes('index.html') && !window.location.pathname.endsWith('/')) { window.location.href = 'index.html'; } return null; }
     const display = document.getElementById('userNameDisplay'); if(display) display.innerText = currentUser.name || currentUser.username;
@@ -97,11 +92,8 @@ window.listenToData = function() {
     onSnapshot(collection(db, "users"), (snap) => { users = snap.docs.map(doc => ({ id: doc.id, ...doc.data() })); if(document.getElementById('adminUserTableBody')) window.loadUsersToAdminTable(); });
 }
 
-/* ==========================================
-   🔥 USER DASHBOARD & ITEM DETAILS 🔥
-   ========================================== */
 window.renderItems = (cat = currentCategory) => { 
-    currentCategory = cat; // 🟢 จำหมวดหมู่ปัจจุบันไว้
+    currentCategory = cat; 
     const grid = document.getElementById('itemGrid'); if(!grid) return; grid.innerHTML = '';
     items.forEach(item => {
         if(currentCategory !== 'all' && item.category !== currentCategory) return; 
@@ -166,11 +158,13 @@ window.openCartModal = () => {
 
     const dInput = document.getElementById('cartBorrowDate'); 
     const rInput = document.getElementById('cartReturnDate');
+    const tInput = document.getElementById('cartReturnTime'); // 🟢 เพิ่มการเคลียร์เวลา
     
     if(dInput && rInput) { 
         const today = new Date().toISOString().split('T')[0]; 
         dInput.min = today; dInput.value = ""; 
         rInput.min = today; rInput.value = ""; 
+        if(tInput) tInput.value = ""; 
         
         dInput.onchange = () => {
             rInput.min = dInput.value;
@@ -185,7 +179,6 @@ window.openCartModal = () => {
 window.removeFromCart = (id) => { cart = cart.filter(i => i.id !== id); window.updateCartCount(); window.renderItems(); cart.length === 0 ? window.closeCartModal() : window.openCartModal(); }
 window.closeCartModal = () => document.getElementById('cartModal').style.display = 'none';
 
-// 🟢 อัปเดต: ประวัติการจองมีปุ่มพิมพ์ใบยืมให้นักศึกษา
 window.openHistoryModal = () => {
     const tbody = document.getElementById('historyTableBody'); if(!tbody) return; tbody.innerHTML = '';
     const myReqs = borrowRequests.filter(r => r.user === (currentUser.name||currentUser.username)).sort((a,b) => (b.timestamp?.seconds||0) - (a.timestamp?.seconds||0));
@@ -206,7 +199,9 @@ window.openHistoryModal = () => {
             printBtn = `<button onclick="printReceipt('${r.id}')" style="background:#0dcaf0; color:#000; border:none; padding:5px 8px; border-radius:4px; font-size:11px; font-weight:bold; cursor:pointer; width:100%; margin-top:3px;"><i class="fas fa-print"></i> พิมพ์ใบยืม</button>`;
         }
 
-        let dateHtml = `รับ: ${r.date}<br><span style="color:var(--warning); font-size:12px;">คืน: ${r.returnDate || '-'}</span>`;
+        // 🟢 นำเวลามาต่อท้ายวันที่ให้สวยงาม
+        let retStr = r.returnDate ? `${r.returnDate} ${r.returnTimeLimit ? 'เวลา ' + r.returnTimeLimit + ' น.' : ''}` : '-';
+        let dateHtml = `รับ: ${r.date}<br><span style="color:var(--warning); font-size:12px;">คืน: ${retStr}</span>`;
         
         let actionHtml = `<div style="display:flex; flex-direction:column; gap:2px; align-items:center;">${btn}${printBtn}</div>`;
         if(!btn && !printBtn) actionHtml = '-';
@@ -222,9 +217,6 @@ window.searchItem = (t) => { Array.from(document.getElementsByClassName('card'))
 window.triggerPickup = (id) => { currentPickupId = id; document.getElementById('pickupProofInput').click(); }
 window.triggerReturn = (id) => { currentReturnId = id; document.getElementById('returnProofInput').click(); }
 
-/* ==========================================
-   🔥 ADMIN SYSTEM 🔥
-   ========================================== */
 window.switchTab = (t) => { 
     document.querySelectorAll('.content-section').forEach(e => e.style.display = 'none'); 
     document.querySelectorAll('.sidebar-menu a').forEach(e => e.classList.remove('active')); 
@@ -278,7 +270,10 @@ window.renderRequests = () => {
         
         let printBtn = `<button onclick="printReceipt('${r.id}')" style="background:#0dcaf0; color:#000; border:none; padding:6px 12px; border-radius:4px; font-weight:bold; cursor:pointer; margin-top:5px; width:100%;"><i class="fas fa-print"></i> พิมพ์ใบยืม</button>`;
 
-        let dateHtml = `รับ: ${r.date}<br><span style="color:var(--warning); font-size:12px;">คืน: ${r.returnDate || '-'}</span>`;
+        // 🟢 แสดงเวลาคืนในตารางแอดมินด้วย
+        let retStr = r.returnDate ? `${r.returnDate} ${r.returnTimeLimit ? 'เวลา ' + r.returnTimeLimit + ' น.' : ''}` : '-';
+        let dateHtml = `รับ: ${r.date}<br><span style="color:var(--warning); font-size:12px;">คืน: ${retStr}</span>`;
+        
         if (r.status === 'borrowed' && r.returnDate) {
             const today = new Date().toISOString().split('T')[0];
             if (r.returnDate < today) {
@@ -291,10 +286,12 @@ window.renderRequests = () => {
     if(window.renderPagination) window.renderPagination(reqs.length, pages);
 }
 
-// 🟢 ฟังก์ชันสร้างเอกสาร PDF (ใช้งานได้ทั้ง Admin และ User)
 window.printReceipt = (id) => {
     const r = borrowRequests.find(req => req.id === id);
     if(!r) return;
+
+    // 🟢 แสดงเวลาคืนในใบ PDF ด้วย
+    let retStr = r.returnDate ? `${r.returnDate} ${r.returnTimeLimit ? 'เวลา ' + r.returnTimeLimit + ' น.' : ''}` : '-';
 
     const printWindow = window.open('', '_blank', 'width=800,height=600');
     const html = `
@@ -329,14 +326,14 @@ window.printReceipt = (id) => {
                         <tr>
                             <th>รายการอุปกรณ์ที่ยืม</th>
                             <th style="width: 150px;">วันที่รับของ</th>
-                            <th style="width: 150px;">วันที่กำหนดคืน</th>
+                            <th style="width: 180px;">วันที่/เวลา กำหนดคืน</th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr>
                             <td>${r.item}</td>
                             <td>${r.date}</td>
-                            <td>${r.returnDate || '-'}</td>
+                            <td>${retStr}</td>
                         </tr>
                     </tbody>
                 </table>
@@ -637,6 +634,7 @@ function initApp() {
                     e.preventDefault(); 
                     const d = document.getElementById('cartBorrowDate').value; 
                     const retD = document.getElementById('cartReturnDate').value;
+                    const retT = document.getElementById('cartReturnTime').value; // 🟢 บันทึกเวลา
                     const r = document.getElementById('cartReason').value; 
                     const btn = document.querySelector('#cartForm button[type="submit"]');
                     
@@ -651,11 +649,12 @@ function initApp() {
                             item: itms, 
                             date: d, 
                             returnDate: retD, 
+                            returnTimeLimit: retT, // 🟢 นำเวลาใส่ DB ด้วย
                             reason: r||"-", 
                             status: "pending", 
                             timestamp: new Date() 
                         });
-                        fetch(LINE_API_URL, { method:'POST', mode:'no-cors', body:JSON.stringify({ user: currentUser.name, item: itms, date: `${d} คืน ${retD}` }) }).catch(e=>e);
+                        fetch(LINE_API_URL, { method:'POST', mode:'no-cors', body:JSON.stringify({ user: currentUser.name, item: itms, date: `${d} คืน ${retD} ${retT}น.` }) }).catch(e=>e);
                         Swal.fire({ icon: 'success', title: 'จองสำเร็จ!', timer: 2500, showConfirmButton: false }); cart = []; window.updateCartCount(); window.renderItems(); window.closeCartModal();
                     } catch(e) { Swal.fire('Error', e.message, 'error'); } finally { btn.disabled = false; }
                 };
