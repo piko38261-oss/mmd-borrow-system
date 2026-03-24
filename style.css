@@ -225,3 +225,34 @@ nav { background: rgba(0,0,0,0.95); padding: 15px 30px; display: flex; justify-c
 #itemDetailBody > div > div:first-child {
     flex-shrink: 0;
 }
+/* =========================================
+   🛠️ แก้ปัญหาตารางรายการยืม-คืนล้นจอในหน้า Admin
+   ========================================= */
+#section-requests .data-table {
+    table-layout: fixed; /* บังคับตารางให้อยู่ในขนาดหน้าจอ */
+    width: 100%;
+}
+
+#section-requests .data-table th, 
+#section-requests .data-table td {
+    white-space: normal !important; /* อนุญาตให้ข้อความยาวๆ ตัดขึ้นบรรทัดใหม่ได้ */
+    word-wrap: break-word;
+    vertical-align: middle;
+    padding: 10px; /* ปรับช่องว่างให้พอดีขึ้น */
+}
+
+/* กำหนดสัดส่วนความกว้างของแต่ละคอลัมน์ (รวมกัน 100%) */
+#section-requests .data-table th:nth-child(1) { width: 15%; } /* ชื่อผู้ยืม */
+#section-requests .data-table th:nth-child(2) { width: 35%; } /* อุปกรณ์ (ให้กว้างที่สุด) */
+#section-requests .data-table th:nth-child(3) { width: 15%; } /* วันที่รับ-คืน */
+#section-requests .data-table th:nth-child(4) { width: 10%; } /* สถานะ */
+#section-requests .data-table th:nth-child(5) { width: 10%; } /* หลักฐาน */
+#section-requests .data-table th:nth-child(6) { width: 15%; } /* จัดการ */
+
+/* ปรับปุ่มกดในช่องจัดการ ไม่ให้เบียดกันเกินไป */
+#section-requests .data-table td:last-child button {
+    display: inline-block;
+    margin-bottom: 5px;
+    font-size: 11px; /* ลดขนาดฟอนต์ปุ่มลงนิดนึงให้ดูไม่แน่น */
+    padding: 5px 10px;
+}
