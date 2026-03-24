@@ -140,7 +140,7 @@ window.openItemDetail = function(id) {
                     <div style="display:flex; justify-content:space-between; margin-bottom: 10px; border-bottom: 1px dashed #444; padding-bottom: 10px;"><span style="color:#aaa;">สภาพ:</span><strong style="color:${item.condition === 'damaged' ? 'var(--danger)' : 'var(--success)'}">${item.condition === 'damaged' ? 'ชำรุด / ส่งซ่อม' : 'ใช้งานได้ปกติ'}</strong></div>
                     <div style="display:flex; justify-content:space-between;"><span style="color:#aaa;">ระดับใช้งาน:</span><strong style="color:var(--warning);">${diff}</strong></div>
                 </div>
-                <div style="margin-bottom: 15px;"><h4 style="color:#fff; margin-bottom:8px;">รายละเอียด:</h4><p style="color:#bbb; font-size:13px; margin:0; background:#000; padding:15px; border-radius:8px;">${desc}</p></div>
+                <div style="margin-bottom: 15px;"><h4 style="color:#fff; margin-bottom:8px;">รายละเอียด:</h4><p style="color:#bbb; font-size:13px; margin:0; background:#000; padding:15px; border-radius:8px; white-space: pre-wrap;">${desc}</p></div>
                 <div style="margin-bottom: 20px; font-size: 11px; color: #888; text-align: right;">อ้างอิง: <em>${ref}</em></div>
                 ${btn}
             </div>
@@ -266,9 +266,10 @@ window.renderInventory = () => {
             ? `<button onclick="toggleCondition('${i.id}', 'good')" style="background:#dc3545; color:#fff; border:none; padding:6px 12px; border-radius:4px; font-size:12px; font-weight:bold; cursor:pointer;">ชำรุด (ส่งซ่อม)</button>` 
             : `<button onclick="toggleCondition('${i.id}', 'damaged')" style="background:#198754; color:#fff; border:none; padding:6px 12px; border-radius:4px; font-size:12px; font-weight:bold; cursor:pointer;">ปกติ (ใช้งานได้)</button>`;
             
+        // 🟢 เปลี่ยนปุ่มอัปโหลดรูปภาพ เป็นปุ่ม "แก้ไขข้อมูล" สีเหลือง ✏️
         let actionBtns = `
             <div style="display:flex; gap:5px;">
-                <button onclick="editItemImage('${i.id}', '${i.name}')" style="background:#0dcaf0; color:#000; border:none; padding:6px 12px; border-radius:4px; font-size:12px; font-weight:bold; cursor:pointer;" title="เปลี่ยนรูปภาพ"><i class="fas fa-image"></i></button>
+                <button onclick="editItem('${i.id}')" style="background:#ffc107; color:#000; border:none; padding:6px 12px; border-radius:4px; font-size:12px; font-weight:bold; cursor:pointer;" title="แก้ไขข้อมูลอุปกรณ์"><i class="fas fa-edit"></i> แก้ไข</button>
                 <button onclick="deleteItem('${i.id}')" style="background:#dc3545; color:#fff; border:none; padding:6px 12px; border-radius:4px; font-size:12px; font-weight:bold; cursor:pointer;" title="ลบอุปกรณ์"><i class="fas fa-trash"></i></button>
             </div>
         `;
@@ -279,7 +280,7 @@ window.renderInventory = () => {
 window.toggleCondition = async (id, n) => { if((await Swal.fire({title:'เปลี่ยนสภาพของ?', icon:'question',showCancelButton:true, background:'#1a1a1a', color:'#fff'})).isConfirmed) { await updateDoc(doc(db, "items", id), { condition: n }); } }
 window.deleteItem = async (id) => { if((await Swal.fire({title:'ลบ?',icon:'warning',showCancelButton:true})).isConfirmed) { await deleteDoc(doc(db, "items", id)); } }
 
-// 🟢 อัปเกรดฟอร์มเพิ่มอุปกรณ์ (รองรับการอัปโหลดรูปภาพ Base64 แบบเต็มระบบ)
+// 🟢 ฟังก์ชันเพิ่มอุปกรณ์
 window.addNewItem = async () => {
     const { value: formValues } = await Swal.fire({
         title: '📦 เพิ่มอุปกรณ์ใหม่',
@@ -351,30 +352,92 @@ window.addNewItem = async () => {
     }
 }
 
-// 🟢 ฟังก์ชันใหม่: จัดการเปลี่ยนรูปภาพอุปกรณ์เก่า
-window.editItemImage = async function(id, name) {
-    const { value: file } = await Swal.fire({
-        title: '📸 เปลี่ยนรูปภาพอุปกรณ์',
-        html: `อัปโหลดรูปภาพใหม่สำหรับ<br><b style="color:var(--theme-primary);">${name}</b>`,
-        input: 'file',
-        inputAttributes: {
-            'accept': 'image/*',
-            'aria-label': 'อัปโหลดรูปภาพใหม่'
-        },
-        showCancelButton: true,
-        confirmButtonText: '<i class="fas fa-upload"></i> อัปโหลด',
-        cancelButtonText: 'ยกเลิก',
-        confirmButtonColor: '#28a745',
-        background: '#1a1a1a',
-        color: '#fff'
+// 🟢 ฟังก์ชันใหม่: แก้ไขข้อมูลอุปกรณ์ (Edit Item) 
+window.editItem = async function(id) {
+    const item = items.find(i => i.id === id);
+    if (!item) return;
+
+    // เช็คค่าเก่า (ป้องกันค่าว่าง)
+    const diff = item.difficulty || "ระดับปานกลาง (Medium)";
+    const ref = item.reference || "";
+    const desc = item.description || "";
+
+    const { value: formValues } = await Swal.fire({
+        title: '✏️ แก้ไขข้อมูลอุปกรณ์',
+        width: 600,
+        html: `
+            <div style="text-align: left; font-size: 14px; display: flex; flex-direction: column; gap: 12px;">
+                <div>
+                    <label style="color:#aaa; display:block; margin-bottom:5px;">ชื่ออุปกรณ์</label>
+                    <input id="swal-edit-name" class="swal2-input" value="${item.name}" style="width: 100%; margin: 0; box-sizing: border-box;">
+                </div>
+                <div style="display: flex; gap: 10px;">
+                    <div style="flex: 1;">
+                        <label style="color:#aaa; display:block; margin-bottom:5px;">หมวดหมู่</label>
+                        <select id="swal-edit-category" class="swal2-input" style="width: 100%; margin: 0; box-sizing: border-box;">
+                            <option value="camera" ${item.category === 'camera' ? 'selected' : ''}>กล้อง</option>
+                            <option value="tripod" ${item.category === 'tripod' ? 'selected' : ''}>ขาตั้ง/Gimbal</option>
+                            <option value="audio" ${item.category === 'audio' ? 'selected' : ''}>เสียง</option>
+                            <option value="light" ${item.category === 'light' ? 'selected' : ''}>ไฟสตูดิโอ</option>
+                            <option value="general" ${item.category === 'general' ? 'selected' : ''}>ทั่วไป</option>
+                        </select>
+                    </div>
+                    <div style="flex: 1;">
+                        <label style="color:#aaa; display:block; margin-bottom:5px;">ระดับความยาก</label>
+                        <select id="swal-edit-difficulty" class="swal2-input" style="width: 100%; margin: 0; box-sizing: border-box;">
+                            <option value="ระดับง่ายมาก (Beginner)" ${diff.includes('ง่าย') ? 'selected' : ''}>🟢 ง่ายมาก</option>
+                            <option value="ระดับปานกลาง (Medium)" ${diff.includes('ปานกลาง') ? 'selected' : ''}>🟡 ปานกลาง</option>
+                            <option value="ระดับค่อนข้างยาก (Advanced)" ${diff.includes('ค่อนข้างยาก') ? 'selected' : ''}>🟠 ค่อนข้างยาก</option>
+                            <option value="ระดับมืออาชีพ (Pro)" ${diff.includes('มืออาชีพ') ? 'selected' : ''}>🔴 มืออาชีพ</option>
+                        </select>
+                    </div>
+                </div>
+                <div>
+                    <label style="color:#aaa; display:block; margin-bottom:5px;">เปลี่ยนรูปภาพ (ถ้าไม่เปลี่ยน ไม่ต้องเลือกไฟล์)</label>
+                    <input type="file" id="swal-edit-image-file" accept="image/*" style="width: 100%; color: #fff; background: #222; padding: 12px; border-radius: 5px; border: 1px solid #444; box-sizing: border-box;">
+                </div>
+                <div>
+                    <label style="color:#aaa; display:block; margin-bottom:5px;">อ้างอิงความยากจาก</label>
+                    <input id="swal-edit-ref" class="swal2-input" value="${ref}" style="width: 100%; margin: 0; box-sizing: border-box;">
+                </div>
+                <div>
+                    <label style="color:#aaa; display:block; margin-bottom:5px;">รายละเอียด / คำแนะนำเพิ่มเติม</label>
+                    <textarea id="swal-edit-desc" class="swal2-textarea" style="width: 100%; margin: 0; box-sizing: border-box; height: 80px;">${desc}</textarea>
+                </div>
+            </div>`,
+        showCancelButton: true, confirmButtonText: '<i class="fas fa-save"></i> บันทึกการแก้ไข', confirmButtonColor: '#ffc107', background: '#1a1a1a', color: '#fff',
+        preConfirm: async () => {
+            const name = document.getElementById('swal-edit-name').value;
+            if (!name) { Swal.showValidationMessage('กรุณากรอกชื่ออุปกรณ์ด้วยครับ'); return false; }
+            
+            const fileInput = document.getElementById('swal-edit-image-file');
+            let base64Image = item.image; // ถ่ายโอนรูปเดิมไว้ก่อน
+            
+            if (fileInput.files.length > 0) {
+                try {
+                    Swal.showLoading();
+                    base64Image = await resizeImage(fileInput.files[0]); // ถ้าเลือกรูปใหม่ ค่อยอัปโหลด
+                } catch (error) {
+                    Swal.showValidationMessage('เกิดข้อผิดพลาดในการประมวลผลรูปภาพ'); return false;
+                }
+            }
+            
+            return {
+                name: name,
+                category: document.getElementById('swal-edit-category').value,
+                image: base64Image,
+                difficulty: document.getElementById('swal-edit-difficulty').value,
+                reference: document.getElementById('swal-edit-ref').value,
+                description: document.getElementById('swal-edit-desc').value
+            };
+        }
     });
 
-    if (file) {
-        Swal.fire({ title: 'กำลังอัปโหลด...', allowOutsideClick: false, didOpen: () => Swal.showLoading(), background: '#1a1a1a', color: '#fff'});
+    if (formValues) {
+        Swal.fire({ title: 'กำลังอัปเดตข้อมูล...', allowOutsideClick: false, didOpen: () => Swal.showLoading(), background: '#1a1a1a', color: '#fff'});
         try {
-            const base64Image = await resizeImage(file);
-            await updateDoc(doc(db, "items", id), { image: base64Image });
-            Swal.fire({ icon: 'success', title: 'เปลี่ยนรูปภาพสำเร็จ!', timer: 1500, background: '#1a1a1a', color: '#fff', showConfirmButton: false });
+            await updateDoc(doc(db, "items", id), formValues);
+            Swal.fire({ icon: 'success', title: 'แก้ไขข้อมูลสำเร็จ!', timer: 1500, background: '#1a1a1a', color: '#fff', showConfirmButton: false });
         } catch (error) {
             Swal.fire({ icon: 'error', title: 'เกิดข้อผิดพลาด', text: error.message, background: '#1a1a1a', color: '#fff' });
         }
