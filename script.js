@@ -1,5 +1,5 @@
 /* =========================================
-   script.js - MMD BORROW SYSTEM (FULL COMPLETE MEGA VERSION)
+   script.js - MMD BORROW SYSTEM (FULL COMPLETE MEGA VERSION + RETURN DATE FEATURE)
    ========================================= */
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
@@ -154,16 +154,35 @@ window.addToCart = async function(id, name) {
     if (qty > 0) { cart.push({ id, name, qty: parseInt(qty) }); window.updateCartCount(); window.renderItems(); Swal.fire({icon: 'success', title: 'เพิ่มแล้ว', toast: true, position: 'top-end', timer: 1500, showConfirmButton: false}); }
 }
 window.updateCartCount = () => { const b = document.getElementById('cartCountBadge'); if(b) b.innerText = cart.reduce((s, i) => s + i.qty, 0); }
+
+// 🟢 อัปเดต: หน้าต่างตะกร้า (เพิ่มระบบกำหนดวันคืน)
 window.openCartModal = () => {
     if(cart.length === 0) return Swal.fire('ตะกร้าว่าง', '', 'info');
     document.getElementById('cartBorrowerName').value = currentUser.name || currentUser.username;
-    const dInput = document.getElementById('cartBorrowDate'); if(dInput) { const d=new Date(); dInput.min = d.toISOString().split('T')[0]; dInput.value=""; }
-    document.getElementById('cartItemsList').innerHTML = cart.map((i, idx) => `<div style="display:flex; justify-content:space-between; color:white; padding:8px 0; border-bottom:1px solid #444;"><span>${idx+1}. ${i.name} (x${i.qty})</span><button onclick="removeFromCart('${i.id}')" style="background:none; border:none; color:#dc3545;"><i class="fas fa-trash"></i></button></div>`).join('');
+    
+    const dInput = document.getElementById('cartBorrowDate'); 
+    const rInput = document.getElementById('cartReturnDate');
+    
+    if(dInput && rInput) { 
+        const today = new Date().toISOString().split('T')[0]; 
+        dInput.min = today; dInput.value = ""; 
+        rInput.min = today; rInput.value = ""; 
+        
+        // เมื่อเลือกวันรับ จะบังคับให้วันคืน ห้ามเลือกก่อนวันรับ
+        dInput.onchange = () => {
+            rInput.min = dInput.value;
+            if (rInput.value && rInput.value < dInput.value) rInput.value = dInput.value;
+        };
+    }
+    
+    document.getElementById('cartItemsList').innerHTML = cart.map((i, idx) => `<div style="display:flex; justify-content:space-between; color:white; padding:8px 0; border-bottom:1px solid #444;"><span>${idx+1}. ${i.name} (x${i.qty})</span><button type="button" onclick="removeFromCart('${i.id}')" style="background:none; border:none; color:#dc3545; cursor:pointer;"><i class="fas fa-trash"></i></button></div>`).join('');
     document.getElementById('cartModal').style.display = 'flex';
 }
+
 window.removeFromCart = (id) => { cart = cart.filter(i => i.id !== id); window.updateCartCount(); window.renderItems(); cart.length === 0 ? window.closeCartModal() : window.openCartModal(); }
 window.closeCartModal = () => document.getElementById('cartModal').style.display = 'none';
 
+// 🟢 อัปเดต: หน้าประวัติการจอง (แสดงวันรับ-วันคืน)
 window.openHistoryModal = () => {
     const tbody = document.getElementById('historyTableBody'); if(!tbody) return; tbody.innerHTML = '';
     const myReqs = borrowRequests.filter(r => r.user === (currentUser.name||currentUser.username)).sort((a,b) => (b.timestamp?.seconds||0) - (a.timestamp?.seconds||0));
@@ -176,7 +195,9 @@ window.openHistoryModal = () => {
         else if(r.status === 'pending_return') { st='<span style="color:#ff9800">🔄 รอตรวจ</span>'; btn=`<button onclick="viewPhoto('${r.id}', 'return')" style="background:none; border:none; color:#ff9800; font-size:12px; cursor:pointer;">ดูรูปคืน</button>`; }
         else if(r.status === 'returned') { st='<span style="color:#aaa">↩️ คืนแล้ว</span>'; btn=`<button onclick="viewPhoto('${r.id}', 'pickup')" style="background:none; border:none; color:#0dcaf0; font-size:12px; cursor:pointer;">รูปรับ</button> <button onclick="viewPhoto('${r.id}', 'return')" style="background:none; border:none; color:#ff9800; font-size:12px; cursor:pointer;">รูปคืน</button>`; }
         else st='<span style="color:red">❌ ปฏิเสธ</span>';
-        tbody.innerHTML += `<tr><td style="padding:10px; border-bottom:1px solid #333">${r.item}</td><td style="padding:10px; border-bottom:1px solid #333">${r.date}</td><td style="padding:10px; border-bottom:1px solid #333">${st}</td><td style="padding:10px; border-bottom:1px solid #333">${btn}</td></tr>`;
+        
+        let dateHtml = `รับ: ${r.date}<br><span style="color:var(--warning); font-size:12px;">คืน: ${r.returnDate || '-'}</span>`;
+        tbody.innerHTML += `<tr><td style="padding:10px; border-bottom:1px solid #333">${r.item}</td><td style="padding:10px; border-bottom:1px solid #333">${dateHtml}</td><td style="padding:10px; border-bottom:1px solid #333">${st}</td><td style="padding:10px; border-bottom:1px solid #333">${btn}</td></tr>`;
     });
     document.getElementById('historyModal').style.display = 'flex';
 }
@@ -199,6 +220,7 @@ window.switchTab = (t) => {
 
 window.searchRequest = (query) => { searchQuery = query.toLowerCase(); currentPage = 1; window.renderRequests(); }
 
+// 🟢 อัปเดต: หน้าแอดมิน แสดงวันรับ-วันคืน
 window.renderRequests = () => {
     const tbody = document.getElementById('requestTableBody'); if(!tbody) return; tbody.innerHTML = '';
     let reqs = [...borrowRequests].sort((a,b) => (b.timestamp?.seconds||0) - (a.timestamp?.seconds||0));
@@ -240,7 +262,8 @@ window.renderRequests = () => {
             btns = `<button onclick="deleteRequest('${r.id}')" style="background:#dc3545; color:#fff; border:none; padding:6px 12px; border-radius:4px; font-weight:bold; cursor:pointer;"><i class="fas fa-trash"></i> ลบ</button>`; 
         }
         
-        tbody.innerHTML += `<tr><td>${r.user}</td><td>${r.item}</td><td>${r.date}</td><td>${badge}</td><td>${photoDisplay}</td><td>${btns}</td></tr>`;
+        let dateHtml = `รับ: ${r.date}<br><span style="color:var(--warning); font-size:12px;">คืน: ${r.returnDate || '-'}</span>`;
+        tbody.innerHTML += `<tr><td>${r.user}</td><td>${r.item}</td><td>${dateHtml}</td><td>${badge}</td><td>${photoDisplay}</td><td>${btns}</td></tr>`;
     });
     if(window.renderPagination) window.renderPagination(reqs.length, pages);
 }
@@ -266,7 +289,6 @@ window.renderInventory = () => {
             ? `<button onclick="toggleCondition('${i.id}', 'good')" style="background:#dc3545; color:#fff; border:none; padding:6px 12px; border-radius:4px; font-size:12px; font-weight:bold; cursor:pointer;">ชำรุด (ส่งซ่อม)</button>` 
             : `<button onclick="toggleCondition('${i.id}', 'damaged')" style="background:#198754; color:#fff; border:none; padding:6px 12px; border-radius:4px; font-size:12px; font-weight:bold; cursor:pointer;">ปกติ (ใช้งานได้)</button>`;
             
-        // 🟢 เปลี่ยนปุ่มอัปโหลดรูปภาพ เป็นปุ่ม "แก้ไขข้อมูล" สีเหลือง ✏️
         let actionBtns = `
             <div style="display:flex; gap:5px;">
                 <button onclick="editItem('${i.id}')" style="background:#ffc107; color:#000; border:none; padding:6px 12px; border-radius:4px; font-size:12px; font-weight:bold; cursor:pointer;" title="แก้ไขข้อมูลอุปกรณ์"><i class="fas fa-edit"></i> แก้ไข</button>
@@ -280,7 +302,6 @@ window.renderInventory = () => {
 window.toggleCondition = async (id, n) => { if((await Swal.fire({title:'เปลี่ยนสภาพของ?', icon:'question',showCancelButton:true, background:'#1a1a1a', color:'#fff'})).isConfirmed) { await updateDoc(doc(db, "items", id), { condition: n }); } }
 window.deleteItem = async (id) => { if((await Swal.fire({title:'ลบ?',icon:'warning',showCancelButton:true})).isConfirmed) { await deleteDoc(doc(db, "items", id)); } }
 
-// 🟢 ฟังก์ชันเพิ่มอุปกรณ์
 window.addNewItem = async () => {
     const { value: formValues } = await Swal.fire({
         title: '📦 เพิ่มอุปกรณ์ใหม่',
@@ -352,12 +373,10 @@ window.addNewItem = async () => {
     }
 }
 
-// 🟢 ฟังก์ชันใหม่: แก้ไขข้อมูลอุปกรณ์ (Edit Item) 
 window.editItem = async function(id) {
     const item = items.find(i => i.id === id);
     if (!item) return;
 
-    // เช็คค่าเก่า (ป้องกันค่าว่าง)
     const diff = item.difficulty || "ระดับปานกลาง (Medium)";
     const ref = item.reference || "";
     const desc = item.description || "";
@@ -411,12 +430,12 @@ window.editItem = async function(id) {
             if (!name) { Swal.showValidationMessage('กรุณากรอกชื่ออุปกรณ์ด้วยครับ'); return false; }
             
             const fileInput = document.getElementById('swal-edit-image-file');
-            let base64Image = item.image; // ถ่ายโอนรูปเดิมไว้ก่อน
+            let base64Image = item.image;
             
             if (fileInput.files.length > 0) {
                 try {
                     Swal.showLoading();
-                    base64Image = await resizeImage(fileInput.files[0]); // ถ้าเลือกรูปใหม่ ค่อยอัปโหลด
+                    base64Image = await resizeImage(fileInput.files[0]); 
                 } catch (error) {
                     Swal.showValidationMessage('เกิดข้อผิดพลาดในการประมวลผลรูปภาพ'); return false;
                 }
@@ -502,7 +521,7 @@ window.exportToCSV = async () => {
 }
 
 /* ==========================================
-   🔥 INIT APP 🔥
+   🔥 INIT APP (อัปเดตบันทึกวันคืนลง Database) 🔥
    ========================================== */
 function initApp() {
     if(document.getElementById('loginForm')) {
@@ -516,12 +535,28 @@ function initApp() {
             window.listenToData(); window.updateCartCount();
             if(document.getElementById('cartForm')) {
                 document.getElementById('cartForm').onsubmit = async (e) => {
-                    e.preventDefault(); const d = document.getElementById('cartBorrowDate').value; const r = document.getElementById('cartReason').value; const btn = document.querySelector('#cartForm button[type="submit"]');
+                    e.preventDefault(); 
+                    const d = document.getElementById('cartBorrowDate').value; 
+                    const retD = document.getElementById('cartReturnDate').value; // วันคืน
+                    const r = document.getElementById('cartReason').value; 
+                    const btn = document.querySelector('#cartForm button[type="submit"]');
+                    
                     if(new Date(d) < new Date().setHours(0,0,0,0)) return Swal.fire('วันที่ผิด', 'ห้ามย้อนหลัง', 'error');
+                    if(new Date(retD) < new Date(d)) return Swal.fire('วันที่ผิด', 'วันคืนของต้องไม่ก่อนวันรับของ', 'error');
+
                     try {
                         btn.disabled = true; const itms = cart.map(i => `${i.name} (${i.qty} ชิ้น)`).join(', ');
-                        await addDoc(collection(db, "requests"), { user: currentUser.name||currentUser.username, userId: currentUser.id, item: itms, date: d, reason: r||"-", status: "pending", timestamp: new Date() });
-                        fetch(LINE_API_URL, { method:'POST', mode:'no-cors', body:JSON.stringify({ user: currentUser.name, item: itms, date: d }) }).catch(e=>e);
+                        await addDoc(collection(db, "requests"), { 
+                            user: currentUser.name||currentUser.username, 
+                            userId: currentUser.id, 
+                            item: itms, 
+                            date: d, 
+                            returnDate: retD, // บันทึกวันคืนลงฐานข้อมูล
+                            reason: r||"-", 
+                            status: "pending", 
+                            timestamp: new Date() 
+                        });
+                        fetch(LINE_API_URL, { method:'POST', mode:'no-cors', body:JSON.stringify({ user: currentUser.name, item: itms, date: `${d} คืน ${retD}` }) }).catch(e=>e);
                         Swal.fire({ icon: 'success', title: 'จองสำเร็จ!', timer: 2500, showConfirmButton: false }); cart = []; window.updateCartCount(); window.renderItems(); window.closeCartModal();
                     } catch(e) { Swal.fire('Error', e.message, 'error'); } finally { btn.disabled = false; }
                 };
