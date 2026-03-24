@@ -195,3 +195,33 @@ nav { background: rgba(0,0,0,0.95); padding: 15px 30px; display: flex; justify-c
 .page-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .chart-layout { display: flex; flex-direction: column; gap: 20px; }
 @media screen and (min-width: 1024px) { .chart-layout { display: grid; grid-template-columns: 2fr 1fr; align-items: start; } }
+/* =========================================
+   🛠️ แก้ปัญหาหน้าต่างรายละเอียดอุปกรณ์ล้นจอ (PC & Mobile)
+   ========================================= */
+#itemDetailModal .modal-content {
+    width: 95% !important;
+    max-width: 500px !important;
+    max-height: 90vh !important; /* ล็อคความสูงกล่องไม่เกิน 90% ของหน้าจอ */
+    display: flex;
+    flex-direction: column;
+}
+
+#itemDetailBody {
+    overflow-y: auto; /* อนุญาตให้เนื้อหาด้านในเลื่อนขึ้น-ลงได้ */
+    height: 100%;
+    -webkit-overflow-scrolling: touch; /* เลื่อนบนมือถือให้สมูทขึ้น */
+}
+
+/* แต่งแถบเลื่อน (Scrollbar) ด้านในให้เล็กและสวยงาม */
+#itemDetailBody::-webkit-scrollbar {
+    width: 6px;
+}
+#itemDetailBody::-webkit-scrollbar-thumb {
+    background: var(--theme-primary);
+    border-radius: 10px;
+}
+
+/* ป้องกันกรอบรูปภาพด้านบนถูกบีบให้แบน เมื่อเนื้อหาด้านล่างยาวเกินไป */
+#itemDetailBody > div > div:first-child {
+    flex-shrink: 0;
+}
