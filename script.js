@@ -29,6 +29,7 @@ let items = [], borrowRequests = [], users = [], cart = [];
 let currentPickupId = null, currentReturnId = null;
 let currentPage = 1; const itemsPerPage = 8; let searchQuery = "";
 let borrowChartInstance = null, conditionChartInstance = null;
+let currentCategory = 'all'; // 🟢 เพิ่มตัวแปรสำหรับจดจำหมวดหมู่ปัจจุบัน
 
 if (!document.getElementById('returnProofInput')) {
     const returnInput = document.createElement('input'); returnInput.type = 'file'; returnInput.id = 'returnProofInput';
@@ -99,10 +100,11 @@ window.listenToData = function() {
 /* ==========================================
    🔥 USER DASHBOARD & ITEM DETAILS 🔥
    ========================================== */
-window.renderItems = (cat = 'all') => {
+window.renderItems = (cat = currentCategory) => { // 🟢 ดึงค่าหมวดหมู่ล่าสุดมาใช้
+    currentCategory = cat; // 🟢 จำค่าหมวดหมู่ปัจจุบันไว้เสมอ
     const grid = document.getElementById('itemGrid'); if(!grid) return; grid.innerHTML = '';
     items.forEach(item => {
-        if(cat !== 'all' && item.category !== cat) return;
+        if(currentCategory !== 'all' && item.category !== currentCategory) return; // 🟢 กรองตามหมวดหมู่ที่จำไว้
         const activeReq = borrowRequests.find(r => (r.item && r.item.includes(item.name)) && ['pending', 'approved_pickup', 'borrowed', 'pending_return'].includes(r.status));
         let cartItem = cart.find(c => c.id === item.id);
         
@@ -155,12 +157,10 @@ window.addToCart = async function(id, name) {
 }
 window.updateCartCount = () => { const b = document.getElementById('cartCountBadge'); if(b) b.innerText = cart.reduce((s, i) => s + i.qty, 0); }
 
-// 🟢 อัปเดต: หน้าต่างตะกร้า (เคลียร์ค่า Checkbox เสมอ)
 window.openCartModal = () => {
     if(cart.length === 0) return Swal.fire('ตะกร้าว่าง', '', 'info');
     document.getElementById('cartBorrowerName').value = currentUser.name || currentUser.username;
     
-    // รีเซ็ตปุ่มติ๊กถูกยอมรับเงื่อนไข
     const termsBox = document.getElementById('cartTerms');
     if (termsBox) termsBox.checked = false;
 
@@ -204,6 +204,7 @@ window.openHistoryModal = () => {
     document.getElementById('historyModal').style.display = 'flex';
 }
 window.closeHistoryModal = () => document.getElementById('historyModal').style.display = 'none';
+
 window.filterItems = (cat) => { document.querySelectorAll('.filters button').forEach(b=>b.classList.remove('active')); event.target.classList.add('active'); window.renderItems(cat); }
 window.searchItem = (t) => { Array.from(document.getElementsByClassName('card')).forEach(c => c.style.display = c.querySelector('h4').innerText.toLowerCase().includes(t.toLowerCase()) ? 'flex' : 'none'); }
 window.triggerPickup = (id) => { currentPickupId = id; document.getElementById('pickupProofInput').click(); }
