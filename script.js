@@ -29,7 +29,7 @@ let items = [], borrowRequests = [], users = [], cart = [];
 let currentPickupId = null, currentReturnId = null;
 let currentPage = 1; const itemsPerPage = 8; let searchQuery = "";
 let borrowChartInstance = null, conditionChartInstance = null;
-let currentCategory = 'all'; // 🟢 เพิ่มตัวแปรสำหรับจดจำหมวดหมู่ปัจจุบัน
+let currentCategory = 'all';
 
 if (!document.getElementById('returnProofInput')) {
     const returnInput = document.createElement('input'); returnInput.type = 'file'; returnInput.id = 'returnProofInput';
@@ -100,11 +100,11 @@ window.listenToData = function() {
 /* ==========================================
    🔥 USER DASHBOARD & ITEM DETAILS 🔥
    ========================================== */
-window.renderItems = (cat = currentCategory) => { // 🟢 ดึงค่าหมวดหมู่ล่าสุดมาใช้
-    currentCategory = cat; // 🟢 จำค่าหมวดหมู่ปัจจุบันไว้เสมอ
+window.renderItems = (cat = currentCategory) => { 
+    currentCategory = cat; 
     const grid = document.getElementById('itemGrid'); if(!grid) return; grid.innerHTML = '';
     items.forEach(item => {
-        if(currentCategory !== 'all' && item.category !== currentCategory) return; // 🟢 กรองตามหมวดหมู่ที่จำไว้
+        if(currentCategory !== 'all' && item.category !== currentCategory) return; 
         const activeReq = borrowRequests.find(r => (r.item && r.item.includes(item.name)) && ['pending', 'approved_pickup', 'borrowed', 'pending_return'].includes(r.status));
         let cartItem = cart.find(c => c.id === item.id);
         
@@ -211,7 +211,7 @@ window.triggerPickup = (id) => { currentPickupId = id; document.getElementById('
 window.triggerReturn = (id) => { currentReturnId = id; document.getElementById('returnProofInput').click(); }
 
 /* ==========================================
-   🔥 ADMIN SYSTEM 🔥
+   🔥 ADMIN SYSTEM (อัปเดต: ระบบเลยกำหนด & พิมพ์ใบยืม) 🔥
    ========================================== */
 window.switchTab = (t) => { 
     document.querySelectorAll('.content-section').forEach(e => e.style.display = 'none'); 
@@ -264,10 +264,98 @@ window.renderRequests = () => {
             btns = `<button onclick="deleteRequest('${r.id}')" style="background:#dc3545; color:#fff; border:none; padding:6px 12px; border-radius:4px; font-weight:bold; cursor:pointer;"><i class="fas fa-trash"></i> ลบ</button>`; 
         }
         
+        // 🟢 เพิ่มปุ่ม "พิมพ์ใบยืม"
+        let printBtn = `<button onclick="printReceipt('${r.id}')" style="background:#0dcaf0; color:#000; border:none; padding:6px 12px; border-radius:4px; font-weight:bold; cursor:pointer; margin-top:5px; width:100%;"><i class="fas fa-print"></i> พิมพ์ใบยืม</button>`;
+
+        // 🟢 เพิ่มระบบตรวจจับ "คืนล่าช้า (Overdue)"
         let dateHtml = `รับ: ${r.date}<br><span style="color:var(--warning); font-size:12px;">คืน: ${r.returnDate || '-'}</span>`;
-        tbody.innerHTML += `<tr><td>${r.user}</td><td>${r.item}</td><td>${dateHtml}</td><td>${badge}</td><td>${photoDisplay}</td><td>${btns}</td></tr>`;
+        if (r.status === 'borrowed' && r.returnDate) {
+            const today = new Date().toISOString().split('T')[0];
+            if (r.returnDate < today) {
+                dateHtml += `<br><span class="overdue-alert"><i class="fas fa-exclamation-triangle"></i> เลยกำหนดคืน!</span>`;
+            }
+        }
+
+        tbody.innerHTML += `<tr><td>${r.user}</td><td>${r.item}</td><td>${dateHtml}</td><td>${badge}</td><td>${photoDisplay}</td><td><div style="display:flex; flex-direction:column; gap:5px;">${btns}${printBtn}</div></td></tr>`;
     });
     if(window.renderPagination) window.renderPagination(reqs.length, pages);
+}
+
+// 🟢 ฟังก์ชันใหม่: สร้างเอกสาร PDF สำหรับพิมพ์
+window.printReceipt = (id) => {
+    const r = borrowRequests.find(req => req.id === id);
+    if(!r) return;
+
+    const printWindow = window.open('', '_blank', 'width=800,height=600');
+    const html = `
+        <html>
+        <head>
+            <title>ใบยืมอุปกรณ์ - MMD BORROW</title>
+            <style>
+                @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600&display=swap');
+                body { font-family: 'Sarabun', sans-serif; padding: 40px; color: #000; line-height: 1.6; }
+                .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #000; padding-bottom: 20px; }
+                .header h2 { margin: 0; font-size: 24px; }
+                .content { font-size: 16px; }
+                .table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+                .table th, .table td { border: 1px solid #000; padding: 12px; text-align: left; }
+                .table th { background-color: #f2f2f2; }
+                .footer { margin-top: 60px; display: flex; justify-content: space-between; }
+                .sign-box { text-align: center; width: 45%; }
+            </style>
+        </head>
+        <body>
+            <div class="header">
+                <h2>เอกสารการยืม-คืนอุปกรณ์การศึกษา</h2>
+                <p style="margin: 5px 0;">สาขามัลติมีเดีย (MMD) - มหาวิทยาลัยเทคโนโลยีราชมงคลอีสาน วิทยาเขตสุรินทร์</p>
+            </div>
+            <div class="content">
+                <p><strong>รหัสทำรายการ (ID):</strong> ${r.id}</p>
+                <p><strong>ชื่อผู้ยืม:</strong> ${r.user}</p>
+                <p><strong>เหตุผลการยืม:</strong> ${r.reason || '-'}</p>
+                
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>รายการอุปกรณ์ที่ยืม</th>
+                            <th style="width: 150px;">วันที่รับของ</th>
+                            <th style="width: 150px;">วันที่กำหนดคืน</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>${r.item}</td>
+                            <td>${r.date}</td>
+                            <td>${r.returnDate || '-'}</td>
+                        </tr>
+                    </tbody>
+                </table>
+                <p style="margin-top: 25px; font-size:14px; color:#555;"><i>* ข้าพเจ้ายอมรับว่าจะดูแลรักษาอุปกรณ์เป็นอย่างดี หากเกิดความเสียหาย ชำรุด หรือสูญหาย ข้าพเจ้ายินดีรับผิดชอบและชดใช้ตามมูลค่าจริงทุกประการ</i></p>
+            </div>
+            <div class="footer">
+                <div class="sign-box">
+                    <p>ลงชื่อ..........................................................ผู้ยืม</p>
+                    <p>(${r.user})</p>
+                    <p>วันที่รับของ: _____/_____/_____</p>
+                </div>
+                <div class="sign-box">
+                    <p>ลงชื่อ..........................................................ผู้อนุมัติ/จ่ายของ</p>
+                    <p>(..........................................................)</p>
+                    <p>วันที่: _____/_____/_____</p>
+                </div>
+            </div>
+            <script>
+                // สั่งพิมพ์อัตโนมัติเมื่อหน้าต่างโหลดเสร็จ
+                window.onload = function() { 
+                    window.print(); 
+                    window.onafterprint = function(){ window.close(); } 
+                };
+            </script>
+        </body>
+        </html>
+    `;
+    printWindow.document.write(html);
+    printWindow.document.close();
 }
 
 window.renderPagination = (total, pages) => {
