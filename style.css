@@ -276,3 +276,64 @@ nav { background: rgba(0,0,0,0.95); padding: 15px 30px; display: flex; justify-c
     margin-top: 4px;
     border: 1px solid #ff4444;
 }
+/* =========================================
+   🛠️ ปรับหน้าจอประวัติการจองให้พอดี PC & Mobile (ไม่ล้นขอบ)
+   ========================================= */
+#historyModal .modal-content {
+    width: 95% !important;
+    max-width: 800px !important;
+    max-height: 90vh !important; /* ล็อคความสูงไม่ให้หน้าต่างทะลุจอ */
+    display: flex;
+    flex-direction: column;
+}
+
+/* ล็อคไม่ให้ตารางเลื่อนซ้าย-ขวา ให้เลื่อนขึ้น-ลงแทน */
+#historyModal .table-responsive {
+    overflow-y: auto;
+    overflow-x: hidden !important; 
+    flex: 1; /* ขยายพื้นที่ให้ตารางสูงเต็มที่เท่าที่เป็นไปได้ */
+    margin-bottom: 15px;
+    -webkit-overflow-scrolling: touch;
+}
+
+/* แต่งแถบเลื่อนแนวตั้งให้สวยงาม */
+#historyModal .table-responsive::-webkit-scrollbar {
+    width: 6px;
+}
+#historyModal .table-responsive::-webkit-scrollbar-thumb {
+    background: var(--theme-primary);
+    border-radius: 10px;
+}
+
+#historyModal .data-table {
+    table-layout: fixed; /* บังคับให้ตารางอยู่ในขนาดที่กำหนดเป๊ะๆ */
+    width: 100%;
+}
+
+#historyModal .data-table th, 
+#historyModal .data-table td {
+    white-space: normal !important; /* ยอมให้ข้อความยาวๆ ตัดขึ้นบรรทัดใหม่ */
+    word-wrap: break-word;
+    vertical-align: middle;
+    padding: 10px 5px;
+}
+
+/* กำหนดสัดส่วนความกว้างของแต่ละคอลัมน์ (รวม 100%) */
+#historyModal .data-table th:nth-child(1) { width: 40%; } /* ชื่ออุปกรณ์ */
+#historyModal .data-table th:nth-child(2) { width: 25%; } /* วันที่รับ-คืน */
+#historyModal .data-table th:nth-child(3) { width: 15%; text-align: center; } /* สถานะ */
+#historyModal .data-table th:nth-child(4) { width: 20%; text-align: center; } /* ดำเนินการ */
+
+#historyModal .data-table td:nth-child(3),
+#historyModal .data-table td:nth-child(4) {
+    text-align: center;
+}
+
+/* จัดระเบียบปุ่มดำเนินการไม่ให้เบียดกันเกินไป */
+#historyModal .data-table td button {
+    display: inline-block;
+    margin: 3px 2px;
+    font-size: 11px;
+    padding: 5px 8px;
+    white-space: nowrap; /* ล็อคคำในปุ่มไม่ให้ขาดท่อน */
+}

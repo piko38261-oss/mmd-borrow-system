@@ -29,7 +29,7 @@ let items = [], borrowRequests = [], users = [], cart = [];
 let currentPickupId = null, currentReturnId = null;
 let currentPage = 1; const itemsPerPage = 8; let searchQuery = "";
 let borrowChartInstance = null, conditionChartInstance = null;
-let currentCategory = 'all';
+let currentCategory = 'all'; // 🟢 จำหมวดหมู่ที่เลือกไว้ล่าสุด
 
 if (!document.getElementById('returnProofInput')) {
     const returnInput = document.createElement('input'); returnInput.type = 'file'; returnInput.id = 'returnProofInput';
@@ -101,7 +101,7 @@ window.listenToData = function() {
    🔥 USER DASHBOARD & ITEM DETAILS 🔥
    ========================================== */
 window.renderItems = (cat = currentCategory) => { 
-    currentCategory = cat; 
+    currentCategory = cat; // 🟢 จำหมวดหมู่ปัจจุบันไว้
     const grid = document.getElementById('itemGrid'); if(!grid) return; grid.innerHTML = '';
     items.forEach(item => {
         if(currentCategory !== 'all' && item.category !== currentCategory) return; 
@@ -185,21 +185,33 @@ window.openCartModal = () => {
 window.removeFromCart = (id) => { cart = cart.filter(i => i.id !== id); window.updateCartCount(); window.renderItems(); cart.length === 0 ? window.closeCartModal() : window.openCartModal(); }
 window.closeCartModal = () => document.getElementById('cartModal').style.display = 'none';
 
+// 🟢 อัปเดต: ประวัติการจองมีปุ่มพิมพ์ใบยืมให้นักศึกษา
 window.openHistoryModal = () => {
     const tbody = document.getElementById('historyTableBody'); if(!tbody) return; tbody.innerHTML = '';
     const myReqs = borrowRequests.filter(r => r.user === (currentUser.name||currentUser.username)).sort((a,b) => (b.timestamp?.seconds||0) - (a.timestamp?.seconds||0));
+    
     if (myReqs.length === 0) { tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;">ไม่มีประวัติ</td></tr>'; }
     else myReqs.forEach(r => {
-        let st='', btn='-';
+        let st='', btn=''; 
+        
         if(r.status === 'pending') st='<span style="color:#ffc107">⏳ รออนุมัติ</span>';
         else if(r.status === 'approved_pickup') { st='<span style="color:#0dcaf0">📦 ดำเนินการ</span>'; btn=`<button onclick="triggerPickup('${r.id}')" class="btn-confirm" style="padding:5px; font-size:12px;">📷 รับของ</button>`; }
-        else if(r.status === 'borrowed') { st='<span style="color:#198754">✅ กำลังยืม</span>'; btn=`<button onclick="viewPhoto('${r.id}', 'pickup')" style="background:none; border:none; color:#0dcaf0; font-size:12px; cursor:pointer;">ดูรูปรับ</button> <button onclick="triggerReturn('${r.id}')" class="btn-confirm" style="padding:5px; font-size:12px; background:#ff9800; margin:0;">📷 ส่งคืน</button>`; }
+        else if(r.status === 'borrowed') { st='<span style="color:#198754">✅ กำลังยืม</span>'; btn=`<div style="display:flex; gap:5px; justify-content:center;"><button onclick="viewPhoto('${r.id}', 'pickup')" style="background:none; border:none; color:#0dcaf0; font-size:12px; cursor:pointer; padding:0;">รูปรับ</button> <button onclick="triggerReturn('${r.id}')" class="btn-confirm" style="padding:5px; font-size:12px; background:#ff9800; margin:0;">📷 ส่งคืน</button></div>`; }
         else if(r.status === 'pending_return') { st='<span style="color:#ff9800">🔄 รอตรวจ</span>'; btn=`<button onclick="viewPhoto('${r.id}', 'return')" style="background:none; border:none; color:#ff9800; font-size:12px; cursor:pointer;">ดูรูปคืน</button>`; }
-        else if(r.status === 'returned') { st='<span style="color:#aaa">↩️ คืนแล้ว</span>'; btn=`<button onclick="viewPhoto('${r.id}', 'pickup')" style="background:none; border:none; color:#0dcaf0; font-size:12px; cursor:pointer;">รูปรับ</button> <button onclick="viewPhoto('${r.id}', 'return')" style="background:none; border:none; color:#ff9800; font-size:12px; cursor:pointer;">รูปคืน</button>`; }
+        else if(r.status === 'returned') { st='<span style="color:#aaa">↩️ คืนแล้ว</span>'; btn=`<div style="display:flex; gap:5px; justify-content:center;"><button onclick="viewPhoto('${r.id}', 'pickup')" style="background:none; border:none; color:#0dcaf0; font-size:12px; cursor:pointer; padding:0;">รูปรับ</button> <button onclick="viewPhoto('${r.id}', 'return')" style="background:none; border:none; color:#ff9800; font-size:12px; cursor:pointer; padding:0;">รูปคืน</button></div>`; }
         else st='<span style="color:red">❌ ปฏิเสธ</span>';
         
+        let printBtn = '';
+        if (r.status !== 'rejected') {
+            printBtn = `<button onclick="printReceipt('${r.id}')" style="background:#0dcaf0; color:#000; border:none; padding:5px 8px; border-radius:4px; font-size:11px; font-weight:bold; cursor:pointer; width:100%; margin-top:3px;"><i class="fas fa-print"></i> พิมพ์ใบยืม</button>`;
+        }
+
         let dateHtml = `รับ: ${r.date}<br><span style="color:var(--warning); font-size:12px;">คืน: ${r.returnDate || '-'}</span>`;
-        tbody.innerHTML += `<tr><td style="padding:10px; border-bottom:1px solid #333">${r.item}</td><td style="padding:10px; border-bottom:1px solid #333">${dateHtml}</td><td style="padding:10px; border-bottom:1px solid #333">${st}</td><td style="padding:10px; border-bottom:1px solid #333">${btn}</td></tr>`;
+        
+        let actionHtml = `<div style="display:flex; flex-direction:column; gap:2px; align-items:center;">${btn}${printBtn}</div>`;
+        if(!btn && !printBtn) actionHtml = '-';
+
+        tbody.innerHTML += `<tr><td style="padding:10px; border-bottom:1px solid #333">${r.item}</td><td style="padding:10px; border-bottom:1px solid #333">${dateHtml}</td><td style="padding:10px; border-bottom:1px solid #333">${st}</td><td style="padding:10px; border-bottom:1px solid #333">${actionHtml}</td></tr>`;
     });
     document.getElementById('historyModal').style.display = 'flex';
 }
@@ -211,7 +223,7 @@ window.triggerPickup = (id) => { currentPickupId = id; document.getElementById('
 window.triggerReturn = (id) => { currentReturnId = id; document.getElementById('returnProofInput').click(); }
 
 /* ==========================================
-   🔥 ADMIN SYSTEM (อัปเดต: ระบบเลยกำหนด & พิมพ์ใบยืม) 🔥
+   🔥 ADMIN SYSTEM 🔥
    ========================================== */
 window.switchTab = (t) => { 
     document.querySelectorAll('.content-section').forEach(e => e.style.display = 'none'); 
@@ -264,10 +276,8 @@ window.renderRequests = () => {
             btns = `<button onclick="deleteRequest('${r.id}')" style="background:#dc3545; color:#fff; border:none; padding:6px 12px; border-radius:4px; font-weight:bold; cursor:pointer;"><i class="fas fa-trash"></i> ลบ</button>`; 
         }
         
-        // 🟢 เพิ่มปุ่ม "พิมพ์ใบยืม"
         let printBtn = `<button onclick="printReceipt('${r.id}')" style="background:#0dcaf0; color:#000; border:none; padding:6px 12px; border-radius:4px; font-weight:bold; cursor:pointer; margin-top:5px; width:100%;"><i class="fas fa-print"></i> พิมพ์ใบยืม</button>`;
 
-        // 🟢 เพิ่มระบบตรวจจับ "คืนล่าช้า (Overdue)"
         let dateHtml = `รับ: ${r.date}<br><span style="color:var(--warning); font-size:12px;">คืน: ${r.returnDate || '-'}</span>`;
         if (r.status === 'borrowed' && r.returnDate) {
             const today = new Date().toISOString().split('T')[0];
@@ -281,7 +291,7 @@ window.renderRequests = () => {
     if(window.renderPagination) window.renderPagination(reqs.length, pages);
 }
 
-// 🟢 ฟังก์ชันใหม่: สร้างเอกสาร PDF สำหรับพิมพ์
+// 🟢 ฟังก์ชันสร้างเอกสาร PDF (ใช้งานได้ทั้ง Admin และ User)
 window.printReceipt = (id) => {
     const r = borrowRequests.find(req => req.id === id);
     if(!r) return;
@@ -345,7 +355,6 @@ window.printReceipt = (id) => {
                 </div>
             </div>
             <script>
-                // สั่งพิมพ์อัตโนมัติเมื่อหน้าต่างโหลดเสร็จ
                 window.onload = function() { 
                     window.print(); 
                     window.onafterprint = function(){ window.close(); } 
