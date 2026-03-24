@@ -1,5 +1,5 @@
 /* =========================================
-   script.js - MMD BORROW SYSTEM (FULL COMPLETE MEGA VERSION + T&C CHECKBOX)
+   script.js - MMD BORROW SYSTEM (FULL COMPLETE MEGA VERSION)
    ========================================= */
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
@@ -155,12 +155,12 @@ window.addToCart = async function(id, name) {
 }
 window.updateCartCount = () => { const b = document.getElementById('cartCountBadge'); if(b) b.innerText = cart.reduce((s, i) => s + i.qty, 0); }
 
-// 🟢 อัปเดต: หน้าต่างตะกร้า (ล้างกล่อง Checkbox ให้เป็นค่าว่างทุกครั้งที่เปิด)
+// 🟢 อัปเดต: หน้าต่างตะกร้า (เคลียร์ค่า Checkbox เสมอ)
 window.openCartModal = () => {
     if(cart.length === 0) return Swal.fire('ตะกร้าว่าง', '', 'info');
     document.getElementById('cartBorrowerName').value = currentUser.name || currentUser.username;
     
-    // รีเซ็ตปุ่มติ๊กถูก
+    // รีเซ็ตปุ่มติ๊กถูกยอมรับเงื่อนไข
     const termsBox = document.getElementById('cartTerms');
     if (termsBox) termsBox.checked = false;
 
