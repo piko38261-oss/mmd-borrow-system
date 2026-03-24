@@ -1,5 +1,5 @@
 /* =========================================
-   script.js - MMD BORROW SYSTEM (FULL COMPLETE MEGA VERSION + RETURN DATE FEATURE)
+   script.js - MMD BORROW SYSTEM (FULL COMPLETE MEGA VERSION + T&C CHECKBOX)
    ========================================= */
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
@@ -155,11 +155,15 @@ window.addToCart = async function(id, name) {
 }
 window.updateCartCount = () => { const b = document.getElementById('cartCountBadge'); if(b) b.innerText = cart.reduce((s, i) => s + i.qty, 0); }
 
-// 🟢 อัปเดต: หน้าต่างตะกร้า (เพิ่มระบบกำหนดวันคืน)
+// 🟢 อัปเดต: หน้าต่างตะกร้า (ล้างกล่อง Checkbox ให้เป็นค่าว่างทุกครั้งที่เปิด)
 window.openCartModal = () => {
     if(cart.length === 0) return Swal.fire('ตะกร้าว่าง', '', 'info');
     document.getElementById('cartBorrowerName').value = currentUser.name || currentUser.username;
     
+    // รีเซ็ตปุ่มติ๊กถูก
+    const termsBox = document.getElementById('cartTerms');
+    if (termsBox) termsBox.checked = false;
+
     const dInput = document.getElementById('cartBorrowDate'); 
     const rInput = document.getElementById('cartReturnDate');
     
@@ -168,7 +172,6 @@ window.openCartModal = () => {
         dInput.min = today; dInput.value = ""; 
         rInput.min = today; rInput.value = ""; 
         
-        // เมื่อเลือกวันรับ จะบังคับให้วันคืน ห้ามเลือกก่อนวันรับ
         dInput.onchange = () => {
             rInput.min = dInput.value;
             if (rInput.value && rInput.value < dInput.value) rInput.value = dInput.value;
@@ -182,7 +185,6 @@ window.openCartModal = () => {
 window.removeFromCart = (id) => { cart = cart.filter(i => i.id !== id); window.updateCartCount(); window.renderItems(); cart.length === 0 ? window.closeCartModal() : window.openCartModal(); }
 window.closeCartModal = () => document.getElementById('cartModal').style.display = 'none';
 
-// 🟢 อัปเดต: หน้าประวัติการจอง (แสดงวันรับ-วันคืน)
 window.openHistoryModal = () => {
     const tbody = document.getElementById('historyTableBody'); if(!tbody) return; tbody.innerHTML = '';
     const myReqs = borrowRequests.filter(r => r.user === (currentUser.name||currentUser.username)).sort((a,b) => (b.timestamp?.seconds||0) - (a.timestamp?.seconds||0));
@@ -220,7 +222,6 @@ window.switchTab = (t) => {
 
 window.searchRequest = (query) => { searchQuery = query.toLowerCase(); currentPage = 1; window.renderRequests(); }
 
-// 🟢 อัปเดต: หน้าแอดมิน แสดงวันรับ-วันคืน
 window.renderRequests = () => {
     const tbody = document.getElementById('requestTableBody'); if(!tbody) return; tbody.innerHTML = '';
     let reqs = [...borrowRequests].sort((a,b) => (b.timestamp?.seconds||0) - (a.timestamp?.seconds||0));
@@ -521,7 +522,7 @@ window.exportToCSV = async () => {
 }
 
 /* ==========================================
-   🔥 INIT APP (อัปเดตบันทึกวันคืนลง Database) 🔥
+   🔥 INIT APP 🔥
    ========================================== */
 function initApp() {
     if(document.getElementById('loginForm')) {
@@ -537,7 +538,7 @@ function initApp() {
                 document.getElementById('cartForm').onsubmit = async (e) => {
                     e.preventDefault(); 
                     const d = document.getElementById('cartBorrowDate').value; 
-                    const retD = document.getElementById('cartReturnDate').value; // วันคืน
+                    const retD = document.getElementById('cartReturnDate').value;
                     const r = document.getElementById('cartReason').value; 
                     const btn = document.querySelector('#cartForm button[type="submit"]');
                     
@@ -551,7 +552,7 @@ function initApp() {
                             userId: currentUser.id, 
                             item: itms, 
                             date: d, 
-                            returnDate: retD, // บันทึกวันคืนลงฐานข้อมูล
+                            returnDate: retD, 
                             reason: r||"-", 
                             status: "pending", 
                             timestamp: new Date() 
