@@ -1,5 +1,5 @@
 /* =========================================
-   script.js - MMD BORROW SYSTEM (MEGA VERSION + DYNAMIC CATEGORIES + AUTO CLEAN)
+   script.js - MMD BORROW SYSTEM (MEGA VERSION + DYNAMIC CATEGORIES + AUTO CLEAN + STOCK SYSTEM)
    ========================================= */
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
@@ -30,7 +30,7 @@ let currentPage = 1; const itemsPerPage = 8; let searchQuery = "";
 let borrowChartInstance = null, conditionChartInstance = null;
 let currentCategory = 'all';
 
-// 🟢 ตัวแปลงหมวดหมู่ข้อมูลเก่า (Legacy) ให้เป็นภาษาไทยเพื่อการแสดงผล
+// ตัวแปลงหมวดหมู่ข้อมูลเก่า (Legacy) ให้เป็นภาษาไทยเพื่อการแสดงผล
 function getDisplayCategory(cat) {
     if(!cat) return "ไม่ระบุ";
     const map = { 'camera': 'กล้อง', 'tripod': 'ขาตั้ง/Gimbal', 'audio': 'เสียง', 'light': 'ไฟสตูดิโอ', 'general': 'ทั่วไป' };
@@ -99,6 +99,7 @@ window.checkAuth = function() {
     const btnAdminManage = document.getElementById('btnAdminManage'); if (btnAdminManage) { btnAdminManage.style.display = currentUser.role === 'admin' ? 'inline-flex' : 'none'; }
     return currentUser;
 }
+
 window.login = async function(u, p) {
     Swal.fire({ title: 'เข้าสู่ระบบ...', allowOutsideClick: false, didOpen: () => Swal.showLoading()});
     try {
@@ -107,6 +108,7 @@ window.login = async function(u, p) {
         else { Swal.fire({ icon: 'error', title: 'เข้าสู่ระบบล้มเหลว', text: 'รหัสผ่านไม่ถูกต้อง' }); }
     } catch (error) { Swal.fire('เกิดข้อผิดพลาด', error.message, 'error'); }
 }
+
 window.register = async function(u, p, n) {
     try {
         if (!(await getDocs(query(collection(db, "users"), where("username", "==", u)))).empty) { Swal.fire('ข้อมูลซ้ำ', 'มีผู้ใช้นี้แล้ว', 'warning'); return; }
@@ -114,12 +116,13 @@ window.register = async function(u, p, n) {
         Swal.fire({ icon: 'success', title: 'สมัครสำเร็จ!', timer: 2000, showConfirmButton: false }); if(window.toggleForm) window.toggleForm();
     } catch (e) { Swal.fire('เกิดข้อผิดพลาด', e.message, 'error'); }
 }
+
 window.logout = () => Swal.fire({ title: 'ออกจากระบบ?', icon: 'question', showCancelButton: true }).then((res) => { if(res.isConfirmed){ localStorage.removeItem('currentUser'); window.location.href = 'index.html'; }});
 
 window.listenToData = function() {
     onSnapshot(collection(db, "items"), (snap) => { 
         items = snap.docs.map(doc => ({ id: doc.id, ...doc.data() })); 
-        window.renderCategories(); // 🟢 สั่งสร้างปุ่มหมวดหมู่ใหม่ทุกครั้งที่ข้อมูลอัปเดต
+        window.renderCategories(); 
         if(document.getElementById('itemGrid')) window.renderItems(); 
         if(document.getElementById('inventoryTableBody')) window.renderInventory(); 
         if(window.updateDashboardStats) window.updateDashboardStats(); 
@@ -139,12 +142,10 @@ window.listenToData = function() {
     onSnapshot(collection(db, "users"), (snap) => { users = snap.docs.map(doc => ({ id: doc.id, ...doc.data() })); if(document.getElementById('adminUserTableBody')) window.loadUsersToAdminTable(); });
 }
 
-// 🟢 ฟังก์ชันสร้างปุ่มหมวดหมู่ (Dynamic Categories Filters)
 window.renderCategories = () => {
     const filterContainer = document.querySelector('.filters');
     if (!filterContainer) return;
     
-    // ดึงรายชื่อหมวดหมู่ที่ไม่ซ้ำกัน
     const normalizedCats = new Set(items.map(i => getDisplayCategory(i.category)));
     const uniqueCats = [...normalizedCats].filter(c => c);
 
@@ -159,35 +160,71 @@ window.renderCategories = () => {
 
 window.filterItems = (cat) => { 
     currentCategory = cat; 
-    window.renderCategories(); // รีเฟรชปุ่มเพื่อให้ปุ่มที่ถูกกดเปลี่ยนสี (Active)
+    window.renderCategories();
     window.renderItems(cat); 
 }
 
+// 🟢 อัปเดต: ให้คำนวณจำนวนสต็อกจริงที่เหลือให้จองได้
 window.renderItems = (cat = currentCategory) => { 
     currentCategory = cat; 
     const grid = document.getElementById('itemGrid'); if(!grid) return; grid.innerHTML = '';
+    
     items.forEach(item => {
         const itemDisplayCat = getDisplayCategory(item.category);
         if(currentCategory !== 'all' && itemDisplayCat !== currentCategory) return; 
         
-        const activeReq = borrowRequests.find(r => (r.item && r.item.includes(item.name)) && ['pending', 'approved_pickup', 'borrowed', 'pending_return'].includes(r.status));
-        let cartItem = cart.find(c => c.id === item.id);
+        // 1. คำนวณสต็อกคงเหลือจริง
+        let totalStock = item.stock !== undefined && item.stock !== "" ? parseInt(item.stock) : 1; 
+        let borrowedQty = 0;
         
-        let statusCSS = 'available', btnClass = 'btn-borrow', btnText = '<i class="fas fa-cart-plus"></i> จอง', btnAction = `addToCart('${item.id}', '${item.name}')`, badgeText = 'ว่าง';
+        borrowRequests.forEach(req => {
+            if (['pending', 'approved_pickup', 'borrowed', 'pending_return'].includes(req.status)) {
+                let regex = /([^,]+)\s*\((\d+)\s*ชิ้น\)/g; 
+                let match; 
+                let foundFormat = false;
+                
+                while ((match = regex.exec(req.item)) !== null) { 
+                    foundFormat = true; 
+                    if (match[1].trim() === item.name) borrowedQty += parseInt(match[2]); 
+                }
+                if (!foundFormat && req.item) {
+                    req.item.split(',').forEach(it => { if (it.trim() === item.name) borrowedQty += 1; });
+                }
+            }
+        });
+        
+        let remainStock = totalStock - borrowedQty; 
+        
+        // 2. เช็คว่าของชิ้นนี้อยู่ในตะกร้าของตัวเองหรือยัง
+        let cartItem = cart.find(c => c.id === item.id);
+        let cartQty = cartItem ? cartItem.qty : 0;
+        let finalAvailable = remainStock - cartQty; 
 
-        if (item.condition === 'damaged') { statusCSS = 'borrowed'; btnClass = 'btn-disabled'; btnAction = ''; btnText = '<i class="fas fa-wrench"></i> ชำรุด'; badgeText = 'ซ่อม'; }
-        else if (activeReq) {
+        // 3. กำหนดปุ่มและป้ายสถานะตามสต็อกที่เหลือ
+        let statusCSS = 'available', btnClass = 'btn-borrow', btnText = '<i class="fas fa-cart-plus"></i> จอง';
+        let btnAction = `addToCart('${item.id}', '${item.name}', ${remainStock})`;
+        let badgeText = remainStock > 0 ? `ว่าง (${remainStock})` : 'หมด';
+
+        if (item.condition === 'damaged') { 
             statusCSS = 'borrowed'; btnClass = 'btn-disabled'; btnAction = ''; 
-            if (activeReq.status === 'pending') { btnText = '<i class="fas fa-user-clock"></i> ติดจอง'; badgeText = 'รออนุมัติ'; } 
-            else if (activeReq.status === 'pending_return') { btnText = '<i class="fas fa-spinner"></i> รอตรวจ'; badgeText = 'รอตรวจ'; }
-            else { btnText = '<i class="fas fa-ban"></i> ไม่ว่าง'; badgeText = 'ถูกยืม'; }
+            btnText = '<i class="fas fa-wrench"></i> ชำรุด'; badgeText = 'ซ่อม'; 
+        }
+        else if (remainStock <= 0) {
+            statusCSS = 'borrowed'; btnClass = 'btn-disabled'; btnAction = ''; 
+            btnText = '<i class="fas fa-ban"></i> ไม่ว่าง'; badgeText = 'ถูกยืมหมด';
         } 
-        else if (cartItem) { statusCSS = 'incart'; btnText = `เลือกแล้ว (${cartItem.qty})`; badgeText = 'ตะกร้า'; }
+        else if (cartItem) { 
+            statusCSS = 'incart'; btnText = `เลือกแล้ว (${cartItem.qty})`; badgeText = 'ตะกร้า'; 
+            if (finalAvailable <= 0) {
+                btnClass = 'btn-disabled'; btnAction = ''; btnText = 'สิทธิ์เต็ม';
+            }
+        }
         
         grid.innerHTML += `<div class="card"><div class="card-img" onclick="window.openItemDetail('${item.id}')" style="cursor:pointer;"><img src="${item.image}"><div class="status-badge ${statusCSS}">${badgeText}</div></div><div class="card-body"><h4>${item.name}</h4><span class="category-tag">${itemDisplayCat.toUpperCase()}</span><div style="display:flex; gap:5px; margin-top:auto;"><button onclick="window.openItemDetail('${item.id}')" style="flex:1; padding:10px; border-radius:6px; background:#444; color:white; border:none; cursor:pointer;"><i class="fas fa-info-circle"></i></button><button class="${btnClass}" onclick="${btnAction}" style="flex:3; margin-top:0;">${btnText}</button></div></div></div>`;
     });
 }
 
+// 🟢 อัปเดต: ให้คำนวณจำนวนสต็อกจริงในหน้าต่าง Pop-up
 window.openItemDetail = function(id) {
     const item = items.find(i => i.id === id); if (!item) return;
     const diff = item.difficulty || "ระดับปานกลาง (Medium)";
@@ -195,12 +232,31 @@ window.openItemDetail = function(id) {
     const ref = item.reference || "อ้างอิงข้อมูลพื้นฐาน";
     const itemDisplayCat = getDisplayCategory(item.category);
     
-    const activeReq = borrowRequests.find(r => (r.item && r.item.includes(item.name)) && ['pending', 'approved_pickup', 'borrowed', 'pending_return'].includes(r.status));
-    let btn = (item.condition === 'damaged' || activeReq) ? `<button class="btn-disabled" style="width:100%; padding:12px; border-radius:8px;"><i class="fas fa-ban"></i> ไม่พร้อม</button>` : `<button class="btn-borrow" onclick="addToCart('${item.id}', '${item.name}'); window.closeItemDetail();" style="width:100%; padding:12px; border-radius:8px; background:var(--theme-primary);"><i class="fas fa-cart-plus"></i> เพิ่มลงตะกร้า</button>`;
-
+    // 1. คำนวณสต็อกคงเหลือจริง
+    let totalStock = item.stock !== undefined && item.stock !== "" ? parseInt(item.stock) : 1; 
+    let borrowedQty = 0;
+    borrowRequests.forEach(req => {
+        if (['pending', 'approved_pickup', 'borrowed', 'pending_return'].includes(req.status)) {
+            let regex = /([^,]+)\s*\((\d+)\s*ชิ้น\)/g; let match; let foundFormat = false;
+            while ((match = regex.exec(req.item)) !== null) { 
+                foundFormat = true; 
+                if (match[1].trim() === item.name) borrowedQty += parseInt(match[2]); 
+            }
+            if (!foundFormat && req.item) {
+                req.item.split(',').forEach(it => { if (it.trim() === item.name) borrowedQty += 1; });
+            }
+        }
+    });
+    let remainStock = totalStock - borrowedQty;
+    
+    // 2. ตรวจสอบเงื่อนไขปุ่ม
+    let btn = (item.condition === 'damaged' || remainStock <= 0) 
+        ? `<button class="btn-disabled" style="width:100%; padding:12px; border-radius:8px;"><i class="fas fa-ban"></i> ไม่พร้อม (ของหมด/ชำรุด)</button>` 
+        : `<button class="btn-borrow" onclick="addToCart(\'${item.id}\', \'${item.name}\', ${remainStock}); window.closeItemDetail();" style="width:100%; padding:12px; border-radius:8px; background:var(--theme-primary);"><i class="fas fa-cart-plus"></i> เพิ่มลงตะกร้า (เหลือ ${remainStock})</button>` ;
+        
     let damageHtml = '';
     if (item.condition === 'damaged' && item.damageReason) {
-        damageHtml = `<div style="margin-top: 8px; padding: 10px; background: rgba(220, 53, 69, 0.15); border-left: 4px solid #dc3545; font-size: 13px; color: #ffcccc; border-radius: 0 4px 4px 0;"><b><i class="fas fa-wrench"></i> อาการชำรุด:</b> ${item.damageReason}</div>`;
+        damageHtml = `<div style="margin-top: 8px; padding: 10px; background: rgba(220, 53, 69, 0.15); border-left: 4px solid #dc3545; font-size: 13px; color: #ffcccc; border-radius: 0 4px 4px 0;"><b><i class="fas fa-wrench"></i> อาการชำรุด:</b> ${item.damageReason}</div>`; 
     }
 
     document.getElementById('itemDetailBody').innerHTML = `
@@ -226,12 +282,56 @@ window.openItemDetail = function(id) {
         </div>`;
     document.getElementById('itemDetailModal').style.display = 'flex';
 }
+
 window.closeItemDetail = () => document.getElementById('itemDetailModal').style.display = 'none';
 
-window.addToCart = async function(id, name) {
-    const { value: qty } = await Swal.fire({ title: 'จำนวนยืม', html: `<b>${name}</b>`, input: 'number', inputValue: 1, inputAttributes: { min: 1 }, showCancelButton: true, confirmButtonColor: '#28a745', background: '#1a1a1a', color: '#fff' });
-    if (qty > 0) { cart.push({ id, name, qty: parseInt(qty) }); window.updateCartCount(); window.renderItems(); Swal.fire({icon: 'success', title: 'เพิ่มแล้ว', toast: true, position: 'top-end', timer: 1500, showConfirmButton: false}); }
+window.addToCart = async function(id, name, stock) {
+    const totalStock = parseInt(stock) || 0;
+
+    if (totalStock <= 0) {
+        Swal.fire({ icon: 'error', title: 'ของหมด!', text: 'อุปกรณ์ชิ้นนี้ไม่มีในสต็อกพร้อมให้ยืม' });
+        return;
+    }
+
+    const existingItem = cart.find(item => item.id === id);
+    const currentCartQty = existingItem ? existingItem.qty : 0;
+    const availableToBorrow = totalStock - currentCartQty;
+
+    if (availableToBorrow <= 0) {
+        Swal.fire({ icon: 'error', title: 'สิทธิ์เต็ม!', text: 'คุณเพิ่มอุปกรณ์นี้ลงตะกร้าครบตามจำนวนสต็อกแล้ว' });
+        return;
+    }
+
+    const { value: qty } = await Swal.fire({
+        title: 'จำนวนยืม',
+        html: `<b>${name}</b><br><small style="color: #aaa;">เหลือให้ยืมได้อีก: ${availableToBorrow} ชิ้น</small>`,
+        input: 'number',
+        inputValue: 1,
+        inputAttributes: { min: 1, max: availableToBorrow },
+        showCancelButton: true,
+        confirmButtonText: 'ตกลง',
+        cancelButtonText: 'ยกเลิก'
+    });
+
+    if (qty) {
+        const borrowQty = parseInt(qty);
+        if (borrowQty > availableToBorrow) {
+            Swal.fire({ icon: 'warning', title: 'เกินจำนวนสต็อก!', text: `ยืมเพิ่มได้สูงสุด ${availableToBorrow} ชิ้นเท่านั้น` });
+            return;
+        }
+
+        if (borrowQty > 0) {
+            if (existingItem) { existingItem.qty += borrowQty; } 
+            else { cart.push({ id, name, qty: borrowQty }); }
+            
+            window.updateCartCount();
+            window.renderItems();
+            
+            Swal.fire({ icon: 'success', title: 'เพิ่มลงตะกร้าแล้ว', toast: true, position: 'top-end', showConfirmButton: false, timer: 1500 });
+        }
+    }
 }
+
 window.updateCartCount = () => { const b = document.getElementById('cartCountBadge'); if(b) b.innerText = cart.reduce((s, i) => s + i.qty, 0); }
 
 window.openCartModal = () => {
@@ -455,13 +555,32 @@ window.changePage = (p) => { currentPage = p; window.renderRequests(); }
 window.updateStatus = async (id, s) => { await updateDoc(doc(db, "requests", id), { status: s }); }
 window.deleteRequest = async (id) => { if((await Swal.fire({title:'ลบ?',icon:'warning',showCancelButton:true})).isConfirmed) { await deleteDoc(doc(db, "requests", id)); Swal.fire('ลบแล้ว','','success'); } }
 
+// 🟢 อัปเดต: ให้ตารางหลังบ้านคำนวณและแสดงสต็อกคงเหลือ
 window.renderInventory = () => { 
     const tbody = document.getElementById('inventoryTableBody'); if(!tbody) return; tbody.innerHTML = ''; 
     items.forEach(i => { 
         const itemDisplayCat = getDisplayCategory(i.category);
-        const activeReq = borrowRequests.find(r => r.item && r.item.includes(i.name) && ['pending', 'approved_pickup', 'borrowed', 'pending_return'].includes(r.status));
-        let st = '<span style="color:var(--success)">ว่าง</span>';
-        if (activeReq) st = activeReq.status === 'pending' ? '<span style="color:#ffc107">ติดจอง</span>' : (activeReq.status === 'pending_return' ? '<span style="color:#ff9800">รอตรวจ</span>' : '<span style="color:var(--danger)">ไม่ว่าง</span>');
+        
+        let totalStock = i.stock !== undefined && i.stock !== "" ? parseInt(i.stock) : 1;
+        let borrowedQty = 0;
+        borrowRequests.forEach(req => {
+            if (['pending', 'approved_pickup', 'borrowed', 'pending_return'].includes(req.status)) {
+                let regex = /([^,]+)\s*\((\d+)\s*ชิ้น\)/g; let match; let foundFormat = false;
+                while ((match = regex.exec(req.item)) !== null) { 
+                    foundFormat = true; if (match[1].trim() === i.name) borrowedQty += parseInt(match[2]); 
+                }
+                if (!foundFormat && req.item) {
+                    req.item.split(',').forEach(it => { if (it.trim() === i.name) borrowedQty += 1; });
+                }
+            }
+        });
+        let remainStock = totalStock - borrowedQty;
+
+        let st = remainStock > 0 
+            ? `<span style="color:var(--success)">ว่าง (${remainStock}/${totalStock})</span>` 
+            : `<span style="color:var(--danger)">หมด (0/${totalStock})</span>`;
+            
+        if (i.condition === 'damaged') st = `<span style="color:#dc3545">ส่งซ่อม</span>`;
         
         let condBtn = i.condition === 'damaged' 
             ? `<button onclick="toggleCondition('${i.id}', 'good')" style="background:#dc3545; color:#fff; border:none; padding:6px 12px; border-radius:4px; font-size:12px; font-weight:bold; cursor:pointer;">ชำรุด (ส่งซ่อม)</button>` 
@@ -507,9 +626,8 @@ window.toggleCondition = async (id, n) => {
 
 window.deleteItem = async (id) => { if((await Swal.fire({title:'ลบ?',icon:'warning',showCancelButton:true})).isConfirmed) { await deleteDoc(doc(db, "items", id)); } }
 
-// 🟢 อัปเดต Modal การเพิ่มอุปกรณ์
+// 🟢 อัปเดต: เพิ่มช่องกรอกสต็อกตอน "เพิ่มอุปกรณ์ใหม่"
 window.addNewItem = async () => {
-    // สร้าง Datalist ตัวเลือกหมวดหมู่อัตโนมัติจากข้อมูลเดิม
     const uniqueCats = [...new Set(items.map(i => getDisplayCategory(i.category)))].filter(c => c);
     const datalistOptions = uniqueCats.map(c => `<option value="${c}">`).join('');
 
@@ -523,7 +641,7 @@ window.addNewItem = async () => {
                     <input id="swal-name" class="swal2-input" placeholder="เช่น SONY A7M4" style="width: 100%; margin: 0; box-sizing: border-box;">
                 </div>
                 <div style="display: flex; gap: 10px;">
-                    <div style="flex: 1;">
+                    <div style="flex: 2;">
                         <label style="color:#aaa; display:block; margin-bottom:5px;">หมวดหมู่ (พิมพ์สร้างใหม่ได้เลย)</label>
                         <input id="swal-category" list="category-options" class="swal2-input" placeholder="เลือกหรือพิมพ์สร้างใหม่..." style="width: 100%; margin: 0; box-sizing: border-box;">
                         <datalist id="category-options">
@@ -531,14 +649,18 @@ window.addNewItem = async () => {
                         </datalist>
                     </div>
                     <div style="flex: 1;">
-                        <label style="color:#aaa; display:block; margin-bottom:5px;">ระดับความยาก</label>
-                        <select id="swal-difficulty" class="swal2-input" style="width: 100%; margin: 0; box-sizing: border-box;">
-                            <option value="ระดับง่ายมาก (Beginner)">🟢 ง่ายมาก</option>
-                            <option value="ระดับปานกลาง (Medium)">🟡 ปานกลาง</option>
-                            <option value="ระดับค่อนข้างยาก (Advanced)">🟠 ค่อนข้างยาก</option>
-                            <option value="ระดับมืออาชีพ (Pro)">🔴 มืออาชีพ</option>
-                        </select>
+                        <label style="color:#aaa; display:block; margin-bottom:5px;">จำนวนสต็อก</label>
+                        <input id="swal-stock" type="number" min="1" value="1" class="swal2-input" style="width: 100%; margin: 0; box-sizing: border-box; text-align:center;">
                     </div>
+                </div>
+                <div>
+                    <label style="color:#aaa; display:block; margin-bottom:5px;">ระดับความยาก</label>
+                    <select id="swal-difficulty" class="swal2-input" style="width: 100%; margin: 0; box-sizing: border-box;">
+                        <option value="ระดับง่ายมาก (Beginner)">🟢 ง่ายมาก</option>
+                        <option value="ระดับปานกลาง (Medium)">🟡 ปานกลาง</option>
+                        <option value="ระดับค่อนข้างยาก (Advanced)">🟠 ค่อนข้างยาก</option>
+                        <option value="ระดับมืออาชีพ (Pro)">🔴 มืออาชีพ</option>
+                    </select>
                 </div>
                 <div>
                     <label style="color:#aaa; display:block; margin-bottom:5px;">อัปโหลดรูปภาพอุปกรณ์</label>
@@ -571,7 +693,17 @@ window.addNewItem = async () => {
                     Swal.showValidationMessage('เกิดข้อผิดพลาดในการประมวลผลรูปภาพ'); return false;
                 }
             }
-            return { name: name, category: category, image: base64Image, difficulty: document.getElementById('swal-difficulty').value, reference: document.getElementById('swal-ref').value || "อ้างอิงข้อมูลพื้นฐาน", description: document.getElementById('swal-desc').value || "-", status: "available", condition: "good" }
+            return { 
+                name: name, 
+                category: category, 
+                stock: parseInt(document.getElementById('swal-stock').value) || 1, // เพิ่มข้อมูลสต็อกลงฐานข้อมูล
+                image: base64Image, 
+                difficulty: document.getElementById('swal-difficulty').value, 
+                reference: document.getElementById('swal-ref').value || "อ้างอิงข้อมูลพื้นฐาน", 
+                description: document.getElementById('swal-desc').value || "-", 
+                status: "available", 
+                condition: "good" 
+            }
         }
     });
 
@@ -582,7 +714,7 @@ window.addNewItem = async () => {
     }
 }
 
-// 🟢 อัปเดต Modal การแก้ไขอุปกรณ์
+// 🟢 อัปเดต: เพิ่มช่องแก้ไขสต็อกตอน "แก้ไขข้อมูลอุปกรณ์"
 window.editItem = async function(id) {
     const item = items.find(i => i.id === id);
     if (!item) return;
@@ -590,6 +722,7 @@ window.editItem = async function(id) {
     const diff = item.difficulty || "ระดับปานกลาง (Medium)";
     const ref = item.reference || "";
     const desc = item.description || "";
+    const stockVal = item.stock || 1;
     const currentCatDisplay = getDisplayCategory(item.category);
 
     const uniqueCats = [...new Set(items.map(i => getDisplayCategory(i.category)))].filter(c => c);
@@ -605,7 +738,7 @@ window.editItem = async function(id) {
                     <input id="swal-edit-name" class="swal2-input" value="${item.name}" style="width: 100%; margin: 0; box-sizing: border-box;">
                 </div>
                 <div style="display: flex; gap: 10px;">
-                    <div style="flex: 1;">
+                    <div style="flex: 2;">
                         <label style="color:#aaa; display:block; margin-bottom:5px;">หมวดหมู่ (พิมพ์สร้างใหม่ได้เลย)</label>
                         <input id="swal-edit-category" list="category-options" class="swal2-input" value="${currentCatDisplay}" style="width: 100%; margin: 0; box-sizing: border-box;">
                         <datalist id="category-options">
@@ -613,14 +746,18 @@ window.editItem = async function(id) {
                         </datalist>
                     </div>
                     <div style="flex: 1;">
-                        <label style="color:#aaa; display:block; margin-bottom:5px;">ระดับความยาก</label>
-                        <select id="swal-edit-difficulty" class="swal2-input" style="width: 100%; margin: 0; box-sizing: border-box;">
-                            <option value="ระดับง่ายมาก (Beginner)" ${diff.includes('ง่าย') ? 'selected' : ''}>🟢 ง่ายมาก</option>
-                            <option value="ระดับปานกลาง (Medium)" ${diff.includes('ปานกลาง') ? 'selected' : ''}>🟡 ปานกลาง</option>
-                            <option value="ระดับค่อนข้างยาก (Advanced)" ${diff.includes('ค่อนข้างยาก') ? 'selected' : ''}>🟠 ค่อนข้างยาก</option>
-                            <option value="ระดับมืออาชีพ (Pro)" ${diff.includes('มืออาชีพ') ? 'selected' : ''}>🔴 มืออาชีพ</option>
-                        </select>
+                        <label style="color:#aaa; display:block; margin-bottom:5px;">จำนวนสต็อก</label>
+                        <input id="swal-edit-stock" type="number" min="1" value="${stockVal}" class="swal2-input" style="width: 100%; margin: 0; box-sizing: border-box; text-align:center;">
                     </div>
+                </div>
+                <div>
+                    <label style="color:#aaa; display:block; margin-bottom:5px;">ระดับความยาก</label>
+                    <select id="swal-edit-difficulty" class="swal2-input" style="width: 100%; margin: 0; box-sizing: border-box;">
+                        <option value="ระดับง่ายมาก (Beginner)" ${diff.includes('ง่าย') ? 'selected' : ''}>🟢 ง่ายมาก</option>
+                        <option value="ระดับปานกลาง (Medium)" ${diff.includes('ปานกลาง') ? 'selected' : ''}>🟡 ปานกลาง</option>
+                        <option value="ระดับค่อนข้างยาก (Advanced)" ${diff.includes('ค่อนข้างยาก') ? 'selected' : ''}>🟠 ค่อนข้างยาก</option>
+                        <option value="ระดับมืออาชีพ (Pro)" ${diff.includes('มืออาชีพ') ? 'selected' : ''}>🔴 มืออาชีพ</option>
+                    </select>
                 </div>
                 <div>
                     <label style="color:#aaa; display:block; margin-bottom:5px;">เปลี่ยนรูปภาพ (ถ้าไม่เปลี่ยน ไม่ต้องเลือกไฟล์)</label>
@@ -654,7 +791,15 @@ window.editItem = async function(id) {
                 }
             }
             
-            return { name: name, category: category, image: base64Image, difficulty: document.getElementById('swal-edit-difficulty').value, reference: document.getElementById('swal-edit-ref').value, description: document.getElementById('swal-edit-desc').value };
+            return { 
+                name: name, 
+                category: category, 
+                stock: parseInt(document.getElementById('swal-edit-stock').value) || 1, // อัปเดตข้อมูลสต็อก 
+                image: base64Image, 
+                difficulty: document.getElementById('swal-edit-difficulty').value, 
+                reference: document.getElementById('swal-edit-ref').value, 
+                description: document.getElementById('swal-edit-desc').value 
+            };
         }
     });
 
@@ -669,7 +814,16 @@ window.editItem = async function(id) {
     }
 }
 
-window.updateDashboardStats = () => { document.getElementById('stat-pending').innerText = borrowRequests.filter(r => r.status === 'pending').length; document.getElementById('stat-borrowed').innerText = borrowRequests.filter(r => r.status === 'borrowed').length; document.getElementById('stat-total-items').innerText = items.length; }
+window.updateDashboardStats = () => { 
+    const statPending = document.getElementById('stat-pending');
+    if (statPending) statPending.innerText = borrowRequests.filter(r => r.status === 'pending').length;
+
+    const statBorrowed = document.getElementById('stat-borrowed');
+    if (statBorrowed) statBorrowed.innerText = borrowRequests.filter(r => r.status === 'borrowed').length;
+
+    const statTotalItems = document.getElementById('stat-total-items');
+    if (statTotalItems) statTotalItems.innerText = items.length; 
+}
 
 window.renderStats = () => {
     let freq = {}; 
