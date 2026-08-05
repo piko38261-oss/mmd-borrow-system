@@ -337,3 +337,25 @@ nav { background: rgba(0,0,0,0.95); padding: 15px 30px; display: flex; justify-c
     padding: 5px 8px;
     white-space: nowrap; /* ล็อคคำในปุ่มไม่ให้ขาดท่อน */
 }
+/* =========================================
+   แก้ไขตารางล้นจอในหน้าต่าง Modal บนมือถือ
+   ========================================= */
+@media screen and (max-width: 768px) {
+    /* ทำให้ตารางสามารถใช้นิ้วปัดซ้าย-ขวาได้ */
+    #historyModal table,
+    #cartModal table,
+    #itemDetailModal table {
+        display: block !important;
+        overflow-x: auto !important;
+        width: 100% !important;
+        -webkit-overflow-scrolling: touch; /* ปัดลื่นๆ บน iOS */
+    }
+
+    /* ปรับขนาดตัวอักษรและช่องว่างในตารางให้เล็กลงนิดหน่อยบนมือถือ */
+    #historyModal table th, 
+    #historyModal table td {
+        font-size: 12px !important;
+        padding: 8px !important;
+        white-space: nowrap; /* ป้องกันข้อความโดนบีบจนตกบรรทัดเละเทะ */
+    }
+}
