@@ -1,5 +1,5 @@
 /* =========================================
-   script.js - MMD BORROW SYSTEM (FULL COMPLETE MEGA VERSION + MAINTENANCE LOG)
+   script.js - MMD BORROW SYSTEM (MEGA VERSION + DYNAMIC CATEGORIES + AUTO CLEAN)
    ========================================= */
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
@@ -30,6 +30,13 @@ let currentPage = 1; const itemsPerPage = 8; let searchQuery = "";
 let borrowChartInstance = null, conditionChartInstance = null;
 let currentCategory = 'all';
 
+// 🟢 ตัวแปลงหมวดหมู่ข้อมูลเก่า (Legacy) ให้เป็นภาษาไทยเพื่อการแสดงผล
+function getDisplayCategory(cat) {
+    if(!cat) return "ไม่ระบุ";
+    const map = { 'camera': 'กล้อง', 'tripod': 'ขาตั้ง/Gimbal', 'audio': 'เสียง', 'light': 'ไฟสตูดิโอ', 'general': 'ทั่วไป' };
+    return map[cat.toLowerCase()] || cat;
+}
+
 if (!document.getElementById('returnProofInput')) {
     const returnInput = document.createElement('input'); returnInput.type = 'file'; returnInput.id = 'returnProofInput';
     returnInput.accept = 'image/*'; returnInput.style.display = 'none'; document.body.appendChild(returnInput);
@@ -48,6 +55,29 @@ function resizeImage(file) {
                 ctx.drawImage(img, 0, 0, width, height); resolve(canvas.toDataURL('image/jpeg', 0.7)); 
             };
         };
+    });
+}
+
+async function autoCleanOldRequests(requestsList) {
+    const now = new Date();
+    const thirtyDaysInMs = 30 * 24 * 60 * 60 * 1000;
+
+    requestsList.forEach(async (r) => {
+        if (r.status === 'returned' || r.status === 'rejected') {
+            let reqDate = null;
+            if (r.timestamp && r.timestamp.toDate) reqDate = r.timestamp.toDate();
+            else if (r.timestamp) reqDate = new Date(r.timestamp);
+            else if (r.date) reqDate = new Date(r.date);
+
+            if (reqDate && (now - reqDate > thirtyDaysInMs)) {
+                try {
+                    await deleteDoc(doc(db, "requests", r.id));
+                    console.log(`🧹 Auto-cleaned old request ID: ${r.id}`);
+                } catch (e) {
+                    console.error("Error auto-cleaning:", e);
+                }
+            }
+        }
     });
 }
 
@@ -87,16 +117,59 @@ window.register = async function(u, p, n) {
 window.logout = () => Swal.fire({ title: 'ออกจากระบบ?', icon: 'question', showCancelButton: true }).then((res) => { if(res.isConfirmed){ localStorage.removeItem('currentUser'); window.location.href = 'index.html'; }});
 
 window.listenToData = function() {
-    onSnapshot(collection(db, "items"), (snap) => { items = snap.docs.map(doc => ({ id: doc.id, ...doc.data() })); if(document.getElementById('itemGrid')) window.renderItems(); if(document.getElementById('inventoryTableBody')) window.renderInventory(); if(window.updateDashboardStats) window.updateDashboardStats(); if(document.getElementById('section-stats') && document.getElementById('section-stats').style.display === 'block') window.renderStats(); });
-    onSnapshot(collection(db, "requests"), (snap) => { borrowRequests = snap.docs.map(doc => ({ id: doc.id, ...doc.data() })); if(document.getElementById('itemGrid')) window.renderItems(); if(document.getElementById('requestTableBody')) window.renderRequests(); if(document.getElementById('inventoryTableBody')) window.renderInventory(); if(window.updateDashboardStats) window.updateDashboardStats(); if(document.getElementById('section-stats') && document.getElementById('section-stats').style.display === 'block') window.renderStats(); });
+    onSnapshot(collection(db, "items"), (snap) => { 
+        items = snap.docs.map(doc => ({ id: doc.id, ...doc.data() })); 
+        window.renderCategories(); // 🟢 สั่งสร้างปุ่มหมวดหมู่ใหม่ทุกครั้งที่ข้อมูลอัปเดต
+        if(document.getElementById('itemGrid')) window.renderItems(); 
+        if(document.getElementById('inventoryTableBody')) window.renderInventory(); 
+        if(window.updateDashboardStats) window.updateDashboardStats(); 
+        if(document.getElementById('section-stats') && document.getElementById('section-stats').style.display === 'block') window.renderStats(); 
+    });
+    
+    onSnapshot(collection(db, "requests"), (snap) => { 
+        borrowRequests = snap.docs.map(doc => ({ id: doc.id, ...doc.data() })); 
+        autoCleanOldRequests(borrowRequests);
+        if(document.getElementById('itemGrid')) window.renderItems(); 
+        if(document.getElementById('requestTableBody')) window.renderRequests(); 
+        if(document.getElementById('inventoryTableBody')) window.renderInventory(); 
+        if(window.updateDashboardStats) window.updateDashboardStats(); 
+        if(document.getElementById('section-stats') && document.getElementById('section-stats').style.display === 'block') window.renderStats(); 
+    });
+    
     onSnapshot(collection(db, "users"), (snap) => { users = snap.docs.map(doc => ({ id: doc.id, ...doc.data() })); if(document.getElementById('adminUserTableBody')) window.loadUsersToAdminTable(); });
+}
+
+// 🟢 ฟังก์ชันสร้างปุ่มหมวดหมู่ (Dynamic Categories Filters)
+window.renderCategories = () => {
+    const filterContainer = document.querySelector('.filters');
+    if (!filterContainer) return;
+    
+    // ดึงรายชื่อหมวดหมู่ที่ไม่ซ้ำกัน
+    const normalizedCats = new Set(items.map(i => getDisplayCategory(i.category)));
+    const uniqueCats = [...normalizedCats].filter(c => c);
+
+    let html = `<button class="${currentCategory === 'all' ? 'active' : ''}" onclick="filterItems('all')">ทั้งหมด</button>`;
+    
+    uniqueCats.forEach(cat => {
+        html += `<button class="${currentCategory === cat ? 'active' : ''}" onclick="filterItems('${cat}')">${cat}</button>`;
+    });
+
+    filterContainer.innerHTML = html;
+}
+
+window.filterItems = (cat) => { 
+    currentCategory = cat; 
+    window.renderCategories(); // รีเฟรชปุ่มเพื่อให้ปุ่มที่ถูกกดเปลี่ยนสี (Active)
+    window.renderItems(cat); 
 }
 
 window.renderItems = (cat = currentCategory) => { 
     currentCategory = cat; 
     const grid = document.getElementById('itemGrid'); if(!grid) return; grid.innerHTML = '';
     items.forEach(item => {
-        if(currentCategory !== 'all' && item.category !== currentCategory) return; 
+        const itemDisplayCat = getDisplayCategory(item.category);
+        if(currentCategory !== 'all' && itemDisplayCat !== currentCategory) return; 
+        
         const activeReq = borrowRequests.find(r => (r.item && r.item.includes(item.name)) && ['pending', 'approved_pickup', 'borrowed', 'pending_return'].includes(r.status));
         let cartItem = cart.find(c => c.id === item.id);
         
@@ -111,21 +184,20 @@ window.renderItems = (cat = currentCategory) => {
         } 
         else if (cartItem) { statusCSS = 'incart'; btnText = `เลือกแล้ว (${cartItem.qty})`; badgeText = 'ตะกร้า'; }
         
-        grid.innerHTML += `<div class="card"><div class="card-img" onclick="window.openItemDetail('${item.id}')" style="cursor:pointer;"><img src="${item.image}"><div class="status-badge ${statusCSS}">${badgeText}</div></div><div class="card-body"><h4>${item.name}</h4><span class="category-tag">${item.category.toUpperCase()}</span><div style="display:flex; gap:5px; margin-top:auto;"><button onclick="window.openItemDetail('${item.id}')" style="flex:1; padding:10px; border-radius:6px; background:#444; color:white; border:none; cursor:pointer;"><i class="fas fa-info-circle"></i></button><button class="${btnClass}" onclick="${btnAction}" style="flex:3; margin-top:0;">${btnText}</button></div></div></div>`;
+        grid.innerHTML += `<div class="card"><div class="card-img" onclick="window.openItemDetail('${item.id}')" style="cursor:pointer;"><img src="${item.image}"><div class="status-badge ${statusCSS}">${badgeText}</div></div><div class="card-body"><h4>${item.name}</h4><span class="category-tag">${itemDisplayCat.toUpperCase()}</span><div style="display:flex; gap:5px; margin-top:auto;"><button onclick="window.openItemDetail('${item.id}')" style="flex:1; padding:10px; border-radius:6px; background:#444; color:white; border:none; cursor:pointer;"><i class="fas fa-info-circle"></i></button><button class="${btnClass}" onclick="${btnAction}" style="flex:3; margin-top:0;">${btnText}</button></div></div></div>`;
     });
 }
 
-// 🟢 อัปเดต: หน้าต่างรายละเอียดอุปกรณ์ (แสดงกล่องสีแดงแจ้งสาเหตุที่พัง)
 window.openItemDetail = function(id) {
     const item = items.find(i => i.id === id); if (!item) return;
     const diff = item.difficulty || "ระดับปานกลาง (Medium)";
     const desc = item.description || "ยังไม่มีข้อมูลเพิ่มเติม...";
     const ref = item.reference || "อ้างอิงข้อมูลพื้นฐาน";
+    const itemDisplayCat = getDisplayCategory(item.category);
     
     const activeReq = borrowRequests.find(r => (r.item && r.item.includes(item.name)) && ['pending', 'approved_pickup', 'borrowed', 'pending_return'].includes(r.status));
     let btn = (item.condition === 'damaged' || activeReq) ? `<button class="btn-disabled" style="width:100%; padding:12px; border-radius:8px;"><i class="fas fa-ban"></i> ไม่พร้อม</button>` : `<button class="btn-borrow" onclick="addToCart('${item.id}', '${item.name}'); window.closeItemDetail();" style="width:100%; padding:12px; border-radius:8px; background:var(--theme-primary);"><i class="fas fa-cart-plus"></i> เพิ่มลงตะกร้า</button>`;
 
-    // ส่วนของกล่องแสดงอาการชำรุด
     let damageHtml = '';
     if (item.condition === 'damaged' && item.damageReason) {
         damageHtml = `<div style="margin-top: 8px; padding: 10px; background: rgba(220, 53, 69, 0.15); border-left: 4px solid #dc3545; font-size: 13px; color: #ffcccc; border-radius: 0 4px 4px 0;"><b><i class="fas fa-wrench"></i> อาการชำรุด:</b> ${item.damageReason}</div>`;
@@ -135,7 +207,7 @@ window.openItemDetail = function(id) {
         <div style="display:flex; flex-direction:column; background:#1a1a1a;">
             <div style="height: 250px; background: #000; display:flex; justify-content:center; align-items:center;"><img src="${item.image}" style="max-width:100%; max-height:100%; object-fit:contain;"></div>
             <div style="padding: 20px;">
-                <span class="category-tag" style="background:#333;">${item.category.toUpperCase()}</span>
+                <span class="category-tag" style="background:#333;">${itemDisplayCat.toUpperCase()}</span>
                 <h2 style="margin: 5px 0 15px; color:var(--theme-primary);">${item.name}</h2>
                 <div style="background: #111; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #333; font-size: 14px;">
                     <div style="display:flex; justify-content:space-between; margin-bottom: ${damageHtml ? '10px' : '0'}; ${damageHtml ? '' : 'border-bottom: 1px dashed #444; padding-bottom: 10px;'}">
@@ -224,7 +296,6 @@ window.openHistoryModal = () => {
 }
 window.closeHistoryModal = () => document.getElementById('historyModal').style.display = 'none';
 
-window.filterItems = (cat) => { document.querySelectorAll('.filters button').forEach(b=>b.classList.remove('active')); event.target.classList.add('active'); window.renderItems(cat); }
 window.searchItem = (t) => { Array.from(document.getElementsByClassName('card')).forEach(c => c.style.display = c.querySelector('h4').innerText.toLowerCase().includes(t.toLowerCase()) ? 'flex' : 'none'); }
 window.triggerPickup = (id) => { currentPickupId = id; document.getElementById('pickupProofInput').click(); }
 window.triggerReturn = (id) => { currentReturnId = id; document.getElementById('returnProofInput').click(); }
@@ -384,10 +455,10 @@ window.changePage = (p) => { currentPage = p; window.renderRequests(); }
 window.updateStatus = async (id, s) => { await updateDoc(doc(db, "requests", id), { status: s }); }
 window.deleteRequest = async (id) => { if((await Swal.fire({title:'ลบ?',icon:'warning',showCancelButton:true})).isConfirmed) { await deleteDoc(doc(db, "requests", id)); Swal.fire('ลบแล้ว','','success'); } }
 
-// 🟢 อัปเดต: ระบบบันทึกอาการชำรุด (Maintenance Log)
 window.renderInventory = () => { 
     const tbody = document.getElementById('inventoryTableBody'); if(!tbody) return; tbody.innerHTML = ''; 
     items.forEach(i => { 
+        const itemDisplayCat = getDisplayCategory(i.category);
         const activeReq = borrowRequests.find(r => r.item && r.item.includes(i.name) && ['pending', 'approved_pickup', 'borrowed', 'pending_return'].includes(r.status));
         let st = '<span style="color:var(--success)">ว่าง</span>';
         if (activeReq) st = activeReq.status === 'pending' ? '<span style="color:#ffc107">ติดจอง</span>' : (activeReq.status === 'pending_return' ? '<span style="color:#ff9800">รอตรวจ</span>' : '<span style="color:var(--danger)">ไม่ว่าง</span>');
@@ -403,7 +474,7 @@ window.renderInventory = () => {
             </div>
         `;
             
-        tbody.innerHTML += `<tr><td><img src="${i.image}" width="40" style="border-radius:4px;"></td><td style="color:white">${i.name}</td><td>${i.category}</td><td>${st}</td><td>${condBtn}</td><td>${actionBtns}</td></tr>`; 
+        tbody.innerHTML += `<tr><td><img src="${i.image}" width="40" style="border-radius:4px;"></td><td style="color:white">${i.name}</td><td>${itemDisplayCat}</td><td>${st}</td><td>${condBtn}</td><td>${actionBtns}</td></tr>`; 
     }); 
 }
 
@@ -436,7 +507,12 @@ window.toggleCondition = async (id, n) => {
 
 window.deleteItem = async (id) => { if((await Swal.fire({title:'ลบ?',icon:'warning',showCancelButton:true})).isConfirmed) { await deleteDoc(doc(db, "items", id)); } }
 
+// 🟢 อัปเดต Modal การเพิ่มอุปกรณ์
 window.addNewItem = async () => {
+    // สร้าง Datalist ตัวเลือกหมวดหมู่อัตโนมัติจากข้อมูลเดิม
+    const uniqueCats = [...new Set(items.map(i => getDisplayCategory(i.category)))].filter(c => c);
+    const datalistOptions = uniqueCats.map(c => `<option value="${c}">`).join('');
+
     const { value: formValues } = await Swal.fire({
         title: '📦 เพิ่มอุปกรณ์ใหม่',
         width: 600,
@@ -448,14 +524,11 @@ window.addNewItem = async () => {
                 </div>
                 <div style="display: flex; gap: 10px;">
                     <div style="flex: 1;">
-                        <label style="color:#aaa; display:block; margin-bottom:5px;">หมวดหมู่</label>
-                        <select id="swal-category" class="swal2-input" style="width: 100%; margin: 0; box-sizing: border-box;">
-                            <option value="camera">กล้อง</option>
-                            <option value="tripod">ขาตั้ง/Gimbal</option>
-                            <option value="audio">เสียง</option>
-                            <option value="light">ไฟสตูดิโอ</option>
-                            <option value="general">ทั่วไป</option>
-                        </select>
+                        <label style="color:#aaa; display:block; margin-bottom:5px;">หมวดหมู่ (พิมพ์สร้างใหม่ได้เลย)</label>
+                        <input id="swal-category" list="category-options" class="swal2-input" placeholder="เลือกหรือพิมพ์สร้างใหม่..." style="width: 100%; margin: 0; box-sizing: border-box;">
+                        <datalist id="category-options">
+                            ${datalistOptions}
+                        </datalist>
                     </div>
                     <div style="flex: 1;">
                         <label style="color:#aaa; display:block; margin-bottom:5px;">ระดับความยาก</label>
@@ -468,7 +541,7 @@ window.addNewItem = async () => {
                     </div>
                 </div>
                 <div>
-                    <label style="color:#aaa; display:block; margin-bottom:5px;">อัปโหลดรูปภาพอุปกรณ์ (คลิกเพื่อเลือกไฟล์)</label>
+                    <label style="color:#aaa; display:block; margin-bottom:5px;">อัปโหลดรูปภาพอุปกรณ์</label>
                     <input type="file" id="swal-image-file" accept="image/*" style="width: 100%; color: #fff; background: #222; padding: 12px; border-radius: 5px; border: 1px solid #444; box-sizing: border-box;">
                 </div>
                 <div>
@@ -483,7 +556,9 @@ window.addNewItem = async () => {
         showCancelButton: true, confirmButtonText: '<i class="fas fa-save"></i> บันทึกอุปกรณ์', confirmButtonColor: '#28a745', background: '#1a1a1a', color: '#fff',
         preConfirm: async () => {
             const name = document.getElementById('swal-name').value; 
+            const category = document.getElementById('swal-category').value.trim();
             if(!name) { Swal.showValidationMessage('กรุณากรอกชื่ออุปกรณ์ด้วยครับ'); return false; }
+            if(!category) { Swal.showValidationMessage('กรุณาระบุหมวดหมู่ด้วยครับ'); return false; }
             
             const fileInput = document.getElementById('swal-image-file');
             let base64Image = "https://placehold.co/400x300?text=No+Image"; 
@@ -496,7 +571,7 @@ window.addNewItem = async () => {
                     Swal.showValidationMessage('เกิดข้อผิดพลาดในการประมวลผลรูปภาพ'); return false;
                 }
             }
-            return { name: name, category: document.getElementById('swal-category').value, image: base64Image, difficulty: document.getElementById('swal-difficulty').value, reference: document.getElementById('swal-ref').value || "อ้างอิงข้อมูลพื้นฐาน", description: document.getElementById('swal-desc').value || "-", status: "available", condition: "good" }
+            return { name: name, category: category, image: base64Image, difficulty: document.getElementById('swal-difficulty').value, reference: document.getElementById('swal-ref').value || "อ้างอิงข้อมูลพื้นฐาน", description: document.getElementById('swal-desc').value || "-", status: "available", condition: "good" }
         }
     });
 
@@ -507,6 +582,7 @@ window.addNewItem = async () => {
     }
 }
 
+// 🟢 อัปเดต Modal การแก้ไขอุปกรณ์
 window.editItem = async function(id) {
     const item = items.find(i => i.id === id);
     if (!item) return;
@@ -514,6 +590,10 @@ window.editItem = async function(id) {
     const diff = item.difficulty || "ระดับปานกลาง (Medium)";
     const ref = item.reference || "";
     const desc = item.description || "";
+    const currentCatDisplay = getDisplayCategory(item.category);
+
+    const uniqueCats = [...new Set(items.map(i => getDisplayCategory(i.category)))].filter(c => c);
+    const datalistOptions = uniqueCats.map(c => `<option value="${c}">`).join('');
 
     const { value: formValues } = await Swal.fire({
         title: '✏️ แก้ไขข้อมูลอุปกรณ์',
@@ -526,14 +606,11 @@ window.editItem = async function(id) {
                 </div>
                 <div style="display: flex; gap: 10px;">
                     <div style="flex: 1;">
-                        <label style="color:#aaa; display:block; margin-bottom:5px;">หมวดหมู่</label>
-                        <select id="swal-edit-category" class="swal2-input" style="width: 100%; margin: 0; box-sizing: border-box;">
-                            <option value="camera" ${item.category === 'camera' ? 'selected' : ''}>กล้อง</option>
-                            <option value="tripod" ${item.category === 'tripod' ? 'selected' : ''}>ขาตั้ง/Gimbal</option>
-                            <option value="audio" ${item.category === 'audio' ? 'selected' : ''}>เสียง</option>
-                            <option value="light" ${item.category === 'light' ? 'selected' : ''}>ไฟสตูดิโอ</option>
-                            <option value="general" ${item.category === 'general' ? 'selected' : ''}>ทั่วไป</option>
-                        </select>
+                        <label style="color:#aaa; display:block; margin-bottom:5px;">หมวดหมู่ (พิมพ์สร้างใหม่ได้เลย)</label>
+                        <input id="swal-edit-category" list="category-options" class="swal2-input" value="${currentCatDisplay}" style="width: 100%; margin: 0; box-sizing: border-box;">
+                        <datalist id="category-options">
+                            ${datalistOptions}
+                        </datalist>
                     </div>
                     <div style="flex: 1;">
                         <label style="color:#aaa; display:block; margin-bottom:5px;">ระดับความยาก</label>
@@ -561,7 +638,9 @@ window.editItem = async function(id) {
         showCancelButton: true, confirmButtonText: '<i class="fas fa-save"></i> บันทึกการแก้ไข', confirmButtonColor: '#ffc107', background: '#1a1a1a', color: '#fff',
         preConfirm: async () => {
             const name = document.getElementById('swal-edit-name').value;
+            const category = document.getElementById('swal-edit-category').value.trim();
             if (!name) { Swal.showValidationMessage('กรุณากรอกชื่ออุปกรณ์ด้วยครับ'); return false; }
+            if (!category) { Swal.showValidationMessage('กรุณาระบุหมวดหมู่ด้วยครับ'); return false; }
             
             const fileInput = document.getElementById('swal-edit-image-file');
             let base64Image = item.image;
@@ -575,14 +654,7 @@ window.editItem = async function(id) {
                 }
             }
             
-            return {
-                name: name,
-                category: document.getElementById('swal-edit-category').value,
-                image: base64Image,
-                difficulty: document.getElementById('swal-edit-difficulty').value,
-                reference: document.getElementById('swal-edit-ref').value,
-                description: document.getElementById('swal-edit-desc').value
-            };
+            return { name: name, category: category, image: base64Image, difficulty: document.getElementById('swal-edit-difficulty').value, reference: document.getElementById('swal-edit-ref').value, description: document.getElementById('swal-edit-desc').value };
         }
     });
 
