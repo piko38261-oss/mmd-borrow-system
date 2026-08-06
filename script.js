@@ -1,5 +1,5 @@
 /* =========================================
-   script.js - MMD BORROW SYSTEM (MEGA VERSION + DYNAMIC CATEGORIES + AUTO CLEAN + STOCK SYSTEM)
+   script.js - MMD BORROW SYSTEM (MEGA VERSION + DYNAMIC CATEGORIES + AUTO CLEAN + STOCK SYSTEM + CRASH SAFE)
    ========================================= */
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
@@ -30,7 +30,6 @@ let currentPage = 1; const itemsPerPage = 8; let searchQuery = "";
 let borrowChartInstance = null, conditionChartInstance = null;
 let currentCategory = 'all';
 
-// ตัวแปลงหมวดหมู่ข้อมูลเก่า (Legacy) ให้เป็นภาษาไทยเพื่อการแสดงผล
 function getDisplayCategory(cat) {
     if(!cat) return "ไม่ระบุ";
     const map = { 'camera': 'กล้อง', 'tripod': 'ขาตั้ง/Gimbal', 'audio': 'เสียง', 'light': 'ไฟสตูดิโอ', 'general': 'ทั่วไป' };
@@ -61,21 +60,14 @@ function resizeImage(file) {
 async function autoCleanOldRequests(requestsList) {
     const now = new Date();
     const thirtyDaysInMs = 30 * 24 * 60 * 60 * 1000;
-
     requestsList.forEach(async (r) => {
         if (r.status === 'returned' || r.status === 'rejected') {
             let reqDate = null;
             if (r.timestamp && r.timestamp.toDate) reqDate = r.timestamp.toDate();
             else if (r.timestamp) reqDate = new Date(r.timestamp);
             else if (r.date) reqDate = new Date(r.date);
-
             if (reqDate && (now - reqDate > thirtyDaysInMs)) {
-                try {
-                    await deleteDoc(doc(db, "requests", r.id));
-                    console.log(`🧹 Auto-cleaned old request ID: ${r.id}`);
-                } catch (e) {
-                    console.error("Error auto-cleaning:", e);
-                }
+                try { await deleteDoc(doc(db, "requests", r.id)); } catch (e) {}
             }
         }
     });
@@ -127,7 +119,7 @@ window.listenToData = function() {
         if(document.getElementById('inventoryTableBody')) window.renderInventory(); 
         if(window.updateDashboardStats) window.updateDashboardStats(); 
         if(document.getElementById('section-stats') && document.getElementById('section-stats').style.display === 'block') window.renderStats(); 
-    });
+    }, (error) => console.error("Firebase Items Error:", error));
     
     onSnapshot(collection(db, "requests"), (snap) => { 
         borrowRequests = snap.docs.map(doc => ({ id: doc.id, ...doc.data() })); 
@@ -137,7 +129,7 @@ window.listenToData = function() {
         if(document.getElementById('inventoryTableBody')) window.renderInventory(); 
         if(window.updateDashboardStats) window.updateDashboardStats(); 
         if(document.getElementById('section-stats') && document.getElementById('section-stats').style.display === 'block') window.renderStats(); 
-    });
+    }, (error) => console.error("Firebase Requests Error:", error));
     
     onSnapshot(collection(db, "users"), (snap) => { users = snap.docs.map(doc => ({ id: doc.id, ...doc.data() })); if(document.getElementById('adminUserTableBody')) window.loadUsersToAdminTable(); });
 }
@@ -145,16 +137,10 @@ window.listenToData = function() {
 window.renderCategories = () => {
     const filterContainer = document.querySelector('.filters');
     if (!filterContainer) return;
-    
     const normalizedCats = new Set(items.map(i => getDisplayCategory(i.category)));
     const uniqueCats = [...normalizedCats].filter(c => c);
-
     let html = `<button class="${currentCategory === 'all' ? 'active' : ''}" onclick="filterItems('all')">ทั้งหมด</button>`;
-    
-    uniqueCats.forEach(cat => {
-        html += `<button class="${currentCategory === cat ? 'active' : ''}" onclick="filterItems('${cat}')">${cat}</button>`;
-    });
-
+    uniqueCats.forEach(cat => { html += `<button class="${currentCategory === cat ? 'active' : ''}" onclick="filterItems('${cat}')">${cat}</button>`; });
     filterContainer.innerHTML = html;
 }
 
@@ -164,67 +150,65 @@ window.filterItems = (cat) => {
     window.renderItems(cat); 
 }
 
-// 🟢 อัปเดต: ให้คำนวณจำนวนสต็อกจริงที่เหลือให้จองได้
+// 🟢 อัปเดต: รวบรวม HTML ก่อนแสดงผล (ป้องกันจอดำ) + ระบบป้องกับตัวแปรพัง (String Safe)
 window.renderItems = (cat = currentCategory) => { 
     currentCategory = cat; 
-    const grid = document.getElementById('itemGrid'); if(!grid) return; grid.innerHTML = '';
+    const grid = document.getElementById('itemGrid'); if(!grid) return; 
+    
+    if (items.length === 0) {
+        grid.innerHTML = '<div style="grid-column: 1 / -1; text-align: center; padding: 50px; color: #888;"><i class="fas fa-spinner fa-spin fa-2x" style="margin-bottom: 15px;"></i><br>กำลังโหลดข้อมูลอุปกรณ์...</div>';
+        return;
+    }
+
+    let htmlOut = '';
     
     items.forEach(item => {
         const itemDisplayCat = getDisplayCategory(item.category);
         if(currentCategory !== 'all' && itemDisplayCat !== currentCategory) return; 
         
-        // 1. คำนวณสต็อกคงเหลือจริง
         let totalStock = item.stock !== undefined && item.stock !== "" ? parseInt(item.stock) : 1; 
         let borrowedQty = 0;
         
         borrowRequests.forEach(req => {
             if (['pending', 'approved_pickup', 'borrowed', 'pending_return'].includes(req.status)) {
+                let reqItemStr = String(req.item || ""); // 🛡️ ป้องกันข้อมูลเพี้ยน
                 let regex = /([^,]+)\s*\((\d+)\s*ชิ้น\)/g; 
-                let match; 
-                let foundFormat = false;
+                let match; let foundFormat = false;
                 
-                while ((match = regex.exec(req.item)) !== null) { 
+                while ((match = regex.exec(reqItemStr)) !== null) { 
                     foundFormat = true; 
                     if (match[1].trim() === item.name) borrowedQty += parseInt(match[2]); 
                 }
-                if (!foundFormat && req.item) {
-                    req.item.split(',').forEach(it => { if (it.trim() === item.name) borrowedQty += 1; });
+                if (!foundFormat && reqItemStr) {
+                    reqItemStr.split(',').forEach(it => { if (it.trim() === item.name) borrowedQty += 1; });
                 }
             }
         });
         
         let remainStock = totalStock - borrowedQty; 
-        
-        // 2. เช็คว่าของชิ้นนี้อยู่ในตะกร้าของตัวเองหรือยัง
         let cartItem = cart.find(c => c.id === item.id);
         let cartQty = cartItem ? cartItem.qty : 0;
         let finalAvailable = remainStock - cartQty; 
 
-        // 3. กำหนดปุ่มและป้ายสถานะตามสต็อกที่เหลือ
         let statusCSS = 'available', btnClass = 'btn-borrow', btnText = '<i class="fas fa-cart-plus"></i> จอง';
-        let btnAction = `addToCart('${item.id}', '${item.name}', ${remainStock})`;
+        let btnAction = `addToCart('${item.id}', '${item.name.replace(/'/g, "\\'")}', ${remainStock})`;
         let badgeText = remainStock > 0 ? `ว่าง (${remainStock})` : 'หมด';
 
         if (item.condition === 'damaged') { 
-            statusCSS = 'borrowed'; btnClass = 'btn-disabled'; btnAction = ''; 
-            btnText = '<i class="fas fa-wrench"></i> ชำรุด'; badgeText = 'ซ่อม'; 
-        }
-        else if (remainStock <= 0) {
-            statusCSS = 'borrowed'; btnClass = 'btn-disabled'; btnAction = ''; 
-            btnText = '<i class="fas fa-ban"></i> ไม่ว่าง'; badgeText = 'ถูกยืมหมด';
-        } 
-        else if (cartItem) { 
+            statusCSS = 'borrowed'; btnClass = 'btn-disabled'; btnAction = ''; btnText = '<i class="fas fa-wrench"></i> ชำรุด'; badgeText = 'ซ่อม'; 
+        } else if (remainStock <= 0) {
+            statusCSS = 'borrowed'; btnClass = 'btn-disabled'; btnAction = ''; btnText = '<i class="fas fa-ban"></i> ไม่ว่าง'; badgeText = 'ถูกยืมหมด';
+        } else if (cartItem) { 
             statusCSS = 'incart'; btnText = `เลือกแล้ว (${cartItem.qty})`; badgeText = 'ตะกร้า'; 
-            if (finalAvailable <= 0) {
-                btnClass = 'btn-disabled'; btnAction = ''; btnText = 'สิทธิ์เต็ม';
-            }
+            if (finalAvailable <= 0) { btnClass = 'btn-disabled'; btnAction = ''; btnText = 'สิทธิ์เต็ม'; }
         }
         
-        grid.innerHTML += `<div class="card"><div class="card-img" onclick="window.openItemDetail('${item.id}')" style="cursor:pointer;"><img src="${item.image}"><div class="status-badge ${statusCSS}">${badgeText}</div></div><div class="card-body"><h4>${item.name}</h4><span class="category-tag">${itemDisplayCat.toUpperCase()}</span><div style="display:flex; gap:5px; margin-top:auto;"><button onclick="window.openItemDetail('${item.id}')" style="flex:1; padding:10px; border-radius:6px; background:#444; color:white; border:none; cursor:pointer;"><i class="fas fa-info-circle"></i></button><button class="${btnClass}" onclick="${btnAction}" style="flex:3; margin-top:0;">${btnText}</button></div></div></div>`;
+        htmlOut += `<div class="card"><div class="card-img" onclick="window.openItemDetail('${item.id}')" style="cursor:pointer;"><img src="${item.image}"><div class="status-badge ${statusCSS}">${badgeText}</div></div><div class="card-body"><h4>${item.name}</h4><span class="category-tag">${itemDisplayCat.toUpperCase()}</span><div style="display:flex; gap:5px; margin-top:auto;"><button onclick="window.openItemDetail('${item.id}')" style="flex:1; padding:10px; border-radius:6px; background:#444; color:white; border:none; cursor:pointer;"><i class="fas fa-info-circle"></i></button><button class="${btnClass}" onclick="${btnAction}" style="flex:3; margin-top:0;">${btnText}</button></div></div></div>`;
     });
+    
+    grid.innerHTML = htmlOut || '<div style="grid-column: 1 / -1; text-align: center; color: #888;">ไม่พบอุปกรณ์ในหมวดหมู่นี้</div>';
 }
 
-// 🟢 อัปเดต: ให้คำนวณจำนวนสต็อกจริงในหน้าต่าง Pop-up
 window.openItemDetail = function(id) {
     const item = items.find(i => i.id === id); if (!item) return;
     const diff = item.difficulty || "ระดับปานกลาง (Medium)";
@@ -232,27 +216,26 @@ window.openItemDetail = function(id) {
     const ref = item.reference || "อ้างอิงข้อมูลพื้นฐาน";
     const itemDisplayCat = getDisplayCategory(item.category);
     
-    // 1. คำนวณสต็อกคงเหลือจริง
     let totalStock = item.stock !== undefined && item.stock !== "" ? parseInt(item.stock) : 1; 
     let borrowedQty = 0;
     borrowRequests.forEach(req => {
         if (['pending', 'approved_pickup', 'borrowed', 'pending_return'].includes(req.status)) {
+            let reqItemStr = String(req.item || ""); // 🛡️ ป้องกันข้อมูลเพี้ยน
             let regex = /([^,]+)\s*\((\d+)\s*ชิ้น\)/g; let match; let foundFormat = false;
-            while ((match = regex.exec(req.item)) !== null) { 
-                foundFormat = true; 
-                if (match[1].trim() === item.name) borrowedQty += parseInt(match[2]); 
+            while ((match = regex.exec(reqItemStr)) !== null) { 
+                foundFormat = true; if (match[1].trim() === item.name) borrowedQty += parseInt(match[2]); 
             }
-            if (!foundFormat && req.item) {
-                req.item.split(',').forEach(it => { if (it.trim() === item.name) borrowedQty += 1; });
+            if (!foundFormat && reqItemStr) {
+                reqItemStr.split(',').forEach(it => { if (it.trim() === item.name) borrowedQty += 1; });
             }
         }
     });
     let remainStock = totalStock - borrowedQty;
     
-    // 2. ตรวจสอบเงื่อนไขปุ่ม
+    let safeName = item.name.replace(/'/g, "\\'");
     let btn = (item.condition === 'damaged' || remainStock <= 0) 
         ? `<button class="btn-disabled" style="width:100%; padding:12px; border-radius:8px;"><i class="fas fa-ban"></i> ไม่พร้อม (ของหมด/ชำรุด)</button>` 
-        : `<button class="btn-borrow" onclick="addToCart(\'${item.id}\', \'${item.name}\', ${remainStock}); window.closeItemDetail();" style="width:100%; padding:12px; border-radius:8px; background:var(--theme-primary);"><i class="fas fa-cart-plus"></i> เพิ่มลงตะกร้า (เหลือ ${remainStock})</button>` ;
+        : `<button class="btn-borrow" onclick="addToCart(\'${item.id}\', \'${safeName}\', ${remainStock}); window.closeItemDetail();" style="width:100%; padding:12px; border-radius:8px; background:var(--theme-primary);"><i class="fas fa-cart-plus"></i> เพิ่มลงตะกร้า (เหลือ ${remainStock})</button>` ;
         
     let damageHtml = '';
     if (item.condition === 'damaged' && item.damageReason) {
@@ -287,20 +270,13 @@ window.closeItemDetail = () => document.getElementById('itemDetailModal').style.
 
 window.addToCart = async function(id, name, stock) {
     const totalStock = parseInt(stock) || 0;
-
-    if (totalStock <= 0) {
-        Swal.fire({ icon: 'error', title: 'ของหมด!', text: 'อุปกรณ์ชิ้นนี้ไม่มีในสต็อกพร้อมให้ยืม' });
-        return;
-    }
+    if (totalStock <= 0) { Swal.fire({ icon: 'error', title: 'ของหมด!', text: 'อุปกรณ์ชิ้นนี้ไม่มีในสต็อกพร้อมให้ยืม' }); return; }
 
     const existingItem = cart.find(item => item.id === id);
     const currentCartQty = existingItem ? existingItem.qty : 0;
     const availableToBorrow = totalStock - currentCartQty;
 
-    if (availableToBorrow <= 0) {
-        Swal.fire({ icon: 'error', title: 'สิทธิ์เต็ม!', text: 'คุณเพิ่มอุปกรณ์นี้ลงตะกร้าครบตามจำนวนสต็อกแล้ว' });
-        return;
-    }
+    if (availableToBorrow <= 0) { Swal.fire({ icon: 'error', title: 'สิทธิ์เต็ม!', text: 'คุณเพิ่มอุปกรณ์นี้ลงตะกร้าครบตามจำนวนสต็อกแล้ว' }); return; }
 
     const { value: qty } = await Swal.fire({
         title: 'จำนวนยืม',
@@ -308,25 +284,15 @@ window.addToCart = async function(id, name, stock) {
         input: 'number',
         inputValue: 1,
         inputAttributes: { min: 1, max: availableToBorrow },
-        showCancelButton: true,
-        confirmButtonText: 'ตกลง',
-        cancelButtonText: 'ยกเลิก'
+        showCancelButton: true, confirmButtonText: 'ตกลง', cancelButtonText: 'ยกเลิก'
     });
 
     if (qty) {
         const borrowQty = parseInt(qty);
-        if (borrowQty > availableToBorrow) {
-            Swal.fire({ icon: 'warning', title: 'เกินจำนวนสต็อก!', text: `ยืมเพิ่มได้สูงสุด ${availableToBorrow} ชิ้นเท่านั้น` });
-            return;
-        }
-
+        if (borrowQty > availableToBorrow) { Swal.fire({ icon: 'warning', title: 'เกินจำนวนสต็อก!', text: `ยืมเพิ่มได้สูงสุด ${availableToBorrow} ชิ้นเท่านั้น` }); return; }
         if (borrowQty > 0) {
-            if (existingItem) { existingItem.qty += borrowQty; } 
-            else { cart.push({ id, name, qty: borrowQty }); }
-            
-            window.updateCartCount();
-            window.renderItems();
-            
+            if (existingItem) { existingItem.qty += borrowQty; } else { cart.push({ id, name, qty: borrowQty }); }
+            window.updateCartCount(); window.renderItems();
             Swal.fire({ icon: 'success', title: 'เพิ่มลงตะกร้าแล้ว', toast: true, position: 'top-end', showConfirmButton: false, timer: 1500 });
         }
     }
@@ -337,24 +303,16 @@ window.updateCartCount = () => { const b = document.getElementById('cartCountBad
 window.openCartModal = () => {
     if(cart.length === 0) return Swal.fire('ตะกร้าว่าง', '', 'info');
     document.getElementById('cartBorrowerName').value = currentUser.name || currentUser.username;
-    
-    const termsBox = document.getElementById('cartTerms');
-    if (termsBox) termsBox.checked = false;
-
+    const termsBox = document.getElementById('cartTerms'); if (termsBox) termsBox.checked = false;
     const dInput = document.getElementById('cartBorrowDate'); 
     const rInput = document.getElementById('cartReturnDate');
     const tInput = document.getElementById('cartReturnTime'); 
     
     if(dInput && rInput) { 
         const today = new Date().toISOString().split('T')[0]; 
-        dInput.min = today; dInput.value = ""; 
-        rInput.min = today; rInput.value = ""; 
+        dInput.min = today; dInput.value = ""; rInput.min = today; rInput.value = ""; 
         if(tInput) tInput.value = ""; 
-        
-        dInput.onchange = () => {
-            rInput.min = dInput.value;
-            if (rInput.value && rInput.value < dInput.value) rInput.value = dInput.value;
-        };
+        dInput.onchange = () => { rInput.min = dInput.value; if (rInput.value && rInput.value < dInput.value) rInput.value = dInput.value; };
     }
     
     document.getElementById('cartItemsList').innerHTML = cart.map((i, idx) => `<div style="display:flex; justify-content:space-between; color:white; padding:8px 0; border-bottom:1px solid #444;"><span>${idx+1}. ${i.name} (x${i.qty})</span><button type="button" onclick="removeFromCart('${i.id}')" style="background:none; border:none; color:#dc3545; cursor:pointer;"><i class="fas fa-trash"></i></button></div>`).join('');
@@ -371,7 +329,6 @@ window.openHistoryModal = () => {
     if (myReqs.length === 0) { tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;">ไม่มีประวัติ</td></tr>'; }
     else myReqs.forEach(r => {
         let st='', btn=''; 
-        
         if(r.status === 'pending') st='<span style="color:#ffc107">⏳ รออนุมัติ</span>';
         else if(r.status === 'approved_pickup') { st='<span style="color:#0dcaf0">📦 ดำเนินการ</span>'; btn=`<button onclick="triggerPickup('${r.id}')" class="btn-confirm" style="padding:5px; font-size:12px;">📷 รับของ</button>`; }
         else if(r.status === 'borrowed') { st='<span style="color:#198754">✅ กำลังยืม</span>'; btn=`<div style="display:flex; gap:5px; justify-content:center;"><button onclick="viewPhoto('${r.id}', 'pickup')" style="background:none; border:none; color:#0dcaf0; font-size:12px; cursor:pointer; padding:0;">รูปรับ</button> <button onclick="triggerReturn('${r.id}')" class="btn-confirm" style="padding:5px; font-size:12px; background:#ff9800; margin:0;">📷 ส่งคืน</button></div>`; }
@@ -380,16 +337,12 @@ window.openHistoryModal = () => {
         else st='<span style="color:red">❌ ปฏิเสธ</span>';
         
         let printBtn = '';
-        if (r.status !== 'rejected') {
-            printBtn = `<button onclick="printReceipt('${r.id}')" style="background:#0dcaf0; color:#000; border:none; padding:5px 8px; border-radius:4px; font-size:11px; font-weight:bold; cursor:pointer; width:100%; margin-top:3px;"><i class="fas fa-print"></i> พิมพ์ใบยืม</button>`;
-        }
+        if (r.status !== 'rejected') { printBtn = `<button onclick="printReceipt('${r.id}')" style="background:#0dcaf0; color:#000; border:none; padding:5px 8px; border-radius:4px; font-size:11px; font-weight:bold; cursor:pointer; width:100%; margin-top:3px;"><i class="fas fa-print"></i> พิมพ์ใบยืม</button>`; }
 
         let retStr = r.returnDate ? `${r.returnDate} ${r.returnTimeLimit ? 'เวลา ' + r.returnTimeLimit + ' น.' : ''}` : '-';
         let dateHtml = `รับ: ${r.date}<br><span style="color:var(--warning); font-size:12px;">คืน: ${retStr}</span>`;
-        
         let actionHtml = `<div style="display:flex; flex-direction:column; gap:2px; align-items:center;">${btn}${printBtn}</div>`;
         if(!btn && !printBtn) actionHtml = '-';
-
         tbody.innerHTML += `<tr><td style="padding:10px; border-bottom:1px solid #333">${r.item}</td><td style="padding:10px; border-bottom:1px solid #333">${dateHtml}</td><td style="padding:10px; border-bottom:1px solid #333">${st}</td><td style="padding:10px; border-bottom:1px solid #333">${actionHtml}</td></tr>`;
     });
     document.getElementById('historyModal').style.display = 'flex';
@@ -411,7 +364,7 @@ window.switchTab = (t) => {
 window.searchRequest = (query) => { searchQuery = query.toLowerCase(); currentPage = 1; window.renderRequests(); }
 
 window.renderRequests = () => {
-    const tbody = document.getElementById('requestTableBody'); if(!tbody) return; tbody.innerHTML = '';
+    const tbody = document.getElementById('requestTableBody'); if(!tbody) return; 
     let reqs = [...borrowRequests].sort((a,b) => (b.timestamp?.seconds||0) - (a.timestamp?.seconds||0));
     if(searchQuery) reqs = reqs.filter(r => (r.user && r.user.toLowerCase().includes(searchQuery)) || (r.item && r.item.toLowerCase().includes(searchQuery)));
     
@@ -420,129 +373,51 @@ window.renderRequests = () => {
 
     if (pagedReqs.length === 0) { tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:20px;">ไม่พบข้อมูล</td></tr>`; return; }
     
+    let htmlOut = '';
     pagedReqs.forEach(r => {
         let photoDisplay = `<div style="display:flex; gap:5px;">${r.proofPhoto ? `<button onclick="viewPhoto('${r.id}', 'pickup')" style="background:none; border:none; color:#0dcaf0; cursor:pointer;">📷 รับ</button>` : ''}${r.returnProofPhoto ? `<button onclick="viewPhoto('${r.id}', 'return')" style="background:none; border:none; color:#ff9800; cursor:pointer;">📷 คืน</button>` : ''}</div>`;
         if(!r.proofPhoto && !r.returnProofPhoto) photoDisplay = '-';
         
         let badge = '', btns = '';
-        
         if(r.status === 'pending') { 
             badge = '<span class="badge" style="background:transparent; color:#ffc107; border:1px solid #ffc107;">ใหม่</span>'; 
             btns = `<button onclick="updateStatus('${r.id}','approved_pickup')" style="background:#28a745; color:#fff; border:none; padding:6px 12px; border-radius:4px; font-weight:bold; cursor:pointer; margin-right:5px;">อนุญาต</button> 
                     <button onclick="updateStatus('${r.id}','rejected')" style="background:#dc3545; color:#fff; border:none; padding:6px 12px; border-radius:4px; font-weight:bold; cursor:pointer;">ปฏิเสธ</button>`; 
-        } 
-        else if (r.status === 'approved_pickup') { 
+        } else if (r.status === 'approved_pickup') { 
             badge = '<span class="badge" style="background:#0dcaf0; color:black;">ดำเนินการ</span>'; 
             btns = `<button onclick="updateStatus('${r.id}','pending')" style="background:#ffc107; color:#000; border:none; padding:6px 12px; border-radius:4px; font-weight:bold; cursor:pointer;"><i class="fas fa-undo"></i> ยกเลิก</button>`; 
-        } 
-        else if(r.status === 'borrowed') { 
+        } else if(r.status === 'borrowed') { 
             badge = '<span class="badge" style="background:#198754; color:white;">ถูกยืม</span>'; 
             btns = `<button onclick="updateStatus('${r.id}','returned')" style="background:#6c757d; color:#fff; border:none; padding:6px 12px; border-radius:4px; font-weight:bold; cursor:pointer;">รับคืน(ข้ามรูป)</button>`; 
-        } 
-        else if (r.status === 'pending_return') { 
+        } else if (r.status === 'pending_return') { 
             badge = '<span class="badge" style="background:#ff9800; color:#fff;">รอตรวจคืน</span>'; 
             btns = `<button onclick="updateStatus('${r.id}','returned')" style="background:#28a745; color:#fff; border:none; padding:6px 12px; border-radius:4px; font-weight:bold; cursor:pointer; margin-right:5px;">ยืนยัน</button> 
                     <button onclick="updateStatus('${r.id}','borrowed')" style="background:#dc3545; color:#fff; border:none; padding:6px 12px; border-radius:4px; font-weight:bold; cursor:pointer;">ตีกลับ</button>`; 
-        }
-        else { 
-            let statusText = r.status === 'returned' ? 'คืนแล้ว' : 'ปฏิเสธ';
-            let statusColor = r.status === 'returned' ? '#6c757d' : '#dc3545';
+        } else { 
+            let statusText = r.status === 'returned' ? 'คืนแล้ว' : 'ปฏิเสธ'; let statusColor = r.status === 'returned' ? '#6c757d' : '#dc3545';
             badge = `<span class="badge" style="background:#333; color:${statusColor};">${statusText}</span>`; 
             btns = `<button onclick="deleteRequest('${r.id}')" style="background:#dc3545; color:#fff; border:none; padding:6px 12px; border-radius:4px; font-weight:bold; cursor:pointer;"><i class="fas fa-trash"></i> ลบ</button>`; 
         }
         
         let printBtn = `<button onclick="printReceipt('${r.id}')" style="background:#0dcaf0; color:#000; border:none; padding:6px 12px; border-radius:4px; font-weight:bold; cursor:pointer; margin-top:5px; width:100%;"><i class="fas fa-print"></i> พิมพ์ใบยืม</button>`;
-
         let retStr = r.returnDate ? `${r.returnDate} ${r.returnTimeLimit ? 'เวลา ' + r.returnTimeLimit + ' น.' : ''}` : '-';
         let dateHtml = `รับ: ${r.date}<br><span style="color:var(--warning); font-size:12px;">คืน: ${retStr}</span>`;
-        
         if (r.status === 'borrowed' && r.returnDate) {
             const today = new Date().toISOString().split('T')[0];
-            if (r.returnDate < today) {
-                dateHtml += `<br><span class="overdue-alert"><i class="fas fa-exclamation-triangle"></i> เลยกำหนดคืน!</span>`;
-            }
+            if (r.returnDate < today) dateHtml += `<br><span class="overdue-alert"><i class="fas fa-exclamation-triangle"></i> เลยกำหนดคืน!</span>`;
         }
-
-        tbody.innerHTML += `<tr><td>${r.user}</td><td>${r.item}</td><td>${dateHtml}</td><td>${badge}</td><td>${photoDisplay}</td><td><div style="display:flex; flex-direction:column; gap:5px;">${btns}${printBtn}</div></td></tr>`;
+        htmlOut += `<tr><td>${r.user}</td><td>${r.item}</td><td>${dateHtml}</td><td>${badge}</td><td>${photoDisplay}</td><td><div style="display:flex; flex-direction:column; gap:5px;">${btns}${printBtn}</div></td></tr>`;
     });
+    tbody.innerHTML = htmlOut;
     if(window.renderPagination) window.renderPagination(reqs.length, pages);
 }
 
 window.printReceipt = (id) => {
-    const r = borrowRequests.find(req => req.id === id);
-    if(!r) return;
-
+    const r = borrowRequests.find(req => req.id === id); if(!r) return;
     let retStr = r.returnDate ? `${r.returnDate} ${r.returnTimeLimit ? 'เวลา ' + r.returnTimeLimit + ' น.' : ''}` : '-';
-
     const printWindow = window.open('', '_blank', 'width=800,height=600');
-    const html = `
-        <html>
-        <head>
-            <title>ใบยืมอุปกรณ์ - MMD BORROW</title>
-            <style>
-                @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600&display=swap');
-                body { font-family: 'Sarabun', sans-serif; padding: 40px; color: #000; line-height: 1.6; }
-                .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #000; padding-bottom: 20px; }
-                .header h2 { margin: 0; font-size: 24px; }
-                .content { font-size: 16px; }
-                .table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-                .table th, .table td { border: 1px solid #000; padding: 12px; text-align: left; }
-                .table th { background-color: #f2f2f2; }
-                .footer { margin-top: 60px; display: flex; justify-content: space-between; }
-                .sign-box { text-align: center; width: 45%; }
-            </style>
-        </head>
-        <body>
-            <div class="header">
-                <h2>เอกสารการยืม-คืนอุปกรณ์การศึกษา</h2>
-                <p style="margin: 5px 0;">สาขามัลติมีเดีย (MMD) - มหาวิทยาลัยเทคโนโลยีราชมงคลอีสาน วิทยาเขตสุรินทร์</p>
-            </div>
-            <div class="content">
-                <p><strong>รหัสทำรายการ (ID):</strong> ${r.id}</p>
-                <p><strong>ชื่อผู้ยืม:</strong> ${r.user}</p>
-                <p><strong>เหตุผลการยืม:</strong> ${r.reason || '-'}</p>
-                
-                <table class="table">
-                    <thead>
-                        <tr>
-                            <th>รายการอุปกรณ์ที่ยืม</th>
-                            <th style="width: 150px;">วันที่รับของ</th>
-                            <th style="width: 180px;">วันที่/เวลา กำหนดคืน</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td>${r.item}</td>
-                            <td>${r.date}</td>
-                            <td>${retStr}</td>
-                        </tr>
-                    </tbody>
-                </table>
-                <p style="margin-top: 25px; font-size:14px; color:#555;"><i>* ข้าพเจ้ายอมรับว่าจะดูแลรักษาอุปกรณ์เป็นอย่างดี หากเกิดความเสียหาย ชำรุด หรือสูญหาย ข้าพเจ้ายินดีรับผิดชอบและชดใช้ตามมูลค่าจริงทุกประการ</i></p>
-            </div>
-            <div class="footer">
-                <div class="sign-box">
-                    <p>ลงชื่อ..........................................................ผู้ยืม</p>
-                    <p>(${r.user})</p>
-                    <p>วันที่รับของ: _____/_____/_____</p>
-                </div>
-                <div class="sign-box">
-                    <p>ลงชื่อ..........................................................ผู้อนุมัติ/จ่ายของ</p>
-                    <p>(..........................................................)</p>
-                    <p>วันที่: _____/_____/_____</p>
-                </div>
-            </div>
-            <script>
-                window.onload = function() { 
-                    window.print(); 
-                    window.onafterprint = function(){ window.close(); } 
-                };
-            </script>
-        </body>
-        </html>
-    `;
-    printWindow.document.write(html);
-    printWindow.document.close();
+    const html = `<html><head><title>ใบยืมอุปกรณ์ - MMD BORROW</title><style>@import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600&display=swap');body { font-family: 'Sarabun', sans-serif; padding: 40px; color: #000; line-height: 1.6; }.header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #000; padding-bottom: 20px; }.header h2 { margin: 0; font-size: 24px; }.content { font-size: 16px; }.table { width: 100%; border-collapse: collapse; margin-top: 20px; }.table th, .table td { border: 1px solid #000; padding: 12px; text-align: left; }.table th { background-color: #f2f2f2; }.footer { margin-top: 60px; display: flex; justify-content: space-between; }.sign-box { text-align: center; width: 45%; }</style></head><body><div class="header"><h2>เอกสารการยืม-คืนอุปกรณ์การศึกษา</h2><p style="margin: 5px 0;">สาขามัลติมีเดีย (MMD) - มหาวิทยาลัยเทคโนโลยีราชมงคลอีสาน วิทยาเขตสุรินทร์</p></div><div class="content"><p><strong>รหัสทำรายการ (ID):</strong> ${r.id}</p><p><strong>ชื่อผู้ยืม:</strong> ${r.user}</p><p><strong>เหตุผลการยืม:</strong> ${r.reason || '-'}</p><table class="table"><thead><tr><th>รายการอุปกรณ์ที่ยืม</th><th style="width: 150px;">วันที่รับของ</th><th style="width: 180px;">วันที่/เวลา กำหนดคืน</th></tr></thead><tbody><tr><td>${r.item}</td><td>${r.date}</td><td>${retStr}</td></tr></tbody></table><p style="margin-top: 25px; font-size:14px; color:#555;"><i>* ข้าพเจ้ายอมรับว่าจะดูแลรักษาอุปกรณ์เป็นอย่างดี หากเกิดความเสียหาย ชำรุด หรือสูญหาย ข้าพเจ้ายินดีรับผิดชอบและชดใช้ตามมูลค่าจริงทุกประการ</i></p></div><div class="footer"><div class="sign-box"><p>ลงชื่อ..........................................................ผู้ยืม</p><p>(${r.user})</p><p>วันที่รับของ: _____/_____/_____</p></div><div class="sign-box"><p>ลงชื่อ..........................................................ผู้อนุมัติ/จ่ายของ</p><p>(..........................................................)</p><p>วันที่: _____/_____/_____</p></div></div><script>window.onload = function() { window.print(); window.onafterprint = function(){ window.close(); } };</script></body></html>`;
+    printWindow.document.write(html); printWindow.document.close();
 }
 
 window.renderPagination = (total, pages) => {
@@ -555,22 +430,25 @@ window.changePage = (p) => { currentPage = p; window.renderRequests(); }
 window.updateStatus = async (id, s) => { await updateDoc(doc(db, "requests", id), { status: s }); }
 window.deleteRequest = async (id) => { if((await Swal.fire({title:'ลบ?',icon:'warning',showCancelButton:true})).isConfirmed) { await deleteDoc(doc(db, "requests", id)); Swal.fire('ลบแล้ว','','success'); } }
 
-// 🟢 อัปเดต: ให้ตารางหลังบ้านคำนวณและแสดงสต็อกคงเหลือ
+// 🟢 อัปเดต: รวบรวม HTML ก่อนแสดงผล (ป้องกันตารางหาย) + String Safe
 window.renderInventory = () => { 
-    const tbody = document.getElementById('inventoryTableBody'); if(!tbody) return; tbody.innerHTML = ''; 
+    const tbody = document.getElementById('inventoryTableBody'); if(!tbody) return; 
+    let htmlOut = '';
+    
     items.forEach(i => { 
         const itemDisplayCat = getDisplayCategory(i.category);
-        
         let totalStock = i.stock !== undefined && i.stock !== "" ? parseInt(i.stock) : 1;
         let borrowedQty = 0;
+        
         borrowRequests.forEach(req => {
             if (['pending', 'approved_pickup', 'borrowed', 'pending_return'].includes(req.status)) {
+                let reqItemStr = String(req.item || ""); // 🛡️ ป้องกันข้อมูลเพี้ยน
                 let regex = /([^,]+)\s*\((\d+)\s*ชิ้น\)/g; let match; let foundFormat = false;
-                while ((match = regex.exec(req.item)) !== null) { 
+                while ((match = regex.exec(reqItemStr)) !== null) { 
                     foundFormat = true; if (match[1].trim() === i.name) borrowedQty += parseInt(match[2]); 
                 }
-                if (!foundFormat && req.item) {
-                    req.item.split(',').forEach(it => { if (it.trim() === i.name) borrowedQty += 1; });
+                if (!foundFormat && reqItemStr) {
+                    reqItemStr.split(',').forEach(it => { if (it.trim() === i.name) borrowedQty += 1; });
                 }
             }
         });
@@ -586,273 +464,90 @@ window.renderInventory = () => {
             ? `<button onclick="toggleCondition('${i.id}', 'good')" style="background:#dc3545; color:#fff; border:none; padding:6px 12px; border-radius:4px; font-size:12px; font-weight:bold; cursor:pointer;">ชำรุด (ส่งซ่อม)</button>` 
             : `<button onclick="toggleCondition('${i.id}', 'damaged')" style="background:#198754; color:#fff; border:none; padding:6px 12px; border-radius:4px; font-size:12px; font-weight:bold; cursor:pointer;">ปกติ (ใช้งานได้)</button>`;
             
-        let actionBtns = `
-            <div style="display:flex; gap:5px;">
-                <button onclick="editItem('${i.id}')" style="background:#ffc107; color:#000; border:none; padding:6px 12px; border-radius:4px; font-size:12px; font-weight:bold; cursor:pointer;" title="แก้ไขข้อมูลอุปกรณ์"><i class="fas fa-edit"></i> แก้ไข</button>
-                <button onclick="deleteItem('${i.id}')" style="background:#dc3545; color:#fff; border:none; padding:6px 12px; border-radius:4px; font-size:12px; font-weight:bold; cursor:pointer;" title="ลบอุปกรณ์"><i class="fas fa-trash"></i></button>
-            </div>
-        `;
+        let actionBtns = `<div style="display:flex; gap:5px;"><button onclick="editItem('${i.id}')" style="background:#ffc107; color:#000; border:none; padding:6px 12px; border-radius:4px; font-size:12px; font-weight:bold; cursor:pointer;" title="แก้ไขข้อมูลอุปกรณ์"><i class="fas fa-edit"></i> แก้ไข</button><button onclick="deleteItem('${i.id}')" style="background:#dc3545; color:#fff; border:none; padding:6px 12px; border-radius:4px; font-size:12px; font-weight:bold; cursor:pointer;" title="ลบอุปกรณ์"><i class="fas fa-trash"></i></button></div>`;
             
-        tbody.innerHTML += `<tr><td><img src="${i.image}" width="40" style="border-radius:4px;"></td><td style="color:white">${i.name}</td><td>${itemDisplayCat}</td><td>${st}</td><td>${condBtn}</td><td>${actionBtns}</td></tr>`; 
+        htmlOut += `<tr><td><img src="${i.image}" width="40" style="border-radius:4px;"></td><td style="color:white">${i.name}</td><td>${itemDisplayCat}</td><td>${st}</td><td>${condBtn}</td><td>${actionBtns}</td></tr>`; 
     }); 
+    tbody.innerHTML = htmlOut;
 }
 
 window.toggleCondition = async (id, n) => { 
     if (n === 'damaged') {
-        const { value: reason } = await Swal.fire({
-            title: '🛠️ ระบุอาการชำรุด',
-            input: 'textarea',
-            inputLabel: 'สาเหตุที่อุปกรณ์ชำรุด/ส่งซ่อม',
-            inputPlaceholder: 'เช่น เลนส์เป็นรอย, แบตเตอรี่เสื่อม, เปิดไม่ติด...',
-            showCancelButton: true,
-            background: '#1a1a1a', 
-            color: '#fff',
-            confirmButtonColor: '#dc3545',
-            confirmButtonText: 'บันทึกอาการ',
-            cancelButtonText: 'ยกเลิก'
-        });
-        
-        if (reason !== undefined) { 
-            await updateDoc(doc(db, "items", id), { condition: n, damageReason: reason || "ไม่ได้ระบุอาการ" }); 
-            Swal.fire({icon: 'success', title: 'บันทึกสถานะชำรุดแล้ว', background: '#1a1a1a', color: '#fff', timer: 1500, showConfirmButton: false});
-        }
+        const { value: reason } = await Swal.fire({ title: '🛠️ ระบุอาการชำรุด', input: 'textarea', inputLabel: 'สาเหตุที่อุปกรณ์ชำรุด/ส่งซ่อม', inputPlaceholder: 'เช่น เลนส์เป็นรอย, แบตเตอรี่เสื่อม, เปิดไม่ติด...', showCancelButton: true, background: '#1a1a1a', color: '#fff', confirmButtonColor: '#dc3545', confirmButtonText: 'บันทึกอาการ', cancelButtonText: 'ยกเลิก' });
+        if (reason !== undefined) { await updateDoc(doc(db, "items", id), { condition: n, damageReason: reason || "ไม่ได้ระบุอาการ" }); Swal.fire({icon: 'success', title: 'บันทึกสถานะชำรุดแล้ว', background: '#1a1a1a', color: '#fff', timer: 1500, showConfirmButton: false}); }
     } else {
-        if((await Swal.fire({title:'เปลี่ยนสภาพกลับเป็น ปกติ?', icon:'question',showCancelButton:true, background:'#1a1a1a', color:'#fff'})).isConfirmed) { 
-            await updateDoc(doc(db, "items", id), { condition: n, damageReason: "" }); 
-            Swal.fire({icon: 'success', title: 'อัปเดตเป็นปกติแล้ว', background: '#1a1a1a', color: '#fff', timer: 1500, showConfirmButton: false});
-        } 
+        if((await Swal.fire({title:'เปลี่ยนสภาพกลับเป็น ปกติ?', icon:'question',showCancelButton:true, background:'#1a1a1a', color:'#fff'})).isConfirmed) { await updateDoc(doc(db, "items", id), { condition: n, damageReason: "" }); Swal.fire({icon: 'success', title: 'อัปเดตเป็นปกติแล้ว', background: '#1a1a1a', color: '#fff', timer: 1500, showConfirmButton: false}); } 
     }
 }
 
 window.deleteItem = async (id) => { if((await Swal.fire({title:'ลบ?',icon:'warning',showCancelButton:true})).isConfirmed) { await deleteDoc(doc(db, "items", id)); } }
 
-// 🟢 อัปเดต: เพิ่มช่องกรอกสต็อกตอน "เพิ่มอุปกรณ์ใหม่"
 window.addNewItem = async () => {
     const uniqueCats = [...new Set(items.map(i => getDisplayCategory(i.category)))].filter(c => c);
     const datalistOptions = uniqueCats.map(c => `<option value="${c}">`).join('');
 
     const { value: formValues } = await Swal.fire({
-        title: '📦 เพิ่มอุปกรณ์ใหม่',
-        width: 600,
-        html: `
-            <div style="text-align: left; font-size: 14px; display: flex; flex-direction: column; gap: 12px;">
-                <div>
-                    <label style="color:#aaa; display:block; margin-bottom:5px;">ชื่ออุปกรณ์</label>
-                    <input id="swal-name" class="swal2-input" placeholder="เช่น SONY A7M4" style="width: 100%; margin: 0; box-sizing: border-box;">
-                </div>
-                <div style="display: flex; gap: 10px;">
-                    <div style="flex: 2;">
-                        <label style="color:#aaa; display:block; margin-bottom:5px;">หมวดหมู่ (พิมพ์สร้างใหม่ได้เลย)</label>
-                        <input id="swal-category" list="category-options" class="swal2-input" placeholder="เลือกหรือพิมพ์สร้างใหม่..." style="width: 100%; margin: 0; box-sizing: border-box;">
-                        <datalist id="category-options">
-                            ${datalistOptions}
-                        </datalist>
-                    </div>
-                    <div style="flex: 1;">
-                        <label style="color:#aaa; display:block; margin-bottom:5px;">จำนวนสต็อก</label>
-                        <input id="swal-stock" type="number" min="1" value="1" class="swal2-input" style="width: 100%; margin: 0; box-sizing: border-box; text-align:center;">
-                    </div>
-                </div>
-                <div>
-                    <label style="color:#aaa; display:block; margin-bottom:5px;">ระดับความยาก</label>
-                    <select id="swal-difficulty" class="swal2-input" style="width: 100%; margin: 0; box-sizing: border-box;">
-                        <option value="ระดับง่ายมาก (Beginner)">🟢 ง่ายมาก</option>
-                        <option value="ระดับปานกลาง (Medium)">🟡 ปานกลาง</option>
-                        <option value="ระดับค่อนข้างยาก (Advanced)">🟠 ค่อนข้างยาก</option>
-                        <option value="ระดับมืออาชีพ (Pro)">🔴 มืออาชีพ</option>
-                    </select>
-                </div>
-                <div>
-                    <label style="color:#aaa; display:block; margin-bottom:5px;">อัปโหลดรูปภาพอุปกรณ์</label>
-                    <input type="file" id="swal-image-file" accept="image/*" style="width: 100%; color: #fff; background: #222; padding: 12px; border-radius: 5px; border: 1px solid #444; box-sizing: border-box;">
-                </div>
-                <div>
-                    <label style="color:#aaa; display:block; margin-bottom:5px;">อ้างอิงความยากจาก</label>
-                    <input id="swal-ref" class="swal2-input" placeholder="เช่น คู่มือผู้ใช้, DPreview" style="width: 100%; margin: 0; box-sizing: border-box;">
-                </div>
-                <div>
-                    <label style="color:#aaa; display:block; margin-bottom:5px;">รายละเอียด / คำแนะนำเพิ่มเติม</label>
-                    <textarea id="swal-desc" class="swal2-textarea" style="width: 100%; margin: 0; box-sizing: border-box; height: 80px;" placeholder="คำอธิบายสเปค หรือ ข้อควรระวัง..."></textarea>
-                </div>
-            </div>`,
+        title: '📦 เพิ่มอุปกรณ์ใหม่', width: 600,
+        html: `<div style="text-align: left; font-size: 14px; display: flex; flex-direction: column; gap: 12px;"><div><label style="color:#aaa; display:block; margin-bottom:5px;">ชื่ออุปกรณ์</label><input id="swal-name" class="swal2-input" placeholder="เช่น SONY A7M4" style="width: 100%; margin: 0; box-sizing: border-box;"></div><div style="display: flex; gap: 10px;"><div style="flex: 2;"><label style="color:#aaa; display:block; margin-bottom:5px;">หมวดหมู่ (พิมพ์สร้างใหม่ได้เลย)</label><input id="swal-category" list="category-options" class="swal2-input" placeholder="เลือกหรือพิมพ์สร้างใหม่..." style="width: 100%; margin: 0; box-sizing: border-box;"><datalist id="category-options">${datalistOptions}</datalist></div><div style="flex: 1;"><label style="color:#aaa; display:block; margin-bottom:5px;">จำนวนสต็อก</label><input id="swal-stock" type="number" min="1" value="1" class="swal2-input" style="width: 100%; margin: 0; box-sizing: border-box; text-align:center;"></div></div><div><label style="color:#aaa; display:block; margin-bottom:5px;">ระดับความยาก</label><select id="swal-difficulty" class="swal2-input" style="width: 100%; margin: 0; box-sizing: border-box;"><option value="ระดับง่ายมาก (Beginner)">🟢 ง่ายมาก</option><option value="ระดับปานกลาง (Medium)">🟡 ปานกลาง</option><option value="ระดับค่อนข้างยาก (Advanced)">🟠 ค่อนข้างยาก</option><option value="ระดับมืออาชีพ (Pro)">🔴 มืออาชีพ</option></select></div><div><label style="color:#aaa; display:block; margin-bottom:5px;">อัปโหลดรูปภาพอุปกรณ์</label><input type="file" id="swal-image-file" accept="image/*" style="width: 100%; color: #fff; background: #222; padding: 12px; border-radius: 5px; border: 1px solid #444; box-sizing: border-box;"></div><div><label style="color:#aaa; display:block; margin-bottom:5px;">อ้างอิงความยากจาก</label><input id="swal-ref" class="swal2-input" placeholder="เช่น คู่มือผู้ใช้, DPreview" style="width: 100%; margin: 0; box-sizing: border-box;"></div><div><label style="color:#aaa; display:block; margin-bottom:5px;">รายละเอียด / คำแนะนำเพิ่มเติม</label><textarea id="swal-desc" class="swal2-textarea" style="width: 100%; margin: 0; box-sizing: border-box; height: 80px;" placeholder="คำอธิบายสเปค หรือ ข้อควรระวัง..."></textarea></div></div>`,
         showCancelButton: true, confirmButtonText: '<i class="fas fa-save"></i> บันทึกอุปกรณ์', confirmButtonColor: '#28a745', background: '#1a1a1a', color: '#fff',
         preConfirm: async () => {
-            const name = document.getElementById('swal-name').value; 
-            const category = document.getElementById('swal-category').value.trim();
+            const name = document.getElementById('swal-name').value; const category = document.getElementById('swal-category').value.trim();
             if(!name) { Swal.showValidationMessage('กรุณากรอกชื่ออุปกรณ์ด้วยครับ'); return false; }
             if(!category) { Swal.showValidationMessage('กรุณาระบุหมวดหมู่ด้วยครับ'); return false; }
-            
-            const fileInput = document.getElementById('swal-image-file');
-            let base64Image = "https://placehold.co/400x300?text=No+Image"; 
-            
-            if (fileInput.files.length > 0) {
-                try {
-                    Swal.showLoading(); 
-                    base64Image = await resizeImage(fileInput.files[0]);
-                } catch (error) {
-                    Swal.showValidationMessage('เกิดข้อผิดพลาดในการประมวลผลรูปภาพ'); return false;
-                }
-            }
-            return { 
-                name: name, 
-                category: category, 
-                stock: parseInt(document.getElementById('swal-stock').value) || 1, // เพิ่มข้อมูลสต็อกลงฐานข้อมูล
-                image: base64Image, 
-                difficulty: document.getElementById('swal-difficulty').value, 
-                reference: document.getElementById('swal-ref').value || "อ้างอิงข้อมูลพื้นฐาน", 
-                description: document.getElementById('swal-desc').value || "-", 
-                status: "available", 
-                condition: "good" 
-            }
+            const fileInput = document.getElementById('swal-image-file'); let base64Image = "https://placehold.co/400x300?text=No+Image"; 
+            if (fileInput.files.length > 0) { try { Swal.showLoading(); base64Image = await resizeImage(fileInput.files[0]); } catch (error) { Swal.showValidationMessage('เกิดข้อผิดพลาดในการประมวลผลรูปภาพ'); return false; } }
+            return { name: name, category: category, stock: parseInt(document.getElementById('swal-stock').value) || 1, image: base64Image, difficulty: document.getElementById('swal-difficulty').value, reference: document.getElementById('swal-ref').value || "อ้างอิงข้อมูลพื้นฐาน", description: document.getElementById('swal-desc').value || "-", status: "available", condition: "good" }
         }
     });
-
-    if (formValues) { 
-        Swal.fire({ title: 'กำลังอัปโหลดขึ้นระบบ...', allowOutsideClick: false, didOpen: () => Swal.showLoading(), background: '#1a1a1a', color: '#fff'}); 
-        try { await addDoc(collection(db, "items"), formValues); Swal.fire({ icon: 'success', title: 'เพิ่มอุปกรณ์สำเร็จ!', timer: 1500, background: '#1a1a1a', color: '#fff', showConfirmButton:false }); } 
-        catch(e) { Swal.fire('Error', e.message, 'error'); } 
-    }
+    if (formValues) { Swal.fire({ title: 'กำลังอัปโหลดขึ้นระบบ...', allowOutsideClick: false, didOpen: () => Swal.showLoading(), background: '#1a1a1a', color: '#fff'}); try { await addDoc(collection(db, "items"), formValues); Swal.fire({ icon: 'success', title: 'เพิ่มอุปกรณ์สำเร็จ!', timer: 1500, background: '#1a1a1a', color: '#fff', showConfirmButton:false }); } catch(e) { Swal.fire('Error', e.message, 'error'); } }
 }
 
-// 🟢 อัปเดต: เพิ่มช่องแก้ไขสต็อกตอน "แก้ไขข้อมูลอุปกรณ์"
 window.editItem = async function(id) {
-    const item = items.find(i => i.id === id);
-    if (!item) return;
-
-    const diff = item.difficulty || "ระดับปานกลาง (Medium)";
-    const ref = item.reference || "";
-    const desc = item.description || "";
-    const stockVal = item.stock || 1;
-    const currentCatDisplay = getDisplayCategory(item.category);
-
-    const uniqueCats = [...new Set(items.map(i => getDisplayCategory(i.category)))].filter(c => c);
-    const datalistOptions = uniqueCats.map(c => `<option value="${c}">`).join('');
+    const item = items.find(i => i.id === id); if (!item) return;
+    const diff = item.difficulty || "ระดับปานกลาง (Medium)"; const ref = item.reference || ""; const desc = item.description || ""; const stockVal = item.stock || 1; const currentCatDisplay = getDisplayCategory(item.category);
+    const uniqueCats = [...new Set(items.map(i => getDisplayCategory(i.category)))].filter(c => c); const datalistOptions = uniqueCats.map(c => `<option value="${c}">`).join('');
 
     const { value: formValues } = await Swal.fire({
-        title: '✏️ แก้ไขข้อมูลอุปกรณ์',
-        width: 600,
-        html: `
-            <div style="text-align: left; font-size: 14px; display: flex; flex-direction: column; gap: 12px;">
-                <div>
-                    <label style="color:#aaa; display:block; margin-bottom:5px;">ชื่ออุปกรณ์</label>
-                    <input id="swal-edit-name" class="swal2-input" value="${item.name}" style="width: 100%; margin: 0; box-sizing: border-box;">
-                </div>
-                <div style="display: flex; gap: 10px;">
-                    <div style="flex: 2;">
-                        <label style="color:#aaa; display:block; margin-bottom:5px;">หมวดหมู่ (พิมพ์สร้างใหม่ได้เลย)</label>
-                        <input id="swal-edit-category" list="category-options" class="swal2-input" value="${currentCatDisplay}" style="width: 100%; margin: 0; box-sizing: border-box;">
-                        <datalist id="category-options">
-                            ${datalistOptions}
-                        </datalist>
-                    </div>
-                    <div style="flex: 1;">
-                        <label style="color:#aaa; display:block; margin-bottom:5px;">จำนวนสต็อก</label>
-                        <input id="swal-edit-stock" type="number" min="1" value="${stockVal}" class="swal2-input" style="width: 100%; margin: 0; box-sizing: border-box; text-align:center;">
-                    </div>
-                </div>
-                <div>
-                    <label style="color:#aaa; display:block; margin-bottom:5px;">ระดับความยาก</label>
-                    <select id="swal-edit-difficulty" class="swal2-input" style="width: 100%; margin: 0; box-sizing: border-box;">
-                        <option value="ระดับง่ายมาก (Beginner)" ${diff.includes('ง่าย') ? 'selected' : ''}>🟢 ง่ายมาก</option>
-                        <option value="ระดับปานกลาง (Medium)" ${diff.includes('ปานกลาง') ? 'selected' : ''}>🟡 ปานกลาง</option>
-                        <option value="ระดับค่อนข้างยาก (Advanced)" ${diff.includes('ค่อนข้างยาก') ? 'selected' : ''}>🟠 ค่อนข้างยาก</option>
-                        <option value="ระดับมืออาชีพ (Pro)" ${diff.includes('มืออาชีพ') ? 'selected' : ''}>🔴 มืออาชีพ</option>
-                    </select>
-                </div>
-                <div>
-                    <label style="color:#aaa; display:block; margin-bottom:5px;">เปลี่ยนรูปภาพ (ถ้าไม่เปลี่ยน ไม่ต้องเลือกไฟล์)</label>
-                    <input type="file" id="swal-edit-image-file" accept="image/*" style="width: 100%; color: #fff; background: #222; padding: 12px; border-radius: 5px; border: 1px solid #444; box-sizing: border-box;">
-                </div>
-                <div>
-                    <label style="color:#aaa; display:block; margin-bottom:5px;">อ้างอิงความยากจาก</label>
-                    <input id="swal-edit-ref" class="swal2-input" value="${ref}" style="width: 100%; margin: 0; box-sizing: border-box;">
-                </div>
-                <div>
-                    <label style="color:#aaa; display:block; margin-bottom:5px;">รายละเอียด / คำแนะนำเพิ่มเติม</label>
-                    <textarea id="swal-edit-desc" class="swal2-textarea" style="width: 100%; margin: 0; box-sizing: border-box; height: 80px;">${desc}</textarea>
-                </div>
-            </div>`,
+        title: '✏️ แก้ไขข้อมูลอุปกรณ์', width: 600,
+        html: `<div style="text-align: left; font-size: 14px; display: flex; flex-direction: column; gap: 12px;"><div><label style="color:#aaa; display:block; margin-bottom:5px;">ชื่ออุปกรณ์</label><input id="swal-edit-name" class="swal2-input" value="${item.name}" style="width: 100%; margin: 0; box-sizing: border-box;"></div><div style="display: flex; gap: 10px;"><div style="flex: 2;"><label style="color:#aaa; display:block; margin-bottom:5px;">หมวดหมู่ (พิมพ์สร้างใหม่ได้เลย)</label><input id="swal-edit-category" list="category-options" class="swal2-input" value="${currentCatDisplay}" style="width: 100%; margin: 0; box-sizing: border-box;"><datalist id="category-options">${datalistOptions}</datalist></div><div style="flex: 1;"><label style="color:#aaa; display:block; margin-bottom:5px;">จำนวนสต็อก</label><input id="swal-edit-stock" type="number" min="1" value="${stockVal}" class="swal2-input" style="width: 100%; margin: 0; box-sizing: border-box; text-align:center;"></div></div><div><label style="color:#aaa; display:block; margin-bottom:5px;">ระดับความยาก</label><select id="swal-edit-difficulty" class="swal2-input" style="width: 100%; margin: 0; box-sizing: border-box;"><option value="ระดับง่ายมาก (Beginner)" ${diff.includes('ง่าย') ? 'selected' : ''}>🟢 ง่ายมาก</option><option value="ระดับปานกลาง (Medium)" ${diff.includes('ปานกลาง') ? 'selected' : ''}>🟡 ปานกลาง</option><option value="ระดับค่อนข้างยาก (Advanced)" ${diff.includes('ค่อนข้างยาก') ? 'selected' : ''}>🟠 ค่อนข้างยาก</option><option value="ระดับมืออาชีพ (Pro)" ${diff.includes('มืออาชีพ') ? 'selected' : ''}>🔴 มืออาชีพ</option></select></div><div><label style="color:#aaa; display:block; margin-bottom:5px;">เปลี่ยนรูปภาพ (ถ้าไม่เปลี่ยน ไม่ต้องเลือกไฟล์)</label><input type="file" id="swal-edit-image-file" accept="image/*" style="width: 100%; color: #fff; background: #222; padding: 12px; border-radius: 5px; border: 1px solid #444; box-sizing: border-box;"></div><div><label style="color:#aaa; display:block; margin-bottom:5px;">อ้างอิงความยากจาก</label><input id="swal-edit-ref" class="swal2-input" value="${ref}" style="width: 100%; margin: 0; box-sizing: border-box;"></div><div><label style="color:#aaa; display:block; margin-bottom:5px;">รายละเอียด / คำแนะนำเพิ่มเติม</label><textarea id="swal-edit-desc" class="swal2-textarea" style="width: 100%; margin: 0; box-sizing: border-box; height: 80px;">${desc}</textarea></div></div>`,
         showCancelButton: true, confirmButtonText: '<i class="fas fa-save"></i> บันทึกการแก้ไข', confirmButtonColor: '#ffc107', background: '#1a1a1a', color: '#fff',
         preConfirm: async () => {
-            const name = document.getElementById('swal-edit-name').value;
-            const category = document.getElementById('swal-edit-category').value.trim();
-            if (!name) { Swal.showValidationMessage('กรุณากรอกชื่ออุปกรณ์ด้วยครับ'); return false; }
-            if (!category) { Swal.showValidationMessage('กรุณาระบุหมวดหมู่ด้วยครับ'); return false; }
-            
-            const fileInput = document.getElementById('swal-edit-image-file');
-            let base64Image = item.image;
-            
-            if (fileInput.files.length > 0) {
-                try {
-                    Swal.showLoading();
-                    base64Image = await resizeImage(fileInput.files[0]); 
-                } catch (error) {
-                    Swal.showValidationMessage('เกิดข้อผิดพลาดในการประมวลผลรูปภาพ'); return false;
-                }
-            }
-            
-            return { 
-                name: name, 
-                category: category, 
-                stock: parseInt(document.getElementById('swal-edit-stock').value) || 1, // อัปเดตข้อมูลสต็อก 
-                image: base64Image, 
-                difficulty: document.getElementById('swal-edit-difficulty').value, 
-                reference: document.getElementById('swal-edit-ref').value, 
-                description: document.getElementById('swal-edit-desc').value 
-            };
+            const name = document.getElementById('swal-edit-name').value; const category = document.getElementById('swal-edit-category').value.trim();
+            if (!name) { Swal.showValidationMessage('กรุณากรอกชื่ออุปกรณ์ด้วยครับ'); return false; } if (!category) { Swal.showValidationMessage('กรุณาระบุหมวดหมู่ด้วยครับ'); return false; }
+            const fileInput = document.getElementById('swal-edit-image-file'); let base64Image = item.image;
+            if (fileInput.files.length > 0) { try { Swal.showLoading(); base64Image = await resizeImage(fileInput.files[0]); } catch (error) { Swal.showValidationMessage('เกิดข้อผิดพลาดในการประมวลผลรูปภาพ'); return false; } }
+            return { name: name, category: category, stock: parseInt(document.getElementById('swal-edit-stock').value) || 1, image: base64Image, difficulty: document.getElementById('swal-edit-difficulty').value, reference: document.getElementById('swal-edit-ref').value, description: document.getElementById('swal-edit-desc').value };
         }
     });
-
-    if (formValues) {
-        Swal.fire({ title: 'กำลังอัปเดตข้อมูล...', allowOutsideClick: false, didOpen: () => Swal.showLoading(), background: '#1a1a1a', color: '#fff'});
-        try {
-            await updateDoc(doc(db, "items", id), formValues);
-            Swal.fire({ icon: 'success', title: 'แก้ไขข้อมูลสำเร็จ!', timer: 1500, background: '#1a1a1a', color: '#fff', showConfirmButton: false });
-        } catch (error) {
-            Swal.fire({ icon: 'error', title: 'เกิดข้อผิดพลาด', text: error.message, background: '#1a1a1a', color: '#fff' });
-        }
-    }
+    if (formValues) { Swal.fire({ title: 'กำลังอัปเดตข้อมูล...', allowOutsideClick: false, didOpen: () => Swal.showLoading(), background: '#1a1a1a', color: '#fff'}); try { await updateDoc(doc(db, "items", id), formValues); Swal.fire({ icon: 'success', title: 'แก้ไขข้อมูลสำเร็จ!', timer: 1500, background: '#1a1a1a', color: '#fff', showConfirmButton: false }); } catch (error) { Swal.fire({ icon: 'error', title: 'เกิดข้อผิดพลาด', text: error.message, background: '#1a1a1a', color: '#fff' }); } }
 }
 
 window.updateDashboardStats = () => { 
-    const statPending = document.getElementById('stat-pending');
-    if (statPending) statPending.innerText = borrowRequests.filter(r => r.status === 'pending').length;
-
-    const statBorrowed = document.getElementById('stat-borrowed');
-    if (statBorrowed) statBorrowed.innerText = borrowRequests.filter(r => r.status === 'borrowed').length;
-
-    const statTotalItems = document.getElementById('stat-total-items');
-    if (statTotalItems) statTotalItems.innerText = items.length; 
+    const statPending = document.getElementById('stat-pending'); if (statPending) statPending.innerText = borrowRequests.filter(r => r.status === 'pending').length;
+    const statBorrowed = document.getElementById('stat-borrowed'); if (statBorrowed) statBorrowed.innerText = borrowRequests.filter(r => r.status === 'borrowed').length;
+    const statTotalItems = document.getElementById('stat-total-items'); if (statTotalItems) statTotalItems.innerText = items.length; 
 }
 
+// 🟢 อัปเดต: ป้องกันการ Error ในหน้าแสดงสถิติ
 window.renderStats = () => {
     let freq = {}; 
     borrowRequests.filter(r => r.status !== 'rejected').forEach(req => { 
+        let reqItemStr = String(req.item || ""); // 🛡️
         let m; let r = /([^,]+)\s*\((\d+)\s*ชิ้น\)/g; let f=false; 
-        while((m=r.exec(req.item))!==null){ f=true; freq[m[1].trim()] = (freq[m[1].trim()]||0)+parseInt(m[2]); } 
-        if(!f&&req.item) req.item.split(',').forEach(it=>{ freq[it.trim()]=(freq[it.trim()]||0)+1; }); 
+        while((m=r.exec(reqItemStr))!==null){ f=true; freq[m[1].trim()] = (freq[m[1].trim()]||0)+parseInt(m[2]); } 
+        if(!f && reqItemStr) reqItemStr.split(',').forEach(it=>{ freq[it.trim()]=(freq[it.trim()]||0)+1; }); 
     });
     
     let s = Object.keys(freq).map(k => ({n:k, c:freq[k]})).sort((a,b)=>b.c-a.c).slice(0,10);
-    
     const ctxB = document.getElementById('borrowChart'); 
     if(ctxB) { 
         if(borrowChartInstance) borrowChartInstance.destroy(); 
-        borrowChartInstance = new Chart(ctxB, { 
-            type:'bar', 
-            data: {labels: s.map(i=>i.n), datasets:[{label:'จำนวนการยืม (ครั้ง)', data:s.map(i=>i.c), backgroundColor:'#ff6600'}]}, 
-            options:{plugins:{legend:{display:false}}, scales:{y:{beginAtZero: true, ticks:{color:'#aaa', stepSize:1}},x:{ticks:{color:'#aaa'}}}}
-        }); 
+        borrowChartInstance = new Chart(ctxB, { type:'bar', data: {labels: s.map(i=>i.n), datasets:[{label:'จำนวนการยืม (ครั้ง)', data:s.map(i=>i.c), backgroundColor:'#ff6600'}]}, options:{plugins:{legend:{display:false}}, scales:{y:{beginAtZero: true, ticks:{color:'#aaa', stepSize:1}},x:{ticks:{color:'#aaa'}}}} }); 
     }
-    
     const ctxP = document.getElementById('conditionChart'); 
     if(ctxP) { 
         if(conditionChartInstance) conditionChartInstance.destroy(); 
-        conditionChartInstance = new Chart(ctxP, { 
-            type:'doughnut', 
-            data: {labels:['ปกติ','ชำรุด/ซ่อม'], datasets:[{data:[items.filter(i=>i.condition!=='damaged').length, items.filter(i=>i.condition==='damaged').length], backgroundColor:['#198754','#dc3545'], borderWidth:0}]}, 
-            options:{plugins:{legend:{labels:{color:'#fff'}}}}
-        }); 
+        conditionChartInstance = new Chart(ctxP, { type:'doughnut', data: {labels:['ปกติ','ชำรุด/ซ่อม'], datasets:[{data:[items.filter(i=>i.condition!=='damaged').length, items.filter(i=>i.condition==='damaged').length], backgroundColor:['#198754','#dc3545'], borderWidth:0}]}, options:{plugins:{legend:{labels:{color:'#fff'}}}} }); 
     }
 }
 
@@ -863,12 +558,7 @@ window.loadUsersToAdminTable = (q = "") => {
     if (fUsers.length === 0) { tb.innerHTML = `<tr><td colspan="4" style="text-align:center;">ไม่พบรายชื่อ</td></tr>`; return; }
     fUsers.forEach((u) => {
         const badge = u.role === 'admin' ? `<span style="background:#ff9800; color:#fff; padding:3px 10px; border-radius:15px; font-size:12px;">Admin</span>` : `<span style="background:#444; color:#fff; padding:3px 10px; border-radius:15px; font-size:12px;">User</span>`;
-        
-        let btns = currentUser && currentUser.id === u.id 
-            ? `<span style="color:#888;">(คุณเอง)</span>` 
-            : `<button onclick="changeUserRole('${u.id}', '${u.role}')" style="background:#28a745; color:#fff; border:none; padding:6px 12px; border-radius:4px; font-size:12px; font-weight:bold; cursor:pointer; margin-right:5px;">สลับสิทธิ์</button>
-               <button onclick="deleteUser('${u.id}')" style="background:#dc3545; color:#fff; border:none; padding:6px 12px; border-radius:4px; font-size:12px; font-weight:bold; cursor:pointer;"><i class="fas fa-trash"></i> ลบ</button>`;
-               
+        let btns = currentUser && currentUser.id === u.id ? `<span style="color:#888;">(คุณเอง)</span>` : `<button onclick="changeUserRole('${u.id}', '${u.role}')" style="background:#28a745; color:#fff; border:none; padding:6px 12px; border-radius:4px; font-size:12px; font-weight:bold; cursor:pointer; margin-right:5px;">สลับสิทธิ์</button><button onclick="deleteUser('${u.id}')" style="background:#dc3545; color:#fff; border:none; padding:6px 12px; border-radius:4px; font-size:12px; font-weight:bold; cursor:pointer;"><i class="fas fa-trash"></i> ลบ</button>`;
         tb.innerHTML += `<tr><td style="padding:12px;">${u.name||"-"}</td><td style="padding:12px;">${u.username}</td><td style="padding:12px;">${badge}</td><td style="padding:12px;">${btns}</td></tr>`;
     });
 }
@@ -880,9 +570,6 @@ window.exportToCSV = async () => {
     const b = new Blob([csv], { type: 'text/csv;charset=utf-8;' }); const l = document.createElement("a"); l.href = URL.createObjectURL(b); l.download = `MMD_Report.csv`; document.body.appendChild(l); l.click(); document.body.removeChild(l);
 }
 
-/* ==========================================
-   🔥 INIT APP 🔥
-   ========================================== */
 function initApp() {
     if(document.getElementById('loginForm')) {
         window.toggleForm = () => { document.getElementById('loginForm').classList.toggle('hidden'); document.getElementById('registerForm').classList.toggle('hidden'); }
@@ -896,28 +583,13 @@ function initApp() {
             if(document.getElementById('cartForm')) {
                 document.getElementById('cartForm').onsubmit = async (e) => {
                     e.preventDefault(); 
-                    const d = document.getElementById('cartBorrowDate').value; 
-                    const retD = document.getElementById('cartReturnDate').value;
-                    const retT = document.getElementById('cartReturnTime').value;
-                    const r = document.getElementById('cartReason').value; 
+                    const d = document.getElementById('cartBorrowDate').value; const retD = document.getElementById('cartReturnDate').value; const retT = document.getElementById('cartReturnTime').value; const r = document.getElementById('cartReason').value; 
                     const btn = document.querySelector('#cartForm button[type="submit"]');
-                    
                     if(new Date(d) < new Date().setHours(0,0,0,0)) return Swal.fire('วันที่ผิด', 'ห้ามย้อนหลัง', 'error');
                     if(new Date(retD) < new Date(d)) return Swal.fire('วันที่ผิด', 'วันคืนของต้องไม่ก่อนวันรับของ', 'error');
-
                     try {
                         btn.disabled = true; const itms = cart.map(i => `${i.name} (${i.qty} ชิ้น)`).join(', ');
-                        await addDoc(collection(db, "requests"), { 
-                            user: currentUser.name||currentUser.username, 
-                            userId: currentUser.id, 
-                            item: itms, 
-                            date: d, 
-                            returnDate: retD, 
-                            returnTimeLimit: retT, 
-                            reason: r||"-", 
-                            status: "pending", 
-                            timestamp: new Date() 
-                        });
+                        await addDoc(collection(db, "requests"), { user: currentUser.name||currentUser.username, userId: currentUser.id, item: itms, date: d, returnDate: retD, returnTimeLimit: retT, reason: r||"-", status: "pending", timestamp: new Date() });
                         fetch(LINE_API_URL, { method:'POST', mode:'no-cors', body:JSON.stringify({ user: currentUser.name, item: itms, date: `${d} คืน ${retD} ${retT}น.` }) }).catch(e=>e);
                         Swal.fire({ icon: 'success', title: 'จองสำเร็จ!', timer: 2500, showConfirmButton: false }); cart = []; window.updateCartCount(); window.renderItems(); window.closeCartModal();
                     } catch(e) { Swal.fire('Error', e.message, 'error'); } finally { btn.disabled = false; }
