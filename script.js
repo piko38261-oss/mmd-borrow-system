@@ -442,17 +442,17 @@ window.updateStatus = async (id, s) => {
         else if (s === 'borrowed') statusThai = "⚠️ ตีกลับ (ให้ตรวจสอบ/ส่งรูปคืนใหม่)";
         else if (s === 'pending') statusThai = "⏳ ยกเลิกการอนุมัติ (กลับไปรอตรวจสอบใหม่)";
         else statusThai = s;
-
-        // 4. ยิงข้อมูลแจ้งเตือนสถานะไปที่ Apps Script
+// 4. ยิงข้อมูลแจ้งเตือนสถานะไปที่ Apps Script
         fetch(LINE_API_URL, {
             method: 'POST',
             mode: 'no-cors',
             headers: { 'Content-Type': 'text/plain' },
             body: JSON.stringify({ 
-                action: "update_status", // ตัวแปรนี้จะบอก Apps Script ให้เปลี่ยนหัวข้อข้อความ
+                action: "update_status", 
                 borrowerName: req.user, 
                 equipmentName: req.item,
-                statusText: statusThai
+                statusText: statusThai,
+                adminName: currentUser.name || currentUser.username 
             })
         }).catch(e => console.error(e));
     }
