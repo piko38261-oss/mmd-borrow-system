@@ -5,6 +5,14 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
 import { getFirestore, collection, addDoc, getDocs, updateDoc, deleteDoc, doc, onSnapshot, query, where } 
 from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+// Register Service Worker สำหรับ PWA
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('sw.js')
+            .then(reg => console.log('Service Worker ลงทะเบียนสำเร็จ!', reg))
+            .catch(err => console.error('Service Worker ลงทะเบียนไม่สำเร็จ:', err));
+    });
+}
 
 try { emailjs.init("Rj2WpB-v7fZqvEu08"); } catch (e) { console.warn("⚠️ EmailJS ไม่ถูกโหลด"); }
 const LINE_API_URL = "https://script.google.com/macros/s/AKfycbztlNjiVAt3pyUw9OWaBfAs2SJswrvLG0Z6uXXxLoASxCvrcPpNZrmTgrn8JNBC8X2vJg/exec";

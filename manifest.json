@@ -1,0 +1,21 @@
+{
+  "name": "MMD Borrow System",
+  "short_name": "MMD Borrow",
+  "description": "ระบบยืม-คืนอุปกรณ์ สาขามัลติมีเดีย RMUTI Surin",
+  "start_url": "./dashboard.html",
+  "display": "standalone",
+  "background_color": "#1a1a1a",
+  "theme_color": "#ff9800",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
