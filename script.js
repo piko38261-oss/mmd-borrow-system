@@ -427,7 +427,36 @@ window.renderPagination = (total, pages) => {
     h += `<button class="page-btn" onclick="changePage(${currentPage + 1})" ${currentPage === pages ? 'disabled' : ''}><i class="fas fa-chevron-right"></i></button>`; c.innerHTML = h;
 }
 window.changePage = (p) => { currentPage = p; window.renderRequests(); }
-window.updateStatus = async (id, s) => { await updateDoc(doc(db, "requests", id), { status: s }); }
+window.updateStatus = async (id, s) => { 
+    // 1. อัปเดตสถานะลงฐานข้อมูล Firebase
+    await updateDoc(doc(db, "requests", id), { status: s }); 
+    
+    // 2. ค้นหาข้อมูลรายการนี้ เพื่อดึงชื่อคนยืมและชื่ออุปกรณ์ส่งให้ LINE
+    const req = borrowRequests.find(r => r.id === id);
+    if (req) {
+        // 3. แปลงรหัสสถานะภาษาอังกฤษ เป็นคำอธิบายภาษาไทยให้สวยงาม
+        let statusThai = "";
+        if (s === 'approved_pickup') statusThai = "✅ อนุมัติแล้ว (สามารถมารับของได้)";
+        else if (s === 'rejected') statusThai = "❌ ไม่อนุมัติ (ปฏิเสธการให้ยืม)";
+        else if (s === 'returned') statusThai = "📥 แอดมินรับคืนอุปกรณ์เรียบร้อย";
+        else if (s === 'borrowed') statusThai = "⚠️ ตีกลับ (ให้ตรวจสอบ/ส่งรูปคืนใหม่)";
+        else if (s === 'pending') statusThai = "⏳ ยกเลิกการอนุมัติ (กลับไปรอตรวจสอบใหม่)";
+        else statusThai = s;
+
+        // 4. ยิงข้อมูลแจ้งเตือนสถานะไปที่ Apps Script
+        fetch(LINE_API_URL, {
+            method: 'POST',
+            mode: 'no-cors',
+            headers: { 'Content-Type': 'text/plain' },
+            body: JSON.stringify({ 
+                action: "update_status", // ตัวแปรนี้จะบอก Apps Script ให้เปลี่ยนหัวข้อข้อความ
+                borrowerName: req.user, 
+                equipmentName: req.item,
+                statusText: statusThai
+            })
+        }).catch(e => console.error(e));
+    }
+}
 window.deleteRequest = async (id) => { if((await Swal.fire({title:'ลบ?',icon:'warning',showCancelButton:true})).isConfirmed) { await deleteDoc(doc(db, "requests", id)); Swal.fire('ลบแล้ว','','success'); } }
 
 // 🟢 อัปเดต: รวบรวม HTML ก่อนแสดงผล (ป้องกันตารางหาย) + String Safe
