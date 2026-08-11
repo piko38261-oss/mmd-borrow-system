@@ -7,7 +7,7 @@ import { getFirestore, collection, addDoc, getDocs, updateDoc, deleteDoc, doc, o
 from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
 try { emailjs.init("Rj2WpB-v7fZqvEu08"); } catch (e) { console.warn("⚠️ EmailJS ไม่ถูกโหลด"); }
-const LINE_API_URL = "https://script.google.com/macros/s/AKfycby0x6cN3Od4U6b5kJunSgln-tTr8p6XZynfjDn1o089DbXcSgr67v10n1Bu-BJPkiJ6/exec";
+const LINE_API_URL = "https://script.google.com/macros/s/AKfycbztlNjiVAt3pyUw9OWaBfAs2SJswrvLG0Z6uXXxLoASxCvrcPpNZrmTgrn8JNBC8X2vJg/exec";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCJNX3-vN5bceDczdKxrqb0N8uaBpgDhTE",
@@ -309,10 +309,26 @@ window.openCartModal = () => {
     const tInput = document.getElementById('cartReturnTime'); 
     
     if(dInput && rInput) { 
-        const today = new Date().toISOString().split('T')[0]; 
-        dInput.min = today; dInput.value = ""; rInput.min = today; rInput.value = ""; 
+        const today = new Date();
+        const todayStr = today.toISOString().split('T')[0]; 
+        
+        // คำนวณวันล่วงหน้า 15 วัน
+        const maxDate = new Date();
+        maxDate.setDate(today.getDate() + 15);
+        const maxStr = maxDate.toISOString().split('T')[0];
+
+        // กำหนดขอบเขตให้ปฏิทิน (ล็อกการกด)
+        dInput.min = todayStr; 
+        dInput.max = maxStr; 
+        dInput.value = ""; 
+        rInput.min = todayStr; 
+        rInput.value = ""; 
         if(tInput) tInput.value = ""; 
-        dInput.onchange = () => { rInput.min = dInput.value; if (rInput.value && rInput.value < dInput.value) rInput.value = dInput.value; };
+        
+        dInput.onchange = () => { 
+            rInput.min = dInput.value; 
+            if (rInput.value && rInput.value < dInput.value) rInput.value = dInput.value; 
+        };
     }
     
     document.getElementById('cartItemsList').innerHTML = cart.map((i, idx) => `<div style="display:flex; justify-content:space-between; color:white; padding:8px 0; border-bottom:1px solid #444;"><span>${idx+1}. ${i.name} (x${i.qty})</span><button type="button" onclick="removeFromCart('${i.id}')" style="background:none; border:none; color:#dc3545; cursor:pointer;"><i class="fas fa-trash"></i></button></div>`).join('');
@@ -427,6 +443,7 @@ window.renderPagination = (total, pages) => {
     h += `<button class="page-btn" onclick="changePage(${currentPage + 1})" ${currentPage === pages ? 'disabled' : ''}><i class="fas fa-chevron-right"></i></button>`; c.innerHTML = h;
 }
 window.changePage = (p) => { currentPage = p; window.renderRequests(); }
+
 window.updateStatus = async (id, s) => { 
     // 1. อัปเดตสถานะลงฐานข้อมูล Firebase
     await updateDoc(doc(db, "requests", id), { status: s }); 
@@ -442,7 +459,8 @@ window.updateStatus = async (id, s) => {
         else if (s === 'borrowed') statusThai = "⚠️ ตีกลับ (ให้ตรวจสอบ/ส่งรูปคืนใหม่)";
         else if (s === 'pending') statusThai = "⏳ ยกเลิกการอนุมัติ (กลับไปรอตรวจสอบใหม่)";
         else statusThai = s;
-// 4. ยิงข้อมูลแจ้งเตือนสถานะไปที่ Apps Script
+
+        // 4. ยิงข้อมูลแจ้งเตือนสถานะไปที่ Apps Script
         fetch(LINE_API_URL, {
             method: 'POST',
             mode: 'no-cors',
@@ -457,6 +475,7 @@ window.updateStatus = async (id, s) => {
         }).catch(e => console.error(e));
     }
 }
+
 window.deleteRequest = async (id) => { if((await Swal.fire({title:'ลบ?',icon:'warning',showCancelButton:true})).isConfirmed) { await deleteDoc(doc(db, "requests", id)); Swal.fire('ลบแล้ว','','success'); } }
 
 // 🟢 อัปเดต: รวบรวม HTML ก่อนแสดงผล (ป้องกันตารางหาย) + String Safe
@@ -612,14 +631,41 @@ function initApp() {
             if(document.getElementById('cartForm')) {
                 document.getElementById('cartForm').onsubmit = async (e) => {
                     e.preventDefault(); 
-                    const d = document.getElementById('cartBorrowDate').value; const retD = document.getElementById('cartReturnDate').value; const retT = document.getElementById('cartReturnTime').value; const r = document.getElementById('cartReason').value; 
+                    const d = document.getElementById('cartBorrowDate').value; 
+                    const retD = document.getElementById('cartReturnDate').value; 
+                    const retT = document.getElementById('cartReturnTime').value; 
+                    const r = document.getElementById('cartReason').value; 
                     const btn = document.querySelector('#cartForm button[type="submit"]');
-                    if(new Date(d) < new Date().setHours(0,0,0,0)) return Swal.fire('วันที่ผิด', 'ห้ามย้อนหลัง', 'error');
-                    if(new Date(retD) < new Date(d)) return Swal.fire('วันที่ผิด', 'วันคืนของต้องไม่ก่อนวันรับของ', 'error');
+
+                    // --- ระบบดักจับการพิมพ์วันที่ด้วยมือ ---
+                    const todayMs = new Date().setHours(0,0,0,0);
+                    const borrowDateMs = new Date(d).setHours(0,0,0,0);
+                    const returnDateMs = new Date(retD).setHours(0,0,0,0);
+                    
+                    const maxDateMs = new Date();
+                    maxDateMs.setDate(new Date().getDate() + 15);
+                    maxDateMs.setHours(0,0,0,0);
+
+                    if(borrowDateMs < todayMs) return Swal.fire('วันที่ผิด', 'ห้ามจองย้อนหลังเด็ดขาด', 'error');
+                    if(borrowDateMs > maxDateMs) return Swal.fire('วันที่ผิด', 'จองล่วงหน้าได้ไม่เกิน 15 วัน', 'error');
+                    if(returnDateMs < borrowDateMs) return Swal.fire('วันที่ผิด', 'วันคืนของต้องไม่ก่อนวันทำการจอง', 'error');
+                    // ------------------------------------
+
                     try {
                         btn.disabled = true; const itms = cart.map(i => `${i.name} (${i.qty} ชิ้น)`).join(', ');
                         await addDoc(collection(db, "requests"), { user: currentUser.name||currentUser.username, userId: currentUser.id, item: itms, date: d, returnDate: retD, returnTimeLimit: retT, reason: r||"-", status: "pending", timestamp: new Date() });
-                        fetch(LINE_API_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ borrowerName: currentUser.name || currentUser.username, equipmentName: itms }) }).catch(e => console.error(e));
+                        
+                        // แจ้งเตือนจองใหม่
+                        fetch(LINE_API_URL, { 
+                            method: 'POST', 
+                            mode: 'no-cors', 
+                            headers: { 'Content-Type': 'text/plain' }, 
+                            body: JSON.stringify({ 
+                                borrowerName: currentUser.name || currentUser.username, 
+                                equipmentName: itms 
+                            }) 
+                        }).catch(e => console.error(e));
+                        
                         Swal.fire({ icon: 'success', title: 'จองสำเร็จ!', timer: 2500, showConfirmButton: false }); cart = []; window.updateCartCount(); window.renderItems(); window.closeCartModal();
                     } catch(e) { Swal.fire('Error', e.message, 'error'); } finally { btn.disabled = false; }
                 };

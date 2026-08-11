@@ -13,6 +13,14 @@
     <script type="text/javascript">
        (function(){ emailjs.init("Rj2WpB-v7fZqvEu08"); })();
     </script>
+    <style>
+        /* เปลี่ยนไอคอนปฏิทินและนาฬิกาให้เป็นสีขาว เพื่อให้เห็นชัดบนพื้นดำ */
+        input[type="date"]::-webkit-calendar-picker-indicator,
+        input[type="time"]::-webkit-calendar-picker-indicator {
+            filter: invert(1);
+            cursor: pointer;
+        }
+    </style>
 </head>
 <body>
     <div class="ticker-wrap">
@@ -61,7 +69,7 @@
                 
                 <div style="display:flex; gap:10px; margin: 10px 0;">
                     <div style="flex:1;">
-                        <label style="color:#888; font-size:12px;">📅 วันที่รับของ</label>
+                        <label style="color:#888; font-size:12px;">📅 วันที่ทำการจอง</label>
                         <input type="date" id="cartBorrowDate" required style="margin: 5px 0 0; width: 100%; box-sizing: border-box;">
                     </div>
                     <div style="flex:1;">
