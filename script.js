@@ -7,7 +7,7 @@ import { getFirestore, collection, addDoc, getDocs, updateDoc, deleteDoc, doc, o
 from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
 try { emailjs.init("Rj2WpB-v7fZqvEu08"); } catch (e) { console.warn("⚠️ EmailJS ไม่ถูกโหลด"); }
-const LINE_API_URL = "https://script.google.com/macros/s/AKfycbzw0gLpeZEdB8rUofNdPTLKHBQYhfcYcD1S72t_PRI-tSfdfi2-ZqGUw-Hwa4wRP17crg/exec";
+const LINE_API_URL = "https://script.google.com/macros/s/AKfycbztlNjiVAt3pyUw9OWaBfAs2SJswrvLG0Z6uXXxLoASxCvrcPpNZrmTgrn8JNBC8X2vJg/exec";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCJNX3-vN5bceDczdKxrqb0N8uaBpgDhTE",
@@ -590,7 +590,7 @@ function initApp() {
                     try {
                         btn.disabled = true; const itms = cart.map(i => `${i.name} (${i.qty} ชิ้น)`).join(', ');
                         await addDoc(collection(db, "requests"), { user: currentUser.name||currentUser.username, userId: currentUser.id, item: itms, date: d, returnDate: retD, returnTimeLimit: retT, reason: r||"-", status: "pending", timestamp: new Date() });
-                        fetch(LINE_API_URL, { method:'POST', mode:'no-cors', body:JSON.stringify({ user: currentUser.name, item: itms, date: `${d} คืน ${retD} ${retT}น.` }) }).catch(e=>e);
+                        fetch(LINE_API_URL, { method:'POST', mode:'no-cors', body:JSON.stringify({ borrowerName: currentUser.name || currentUser.username, equipmentName: itms }) }).catch(e=>console.error(e));
                         Swal.fire({ icon: 'success', title: 'จองสำเร็จ!', timer: 2500, showConfirmButton: false }); cart = []; window.updateCartCount(); window.renderItems(); window.closeCartModal();
                     } catch(e) { Swal.fire('Error', e.message, 'error'); } finally { btn.disabled = false; }
                 };
