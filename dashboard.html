@@ -133,5 +133,56 @@
     </div>
 
     <script type="module" src="script.js"></script>
+    <!-- ========================================== -->
+    <!-- ปุ่ม LINE ลอยมุมขวาล่าง + สคริปต์เด้ง QR Code -->
+    <!-- ========================================== -->
+    <style>
+        .floating-line-btn {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            width: 60px;
+            height: 60px;
+            background-color: #00c300; /* สีเขียวเอกลักษณ์ของ LINE */
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 35px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+            z-index: 1000;
+            text-decoration: none;
+            transition: transform 0.3s ease, background-color 0.3s ease;
+        }
+        
+        .floating-line-btn:hover {
+            transform: scale(1.1); /* ขยายขนาดเวลานำเมาส์ไปชี้ */
+            background-color: #00e000;
+            color: white;
+        }
+    </style>
+
+    <a href="#" onclick="showLineQR(event)" class="floating-line-btn" title="เข้ากลุ่ม LINE รับแจ้งเตือน">
+        <i class="fab fa-line"></i>
+    </a>
+
+    <script>
+        function showLineQR(e) {
+            e.preventDefault();
+            Swal.fire({
+                title: '<span style="color:#00c300;"><i class="fab fa-line"></i> MMD Borrow</span>',
+                html: '<p style="color:#aaa; font-size:14px;">สแกน QR Code เพื่อเข้ากลุ่มรับการแจ้งเตือนยืม-คืนอุปกรณ์</p>',
+                // อ้างอิงชื่อไฟล์รูป QR Code ที่คุณอัปโหลดไว้
+                imageUrl: 'images/766240918_3980330518929334_6632325202122459688_n.jpg', 
+                imageWidth: 250,
+                imageHeight: 250,
+                imageAlt: 'QR Code กลุ่ม LINE',
+                background: '#1a1a1a', // พื้นหลังสีเทาดำให้เข้ากับธีมเว็บ
+                confirmButtonText: 'ปิดหน้าต่าง',
+                confirmButtonColor: '#ff9800'
+            });
+        }
+    </script>
 </body>
 </html>
