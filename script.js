@@ -1,10 +1,12 @@
 /* =========================================
-   script.js - MMD BORROW SYSTEM (MEGA VERSION + DYNAMIC CATEGORIES + AUTO CLEAN + STOCK SYSTEM + CRASH SAFE)
+   script.js - MMD BORROW SYSTEM (MEGA VERSION + DYNAMIC CATEGORIES + AUTO CLEAN + STOCK SYSTEM + CRASH SAFE + GOOGLE LOGIN)
    ========================================= */
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-import { getFirestore, collection, addDoc, getDocs, updateDoc, deleteDoc, doc, onSnapshot, query, where } 
-from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+import { getFirestore, collection, addDoc, getDocs, updateDoc, deleteDoc, doc, onSnapshot, query, where } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+// 🟢 ส่วนที่เพิ่มใหม่ 1/4: Import โมดูลของ Firebase Auth
+import { getAuth, signInWithPopup, GoogleAuthProvider } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+
 // Register Service Worker สำหรับ PWA
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
@@ -29,6 +31,10 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
+
+// 🟢 ส่วนที่เพิ่มใหม่ 2/4: ประกาศใช้งาน Firebase Auth
+const auth = getAuth(app);
+const provider = new GoogleAuthProvider();
 
 /* --- Global Variables --- */
 let currentUser = JSON.parse(localStorage.getItem('currentUser')) || null;
@@ -109,6 +115,44 @@ window.login = async function(u, p) {
     } catch (error) { Swal.fire('เกิดข้อผิดพลาด', error.message, 'error'); }
 }
 
+// 🟢 ส่วนที่เพิ่มใหม่ 3/4: ฟังก์ชันจัดการล็อกอินด้วย Google
+window.loginWithGoogle = async function() {
+    try {
+        // เรียกหน้าต่าง Popup ของ Google
+        const result = await signInWithPopup(auth, provider);
+        const user = result.user;
+        
+        // เช็คว่าอีเมลนี้เคยถูกบันทึกในระบบเราหรือยัง
+        const userQuery = await getDocs(query(collection(db, "users"), where("email", "==", user.email)));
+        let userData;
+        
+        if (userQuery.empty) {
+            // ไม่เคยมีประวัติ ให้สร้างบัญชีใหม่
+            userData = {
+                username: user.email.split('@')[0], 
+                email: user.email,
+                name: user.displayName, 
+                role: "user" 
+            };
+            const docRef = await addDoc(collection(db, "users"), userData);
+            userData.id = docRef.id;
+        } else {
+            // มีประวัติอยู่แล้ว โหลดข้อมูลเดิมมาใช้
+            userData = userQuery.docs[0].data();
+            userData.id = userQuery.docs[0].id;
+        }
+        
+        // บันทึก Session และพุ่งเข้า Dashboard
+        localStorage.setItem('currentUser', JSON.stringify(userData));
+        await Swal.fire({ icon: 'success', title: 'เข้าสู่ระบบสำเร็จ!', timer: 1500, showConfirmButton: false });
+        window.location.href = 'dashboard.html';
+        
+    } catch (error) {
+        console.error("Google Login Error:", error);
+        Swal.fire('เกิดข้อผิดพลาด', 'ไม่สามารถเข้าสู่ระบบด้วย Google ได้: ' + error.message, 'error');
+    }
+}
+
 window.register = async function(u, p, n) {
     try {
         if (!(await getDocs(query(collection(db, "users"), where("username", "==", u)))).empty) { Swal.fire('ข้อมูลซ้ำ', 'มีผู้ใช้นี้แล้ว', 'warning'); return; }
@@ -158,7 +202,6 @@ window.filterItems = (cat) => {
     window.renderItems(cat); 
 }
 
-// 🟢 อัปเดต: รวบรวม HTML ก่อนแสดงผล (ป้องกันจอดำ) + ระบบป้องกับตัวแปรพัง (String Safe)
 window.renderItems = (cat = currentCategory) => { 
     currentCategory = cat; 
     const grid = document.getElementById('itemGrid'); if(!grid) return; 
@@ -179,7 +222,7 @@ window.renderItems = (cat = currentCategory) => {
         
         borrowRequests.forEach(req => {
             if (['pending', 'approved_pickup', 'borrowed', 'pending_return'].includes(req.status)) {
-                let reqItemStr = String(req.item || ""); // 🛡️ ป้องกันข้อมูลเพี้ยน
+                let reqItemStr = String(req.item || ""); 
                 let regex = /([^,]+)\s*\((\d+)\s*ชิ้น\)/g; 
                 let match; let foundFormat = false;
                 
@@ -228,7 +271,7 @@ window.openItemDetail = function(id) {
     let borrowedQty = 0;
     borrowRequests.forEach(req => {
         if (['pending', 'approved_pickup', 'borrowed', 'pending_return'].includes(req.status)) {
-            let reqItemStr = String(req.item || ""); // 🛡️ ป้องกันข้อมูลเพี้ยน
+            let reqItemStr = String(req.item || ""); 
             let regex = /([^,]+)\s*\((\d+)\s*ชิ้น\)/g; let match; let foundFormat = false;
             while ((match = regex.exec(reqItemStr)) !== null) { 
                 foundFormat = true; if (match[1].trim() === item.name) borrowedQty += parseInt(match[2]); 
@@ -320,12 +363,10 @@ window.openCartModal = () => {
         const today = new Date();
         const todayStr = today.toISOString().split('T')[0]; 
         
-        // คำนวณวันล่วงหน้า 15 วัน
         const maxDate = new Date();
         maxDate.setDate(today.getDate() + 15);
         const maxStr = maxDate.toISOString().split('T')[0];
 
-        // กำหนดขอบเขตให้ปฏิทิน (ล็อกการกด)
         dInput.min = todayStr; 
         dInput.max = maxStr; 
         dInput.value = ""; 
@@ -453,13 +494,10 @@ window.renderPagination = (total, pages) => {
 window.changePage = (p) => { currentPage = p; window.renderRequests(); }
 
 window.updateStatus = async (id, s) => { 
-    // 1. อัปเดตสถานะลงฐานข้อมูล Firebase
     await updateDoc(doc(db, "requests", id), { status: s }); 
     
-    // 2. ค้นหาข้อมูลรายการนี้ เพื่อดึงชื่อคนยืมและชื่ออุปกรณ์ส่งให้ LINE
     const req = borrowRequests.find(r => r.id === id);
     if (req) {
-        // 3. แปลงรหัสสถานะภาษาอังกฤษ เป็นคำอธิบายภาษาไทยให้สวยงาม
         let statusThai = "";
         if (s === 'approved_pickup') statusThai = "✅ อนุมัติแล้ว (สามารถมารับของได้)";
         else if (s === 'rejected') statusThai = "❌ ไม่อนุมัติ (ปฏิเสธการให้ยืม)";
@@ -468,7 +506,6 @@ window.updateStatus = async (id, s) => {
         else if (s === 'pending') statusThai = "⏳ ยกเลิกการอนุมัติ (กลับไปรอตรวจสอบใหม่)";
         else statusThai = s;
 
-        // 4. ยิงข้อมูลแจ้งเตือนสถานะไปที่ Apps Script
         fetch(LINE_API_URL, {
             method: 'POST',
             mode: 'no-cors',
@@ -486,7 +523,6 @@ window.updateStatus = async (id, s) => {
 
 window.deleteRequest = async (id) => { if((await Swal.fire({title:'ลบ?',icon:'warning',showCancelButton:true})).isConfirmed) { await deleteDoc(doc(db, "requests", id)); Swal.fire('ลบแล้ว','','success'); } }
 
-// 🟢 อัปเดต: รวบรวม HTML ก่อนแสดงผล (ป้องกันตารางหาย) + String Safe
 window.renderInventory = () => { 
     const tbody = document.getElementById('inventoryTableBody'); if(!tbody) return; 
     let htmlOut = '';
@@ -498,7 +534,7 @@ window.renderInventory = () => {
         
         borrowRequests.forEach(req => {
             if (['pending', 'approved_pickup', 'borrowed', 'pending_return'].includes(req.status)) {
-                let reqItemStr = String(req.item || ""); // 🛡️ ป้องกันข้อมูลเพี้ยน
+                let reqItemStr = String(req.item || ""); 
                 let regex = /([^,]+)\s*\((\d+)\s*ชิ้น\)/g; let match; let foundFormat = false;
                 while ((match = regex.exec(reqItemStr)) !== null) { 
                     foundFormat = true; if (match[1].trim() === i.name) borrowedQty += parseInt(match[2]); 
@@ -584,11 +620,10 @@ window.updateDashboardStats = () => {
     const statTotalItems = document.getElementById('stat-total-items'); if (statTotalItems) statTotalItems.innerText = items.length; 
 }
 
-// 🟢 อัปเดต: ป้องกันการ Error ในหน้าแสดงสถิติ
 window.renderStats = () => {
     let freq = {}; 
     borrowRequests.filter(r => r.status !== 'rejected').forEach(req => { 
-        let reqItemStr = String(req.item || ""); // 🛡️
+        let reqItemStr = String(req.item || ""); 
         let m; let r = /([^,]+)\s*\((\d+)\s*ชิ้น\)/g; let f=false; 
         while((m=r.exec(reqItemStr))!==null){ f=true; freq[m[1].trim()] = (freq[m[1].trim()]||0)+parseInt(m[2]); } 
         if(!f && reqItemStr) reqItemStr.split(',').forEach(it=>{ freq[it.trim()]=(freq[it.trim()]||0)+1; }); 
@@ -631,6 +666,13 @@ function initApp() {
         window.toggleForm = () => { document.getElementById('loginForm').classList.toggle('hidden'); document.getElementById('registerForm').classList.toggle('hidden'); }
         document.getElementById('loginForm').onsubmit = (e) => { e.preventDefault(); window.login(document.getElementById('username').value, document.getElementById('password').value); };
         document.getElementById('registerForm').onsubmit = (e) => { e.preventDefault(); window.register(document.getElementById('regUser').value, document.getElementById('regPass').value, document.getElementById('regName').value); };
+        
+        // 🟢 ส่วนที่เพิ่มใหม่ 4/4: สั่งให้ปุ่ม Google ทำงานเมื่อถูกคลิก
+        const btnGoogle = document.getElementById('btnGoogleLogin');
+        if(btnGoogle) {
+            btnGoogle.onclick = window.loginWithGoogle;
+        }
+
         if(currentUser) window.location.href = 'dashboard.html'; 
     }
     else if(document.getElementById('itemGrid')) {
@@ -645,7 +687,6 @@ function initApp() {
                     const r = document.getElementById('cartReason').value; 
                     const btn = document.querySelector('#cartForm button[type="submit"]');
 
-                    // --- ระบบดักจับการพิมพ์วันที่ด้วยมือ ---
                     const todayMs = new Date().setHours(0,0,0,0);
                     const borrowDateMs = new Date(d).setHours(0,0,0,0);
                     const returnDateMs = new Date(retD).setHours(0,0,0,0);
@@ -657,13 +698,11 @@ function initApp() {
                     if(borrowDateMs < todayMs) return Swal.fire('วันที่ผิด', 'ห้ามจองย้อนหลังเด็ดขาด', 'error');
                     if(borrowDateMs > maxDateMs) return Swal.fire('วันที่ผิด', 'จองล่วงหน้าได้ไม่เกิน 15 วัน', 'error');
                     if(returnDateMs < borrowDateMs) return Swal.fire('วันที่ผิด', 'วันคืนของต้องไม่ก่อนวันทำการจอง', 'error');
-                    // ------------------------------------
 
                     try {
                         btn.disabled = true; const itms = cart.map(i => `${i.name} (${i.qty} ชิ้น)`).join(', ');
                         await addDoc(collection(db, "requests"), { user: currentUser.name||currentUser.username, userId: currentUser.id, item: itms, date: d, returnDate: retD, returnTimeLimit: retT, reason: r||"-", status: "pending", timestamp: new Date() });
                         
-                        // แจ้งเตือนจองใหม่
                         fetch(LINE_API_URL, { 
                             method: 'POST', 
                             mode: 'no-cors', 

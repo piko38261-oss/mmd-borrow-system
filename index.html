@@ -46,6 +46,19 @@
                     <label>รหัสผ่าน (Password)</label>
                 </div>
                 <button type="submit" class="btn-glow">เข้าสู่ระบบ</button>
+
+                <!-- เส้นคั่นและปุ่ม Google Login ที่เพิ่มเข้ามาใหม่ -->
+                <div style="text-align: center; margin: 20px 0; color: #888; font-size: 13px; position: relative;">
+                    <hr style="border: 0; border-top: 1px solid #444; position: absolute; width: 100%; top: 5px; z-index: 1;">
+                    <span style="background: rgba(20, 20, 20, 0.85); padding: 0 10px; position: relative; z-index: 2;">หรือ</span>
+                </div>
+
+                <button type="button" id="btnGoogleLogin" class="btn-glow" style="background: #fff; color: #000; display: flex; align-items: center; justify-content: center; gap: 10px; filter: none;">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/c/c1/Google_%22G%22_logo.svg" width="20" alt="Google Logo"> 
+                    เข้าสู่ระบบด้วย Google
+                </button>
+                <!-- สิ้นสุดปุ่ม Google Login -->
+
                 <div class="footer-links">
                     <a href="#">ลืมรหัสผ่าน?</a>
                     <span style="color:#888">ยังไม่มีบัญชี? <a class="register-link" onclick="toggleForm()" style="cursor: pointer; color: var(--theme-primary);">สมัครสมาชิก</a></span>
