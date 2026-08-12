@@ -152,6 +152,8 @@ nav { background: rgba(0,0,0,0.95); padding: 15px 30px; display: flex; justify-c
     .sidebar-menu a { padding: 8px 15px; background: #222; border-radius: 20px; font-size: 13px; display: inline-flex; border-left: none; }
     .main-content { margin-left: 0; width: 100%; padding: 15px; }
     .stats-grid { grid-template-columns: 1fr; }
+    
+    /* ซ่อน scrollbar เดิมที่ซ้ำซ้อนในมือถือ */
     .table-responsive { width: 100%; overflow-x: auto; }
 }
 
@@ -195,24 +197,24 @@ nav { background: rgba(0,0,0,0.95); padding: 15px 30px; display: flex; justify-c
 .page-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .chart-layout { display: flex; flex-direction: column; gap: 20px; }
 @media screen and (min-width: 1024px) { .chart-layout { display: grid; grid-template-columns: 2fr 1fr; align-items: start; } }
+
 /* =========================================
    🛠️ แก้ปัญหาหน้าต่างรายละเอียดอุปกรณ์ล้นจอ (PC & Mobile)
    ========================================= */
 #itemDetailModal .modal-content {
     width: 95% !important;
     max-width: 500px !important;
-    max-height: 90vh !important; /* ล็อคความสูงกล่องไม่เกิน 90% ของหน้าจอ */
+    max-height: 90vh !important;
     display: flex;
     flex-direction: column;
 }
 
 #itemDetailBody {
-    overflow-y: auto; /* อนุญาตให้เนื้อหาด้านในเลื่อนขึ้น-ลงได้ */
+    overflow-y: auto;
     height: 100%;
-    -webkit-overflow-scrolling: touch; /* เลื่อนบนมือถือให้สมูทขึ้น */
+    -webkit-overflow-scrolling: touch;
 }
 
-/* แต่งแถบเลื่อน (Scrollbar) ด้านในให้เล็กและสวยงาม */
 #itemDetailBody::-webkit-scrollbar {
     width: 6px;
 }
@@ -220,42 +222,40 @@ nav { background: rgba(0,0,0,0.95); padding: 15px 30px; display: flex; justify-c
     background: var(--theme-primary);
     border-radius: 10px;
 }
-
-/* ป้องกันกรอบรูปภาพด้านบนถูกบีบให้แบน เมื่อเนื้อหาด้านล่างยาวเกินไป */
 #itemDetailBody > div > div:first-child {
     flex-shrink: 0;
 }
+
 /* =========================================
    🛠️ แก้ปัญหาตารางรายการยืม-คืนล้นจอในหน้า Admin
    ========================================= */
 #section-requests .data-table {
-    table-layout: fixed; /* บังคับตารางให้อยู่ในขนาดหน้าจอ */
+    table-layout: fixed;
     width: 100%;
 }
 
 #section-requests .data-table th, 
 #section-requests .data-table td {
-    white-space: normal !important; /* อนุญาตให้ข้อความยาวๆ ตัดขึ้นบรรทัดใหม่ได้ */
+    white-space: normal !important;
     word-wrap: break-word;
     vertical-align: middle;
-    padding: 10px; /* ปรับช่องว่างให้พอดีขึ้น */
+    padding: 10px;
 }
 
-/* กำหนดสัดส่วนความกว้างของแต่ละคอลัมน์ (รวมกัน 100%) */
-#section-requests .data-table th:nth-child(1) { width: 15%; } /* ชื่อผู้ยืม */
-#section-requests .data-table th:nth-child(2) { width: 35%; } /* อุปกรณ์ (ให้กว้างที่สุด) */
-#section-requests .data-table th:nth-child(3) { width: 15%; } /* วันที่รับ-คืน */
-#section-requests .data-table th:nth-child(4) { width: 10%; } /* สถานะ */
-#section-requests .data-table th:nth-child(5) { width: 10%; } /* หลักฐาน */
-#section-requests .data-table th:nth-child(6) { width: 15%; } /* จัดการ */
+#section-requests .data-table th:nth-child(1) { width: 15%; }
+#section-requests .data-table th:nth-child(2) { width: 35%; }
+#section-requests .data-table th:nth-child(3) { width: 15%; }
+#section-requests .data-table th:nth-child(4) { width: 10%; }
+#section-requests .data-table th:nth-child(5) { width: 10%; }
+#section-requests .data-table th:nth-child(6) { width: 15%; }
 
-/* ปรับปุ่มกดในช่องจัดการ ไม่ให้เบียดกันเกินไป */
 #section-requests .data-table td:last-child button {
     display: inline-block;
     margin-bottom: 5px;
-    font-size: 11px; /* ลดขนาดฟอนต์ปุ่มลงนิดนึงให้ดูไม่แน่น */
+    font-size: 11px;
     padding: 5px 10px;
 }
+
 /* =========================================
    🛠️ เอฟเฟกต์กระพริบเตือน "คืนล่าช้า"
    ========================================= */
@@ -276,27 +276,26 @@ nav { background: rgba(0,0,0,0.95); padding: 15px 30px; display: flex; justify-c
     margin-top: 4px;
     border: 1px solid #ff4444;
 }
+
 /* =========================================
    🛠️ ปรับหน้าจอประวัติการจองให้พอดี PC & Mobile (ไม่ล้นขอบ)
    ========================================= */
 #historyModal .modal-content {
     width: 95% !important;
     max-width: 800px !important;
-    max-height: 90vh !important; /* ล็อคความสูงไม่ให้หน้าต่างทะลุจอ */
+    max-height: 90vh !important;
     display: flex;
     flex-direction: column;
 }
 
-/* ล็อคไม่ให้ตารางเลื่อนซ้าย-ขวา ให้เลื่อนขึ้น-ลงแทน */
 #historyModal .table-responsive {
     overflow-y: auto;
     overflow-x: auto !important; 
-    flex: 1; /* ขยายพื้นที่ให้ตารางสูงเต็มที่เท่าที่เป็นไปได้ */
+    flex: 1; 
     margin-bottom: 15px;
     -webkit-overflow-scrolling: touch;
 }
 
-/* แต่งแถบเลื่อนแนวตั้งให้สวยงาม */
 #historyModal .table-responsive::-webkit-scrollbar {
     width: 6px;
 }
@@ -306,56 +305,67 @@ nav { background: rgba(0,0,0,0.95); padding: 15px 30px; display: flex; justify-c
 }
 
 #historyModal .data-table {
-    table-layout: fixed; /* บังคับให้ตารางอยู่ในขนาดที่กำหนดเป๊ะๆ */
+    table-layout: fixed;
     width: 100%;
 }
 
 #historyModal .data-table th, 
 #historyModal .data-table td {
-    white-space: normal !important; /* ยอมให้ข้อความยาวๆ ตัดขึ้นบรรทัดใหม่ */
+    white-space: normal !important;
     word-wrap: break-word;
     vertical-align: middle;
     padding: 10px 5px;
 }
 
-/* กำหนดสัดส่วนความกว้างของแต่ละคอลัมน์ (รวม 100%) */
-#historyModal .data-table th:nth-child(1) { width: 40%; } /* ชื่ออุปกรณ์ */
-#historyModal .data-table th:nth-child(2) { width: 25%; } /* วันที่รับ-คืน */
-#historyModal .data-table th:nth-child(3) { width: 15%; text-align: center; } /* สถานะ */
-#historyModal .data-table th:nth-child(4) { width: 20%; text-align: center; } /* ดำเนินการ */
+#historyModal .data-table th:nth-child(1) { width: 40%; }
+#historyModal .data-table th:nth-child(2) { width: 25%; }
+#historyModal .data-table th:nth-child(3) { width: 15%; text-align: center; }
+#historyModal .data-table th:nth-child(4) { width: 20%; text-align: center; }
 
 #historyModal .data-table td:nth-child(3),
 #historyModal .data-table td:nth-child(4) {
     text-align: center;
 }
 
-/* จัดระเบียบปุ่มดำเนินการไม่ให้เบียดกันเกินไป */
 #historyModal .data-table td button {
     display: inline-block;
     margin: 3px 2px;
     font-size: 11px;
     padding: 5px 8px;
-    white-space: nowrap; /* ล็อคคำในปุ่มไม่ให้ขาดท่อน */
+    white-space: nowrap;
 }
+
 /* =========================================
-   แก้ไขตารางล้นจอในหน้าต่าง Modal บนมือถือ
+   แก้ไขตารางล้นจอทุกส่วน (Modal & Admin) บนมือถือ (อัปเดตล่าสุด)
    ========================================= */
 @media screen and (max-width: 768px) {
-    /* ทำให้ตารางสามารถใช้นิ้วปัดซ้าย-ขวาได้ */
-    #historyModal table,
-    #cartModal table,
-    #itemDetailModal table {
-        display: block !important;
+    /* 1. ให้กล่องครอบตารางสามารถเลื่อนซ้าย-ขวาได้ */
+    .table-responsive {
         overflow-x: auto !important;
-        width: 100% !important;
-        -webkit-overflow-scrolling: touch; /* ปัดลื่นๆ บน iOS */
+        -webkit-overflow-scrolling: touch;
     }
 
-    /* ปรับขนาดตัวอักษรและช่องว่างในตารางให้เล็กลงนิดหน่อยบนมือถือ */
-    #historyModal table th, 
-    #historyModal table td {
+    /* 2. บังคับตารางทุกตัวให้มีความกว้างขั้นต่ำ ห้ามโดนบีบ */
+    .table-responsive table {
+        display: table !important;
+        min-width: 750px !important; /* ความกว้างขั้นต่ำ เพื่อให้เลื่อนซ้าย-ขวาได้ */
+        width: 100% !important;
+        table-layout: auto !important; /* ยกเลิกคำสั่งบีบตารางตายตัว */
+    }
+
+    /* 3. ล็อคข้อความไม่ให้โดนบีบขาดท่อนเป็นแนวตั้ง */
+    .table-responsive table th,
+    .table-responsive table td {
         font-size: 12px !important;
-        padding: 8px !important;
-        white-space: nowrap; /* ป้องกันข้อความโดนบีบจนตกบรรทัดเละเทะ */
+        padding: 10px !important;
+        white-space: nowrap !important; /* ห้ามตัดคำเรียงลงมา */
+        word-wrap: normal !important;
+    }
+    
+    /* 4. ยกเว้นคอลัมน์ชื่ออุปกรณ์ ให้ตัดคำขึ้นบรรทัดใหม่ได้แบบสวยงาม (จะได้ไม่ยาวเกินไป) */
+    #section-requests .data-table td:nth-child(2),
+    #historyModal .data-table td:nth-child(1) {
+        white-space: normal !important;
+        min-width: 200px !important; 
     }
 }
