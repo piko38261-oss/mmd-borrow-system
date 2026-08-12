@@ -15,7 +15,7 @@ if ('serviceWorker' in navigator) {
 }
 
 try { emailjs.init("Rj2WpB-v7fZqvEu08"); } catch (e) { console.warn("⚠️ EmailJS ไม่ถูกโหลด"); }
-const LINE_API_URL = "https://script.google.com/macros/s/AKfycbztlNjiVAt3pyUw9OWaBfAs2SJswrvLG0Z6uXXxLoASxCvrcPpNZrmTgrn8JNBC8X2vJg/exec";
+const LINE_API_URL = "https://script.google.com/macros/s/AKfycby0x6cN3Od4U6b5kJunSgln-tTr8p6XZynfjDn1o089DbXcSgr67v10n1Bu-BJPkiJ6/exec";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCJNX3-vN5bceDczdKxrqb0N8uaBpgDhTE",
