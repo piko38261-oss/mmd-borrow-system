@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DATA_ARCHIVE // Portfolio</title>
+    
+    <!-- Load Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+    
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        black: '#030303',
+                        cyberRed: '#E6192B',
+                        surface: '#0a0a0a',
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['Space Mono', 'monospace'],
+                    },
+                    gridTemplateColumns: {
+                        'bento': 'repeat(auto-fit, minmax(300px, 1fr))',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background-color: #030303;
+            color: #ffffff;
+            margin: 0;
+            background-image: 
+                linear-gradient(rgba(230, 25, 43, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(230, 25, 43, 0.03) 1px, transparent 1px);
+            background-size: 30px 30px;
+            background-position: center center;
+        }
+
+        /* Custom scrollbar */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #000; }
+        ::-webkit-scrollbar-thumb { background: #E6192B; }
+
+        /* HUD Corners Effect */
+        .hud-corners {
+            position: relative;
+        }
+        .hud-corners::before, .hud-corners::after {
+            content: '';
+            position: absolute;
+            width: 12px;
+            height: 12px;
+            border: 2px solid transparent;
+            transition: all 0.3s ease;
+            pointer-events: none;
+        }
+        .hud-corners::before {
+            top: -1px; left: -1px;
+            border-top-color: rgba(255,255,255,0.2);
+            border-left-color: rgba(255,255,255,0.2);
+        }
+        .hud-corners::after {
+            bottom: -1px; right: -1px;
+            border-bottom-color: rgba(255,255,255,0.2);
+            border-right-color: rgba(255,255,255,0.2);
+        }
+        
+        /* Card Hover Effects */
+        .data-card {
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .data-card:hover {
+            border-color: #E6192B;
+            box-shadow: 0 0 30px rgba(230, 25, 43, 0.15), inset 0 0 20px rgba(230, 25, 43, 0.05);
+            transform: translateY(-4px);
+        }
+        .data-card:hover .hud-corners::before {
+            border-top-color: #E6192B; border-left-color: #E6192B;
+            top: -4px; left: -4px;
+        }
+        .data-card:hover .hud-corners::after {
+            border-bottom-color: #E6192B; border-right-color: #E6192B;
+            bottom: -4px; right: -4px;
+        }
+
+        /* Glitch Title */
+        .glitch-text {
+            position: relative;
+        }
+        .glitch-text::before, .glitch-text::after {
+            content: attr(data-text);
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            opacity: 0.8;
+        }
+        .glitch-text::before {
+            color: #0ff;
+            z-index: -1;
+            transform: translateX(-2px);
+        }
+        .glitch-text::after {
+            color: #E6192B;
+            z-index: -2;
+            transform: translateX(2px);
+        }
+
+        /* Entrance Animation */
+        .fade-in-up {
+            opacity: 0;
+            transform: translateY(20px);
+            animation: fadeInUp 0.6s ease-out forwards;
+        }
+        @keyframes fadeInUp {
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body class="font-sans antialiased selection:bg-cyberRed selection:text-white pb-20">
+
+    <!-- Top Navigation Bar -->
+    <nav class="fixed top-0 left-0 w-full bg-black/80 backdrop-blur-md border-b border-gray-800/60 z-50">
+        <div class="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
+            <a href="index.html" class="flex items-center gap-2 text-gray-400 hover:text-white transition-colors font-mono text-sm group">
+                <svg class="w-4 h-4 transition-transform group-hover:-translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="square" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+                SYS.RETURN
+            </a>
+            <div class="font-mono text-xs hidden sm:flex items-center gap-4">
+                <span class="text-cyberRed animate-pulse">● REC</span>
+                <span class="text-gray-500">NET_STATUS: <span class="text-green-500">STABLE</span></span>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Archive Content -->
+    <main class="pt-32 px-6 max-w-7xl mx-auto">
+        
+        <!-- Header Section -->
+        <header class="mb-16 fade-in-up" style="animation-delay: 0.1s;">
+            <div class="inline-block px-3 py-1 mb-4 border border-cyberRed/30 bg-cyberRed/10 text-cyberRed font-mono text-xs tracking-widest uppercase">
+                DIR: /root/portfolio/active_projects
+            </div>
+            <h1 class="text-4xl sm:text-6xl font-black tracking-tighter mb-4 glitch-text uppercase" data-text="System_Archive">
+                System_Archive
+            </h1>
+            <p class="font-mono text-gray-400 max-w-2xl text-sm sm:text-base border-l-2 border-cyberRed pl-4">
+                > Executing query... multiple repositories found.<br>
+                > Syncing branches from: github.com/piko38261-oss<br>
+                > Rendering project matrices... Done.
+            </p>
+        </header>
+
+        <!-- Bento Grid Layout -->
+        <section class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+
+            <!-- PROJECT 1: MMD Systems (Large Box - Spans 2 columns) -->
+            <article class="data-card hud-corners bg-surface border border-gray-800 p-8 lg:col-span-2 flex flex-col justify-between group fade-in-up" style="animation-delay: 0.2s;">
+                <div>
+                    <div class="flex justify-between items-start mb-6">
+                        <span class="font-mono text-xs text-gray-500 tracking-wider uppercase">Node_01 // MMD_CORE</span>
+                        <div class="flex gap-2">
+                            <span class="px-2 py-1 bg-white/5 text-white font-mono text-[10px]">WEB_APP</span>
+                            <span class="px-2 py-1 bg-cyberRed/10 text-cyberRed border border-cyberRed/30 font-mono text-[10px]">FIREBASE</span>
+                        </div>
+                    </div>
+                    <h2 class="text-3xl font-black tracking-tight mb-3 group-hover:text-cyberRed transition-colors">MMD Borrow System & Core</h2>
+                    <h3 class="text-lg font-bold text-gray-300 mb-4">ระบบยืม-คืนอุปกรณ์ และระบบจัดการส่วนกลางสาขา MMD</h3>
+                    <p class="text-gray-400 font-mono text-sm leading-relaxed max-w-2xl mb-8">
+                        ศูนย์รวม Web Application สำหรับจัดการทรัพยากรภายในองค์กร/สถานศึกษา รองรับระบบ Authentication, การจัดการสิทธิ์ผู้ใช้งาน (Role-based), และ Real-time Database สำหรับเช็คสถานะอุปกรณ์แบบเรียลไทม์ 
+                        (Repository: <code>mmd-borrow-system</code>, <code>mmd-system</code>)
+                    </p>
+                </div>
+                
+                <div class="mt-auto border-t border-gray-800 pt-6 flex flex-wrap gap-4 items-center">
+                    <a href="https://piko38261-oss.github.io/mmd-borrow-system/" target="_blank" class="bg-white text-black font-bold py-2 px-6 text-sm hover:bg-cyberRed hover:text-white transition-colors flex items-center gap-2">
+                        ACCESS_REPO
+                    </a>
+                </div>
+            </article>
+
+            <!-- PROJECT 2: HIVE Network (Standard Box) -->
+            <article class="data-card hud-corners bg-surface border border-gray-800 p-8 flex flex-col justify-between group fade-in-up" style="animation-delay: 0.3s;">
+                <div>
+                    <div class="flex justify-between items-start mb-6">
+                        <span class="font-mono text-xs text-gray-500 tracking-wider uppercase">Node_02</span>
+                        <span class="px-2 py-1 border border-yellow-500/30 text-yellow-400 bg-yellow-500/10 font-mono text-[10px]">PLATFORM</span>
+                    </div>
+                    <h2 class="text-2xl font-black tracking-tight mb-2 group-hover:text-cyberRed transition-colors">Project HIVE</h2>
+                    <h3 class="text-sm font-bold text-gray-300 mb-4">เครือข่ายและเว็บไซต์ HIVE</h3>
+                    <p class="text-gray-400 font-mono text-sm leading-relaxed mb-6">
+                        การพัฒนาแพลตฟอร์มและเว็บไซต์หลักสำหรับโปรเจกต์ HIVE ครอบคลุมทั้งส่วนของการนำเสนอข้อมูล (Front-facing website) และระบบจัดการข้อมูลภายใน 
+                        (Repository: <code>HIVE</code>, <code>hive-website</code>)
+                    </p>
+                </div>
+                <div class="mt-auto border-t border-gray-800 pt-6">
+                    <a href="https://piko38261-oss.github.io/hive-website/" target="_blank" class="w-full border border-gray-700 hover:border-cyberRed text-white py-2 px-4 text-sm font-mono flex justify-between items-center group/btn transition-colors">
+                        <span>VIEW_HIVE_MATRIX</span>
+                        <span class="text-cyberRed group-hover/btn:translate-x-1 transition-transform">-></span>
+                    </a>
+                </div>
+            </article>
+
+            <!-- PROJECT 3: MMD MAP (Standard Box) -->
+            <article class="data-card hud-corners bg-surface border border-gray-800 p-8 flex flex-col justify-between group fade-in-up" style="animation-delay: 0.4s;">
+                <div>
+                    <div class="flex justify-between items-start mb-6">
+                        <span class="font-mono text-xs text-gray-500 tracking-wider uppercase">Node_03</span>
+                        <span class="px-2 py-1 border border-green-500/30 text-green-400 bg-green-500/10 font-mono text-[10px]">INTERACTIVE</span>
+                    </div>
+                    <h2 class="text-xl font-black tracking-tight mb-2 group-hover:text-cyberRed transition-colors">MMD-MAP-Project</h2>
+                    <p class="text-gray-400 font-mono text-sm leading-relaxed mb-6">
+                        โปรเจกต์แผนที่อินเทอร์แอกทีฟสำหรับสาขาเทคโนโลยีสารสนเทศและมัลติมีเดีย เน้นการประยุกต์ใช้สื่อ Multimedia เข้ากับการนำเสนอข้อมูลเชิงพื้นที่ (Spatial Data) เพื่อประสบการณ์ผู้ใช้ที่ดียิ่งขึ้น
+                    </p>
+                </div>
+                <div class="flex gap-2 flex-wrap mt-auto">
+                    <span class="text-[10px] font-mono bg-gray-900 px-2 py-1 border border-gray-800">UI/UX</span>
+                    <span class="text-[10px] font-mono bg-gray-900 px-2 py-1 border border-gray-800">MAPPING_SYS</span>
+                </div>
+            </article>
+
+            <!-- PROJECT 4: CHIJU / APOKO (Standard Box) -->
+            <article class="data-card hud-corners bg-surface border border-gray-800 p-8 flex flex-col justify-between group fade-in-up" style="animation-delay: 0.5s;">
+                <div>
+                    <div class="flex justify-between items-start mb-6">
+                        <span class="font-mono text-xs text-gray-500 tracking-wider uppercase">Node_04</span>
+                        <span class="px-2 py-1 border border-blue-500/30 text-blue-400 bg-blue-500/10 font-mono text-[10px]">BOOKING</span>
+                    </div>
+                    <h2 class="text-xl font-black tracking-tight mb-2 group-hover:text-cyberRed transition-colors">CHIJU / APOKO</h2>
+                    <p class="text-gray-400 font-mono text-sm leading-relaxed mb-6">
+                        แพลตฟอร์มจัดการการจองคิว (Booking) ใน จ.สุรินทร์ มี Dashboard สำหรับตรวจสอบตารางงาน และระบบให้ผู้ใช้งานเลือกช่วงเวลาที่ต้องการได้อย่างราบรื่น
+                    </p>
+                </div>
+                <div class="mt-auto flex items-center gap-3 border-t border-gray-800 pt-4">
+                    <div class="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+                    <span class="font-mono text-xs text-gray-500">LIVE_DEPLOYMENT</span>
+                </div>
+            </article>
+
+            <!-- PROJECT 5: Audio & Code Misc (Standard Box) -->
+            <article class="data-card hud-corners bg-surface border border-gray-800 p-8 flex flex-col justify-between group fade-in-up" style="animation-delay: 0.6s;">
+                <div>
+                    <div class="flex justify-between items-start mb-6">
+                        <span class="font-mono text-xs text-gray-500 tracking-wider uppercase">Node_05</span>
+                        <div class="flex gap-2">
+                            <span class="px-2 py-1 bg-white/5 text-white font-mono text-[10px]">MULTIMEDIA</span>
+                            <span class="px-2 py-1 bg-white/5 text-white font-mono text-[10px]">MISC_CODE</span>
+                        </div>
+                    </div>
+                    <h2 class="text-xl font-black tracking-tight mb-2 group-hover:text-cyberRed transition-colors">Audio & Base Scripts</h2>
+                    <p class="text-gray-400 font-mono text-sm leading-relaxed mb-6">
+                        รวมโปรเจกต์เกี่ยวกับการจัดการสื่อเสียง (Repository: <code>song</code>) เพื่อประยุกต์ใช้ร่วมกับ Web Application และพื้นที่จัดเก็บ Script โค้ดพื้นฐานทั่วไป (Repository: <code>code</code>) สำหรับการทดลองทางเทคนิค
+                    </p>
+                </div>
+                <div class="flex gap-2 flex-wrap mt-auto">
+                    <span class="text-[10px] font-mono text-gray-500">> audio_processing.sh</span>
+                    <span class="text-[10px] font-mono text-gray-500">> system_utils.js</span>
+                </div>
+            </article>
+
+        </section>
+
+        <!-- Footer / Console line -->
+        <footer class="mt-16 border-t border-gray-800/60 pt-6 fade-in-up" style="animation-delay: 0.7s;">
+            <div class="flex items-center gap-2 font-mono text-sm text-gray-500">
+                <span class="text-cyberRed">></span> 
+                <span class="cursor-blink">Repository sync complete. Awaiting next command...</span>
+            </div>
+        </footer>
+    </main>
+
+    <style>
+        /* Blinking cursor for footer */
+        @keyframes blink { 
+            0%, 100% { opacity: 1; } 
+            50% { opacity: 0; } 
+        }
+        .cursor-blink::after { 
+            content: '_'; 
+            animation: blink 1s step-end infinite; 
+            color: #E6192B; 
+        }
+    </style>
+</body>
+</html>
