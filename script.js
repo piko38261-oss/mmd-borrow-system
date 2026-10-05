@@ -1,6 +1,68 @@
 /* =========================================
-   script.js - MMD BORROW SYSTEM (MEGA VERSION + DYNAMIC CATEGORIES + YELLOW TAG + ADMIN FILTERS + IMGBB API + COLOR SETS & GROUP MEMBERS)
+   script.js - MMD BORROW SYSTEM (MEGA VERSION + IMGBB API + COLOR SETS & GROUP MEMBERS + HORIZONTAL SCROLL + DRAG TO SCROLL)
    ========================================= */
+
+// 🟢 เพิ่มคำสั่งจัดหน้าจอ และ ป้องกันการคลุมดำข้อความ
+if (!document.getElementById('dynamic-ui-css')) {
+    const style = document.createElement('style');
+    style.id = 'dynamic-ui-css';
+    style.innerHTML = `
+        .category-scroll { 
+            display: flex !important; 
+            flex-wrap: nowrap !important; 
+            overflow-x: auto !important; 
+            gap: 10px !important; 
+            padding-bottom: 10px !important; 
+            justify-content: flex-start !important;
+            scrollbar-width: none !important; 
+            -ms-overflow-style: none !important; 
+            scroll-behavior: smooth !important; 
+            -webkit-overflow-scrolling: touch !important;
+            cursor: grab !important; /* เปลี่ยนเคอร์เซอร์เป็นรูปมือ */
+        }
+        .category-scroll:active {
+            cursor: grabbing !important; /* เปลี่ยนเป็นรูปมือกำตอนคลิกลาก */
+        }
+        .category-scroll::-webkit-scrollbar { display: none; }
+        .category-scroll button { 
+            white-space: nowrap !important; 
+            flex-shrink: 0 !important; 
+            user-select: none !important; /* ป้องกันการคลุมดำข้อความ */
+            -webkit-user-select: none !important;
+            pointer-events: auto;
+        }
+    `;
+    document.head.appendChild(style);
+}
+
+// 🟢 ฟังก์ชันทำให้ใช้เมาส์คลิกลากเลื่อนซ้าย-ขวาได้ (Drag to Scroll)
+function enableDragToScroll(slider) {
+    if (!slider || slider.dataset.dragEnabled === "true") return;
+    slider.dataset.dragEnabled = "true";
+
+    let isDown = false;
+    let startX;
+    let scrollLeft;
+
+    slider.addEventListener('mousedown', (e) => {
+        isDown = true;
+        startX = e.pageX - slider.offsetLeft;
+        scrollLeft = slider.scrollLeft;
+    });
+    slider.addEventListener('mouseleave', () => {
+        isDown = false;
+    });
+    slider.addEventListener('mouseup', () => {
+        isDown = false;
+    });
+    slider.addEventListener('mousemove', (e) => {
+        if (!isDown) return;
+        e.preventDefault(); // ป้องกันการคลุมดำและพฤติกรรมแปลกๆ
+        const x = e.pageX - slider.offsetLeft;
+        const walk = (x - startX) * 2; // ปรับความเร็วการลากตรงนี้ (คูณ 2 คือเร็วขึ้นนิดนึง)
+        slider.scrollLeft = scrollLeft - walk;
+    });
+}
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
 import { getFirestore, collection, addDoc, getDocs, updateDoc, deleteDoc, doc, onSnapshot, query, where } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
@@ -196,13 +258,16 @@ window.listenToData = function() {
 window.renderCategories = () => {
     const filterContainer = document.querySelector('.filters');
     if (!filterContainer) return;
+    
+    filterContainer.classList.add('category-scroll');
+    enableDragToScroll(filterContainer); // 🟢 เปิดระบบคลิกลาก
+
     const normalizedCats = new Set(items.map(i => getDisplayCategory(i.category)));
     const uniqueCats = [...normalizedCats].filter(c => c && c !== 'ป้ายเหลือง'); 
     
     let html = `<button class="${currentCategory === 'all' ? 'active' : ''}" onclick="filterItems('all')">ทั้งหมด</button>`;
     
     uniqueCats.forEach(cat => { 
-        // 🟢 เปลี่ยนสีแท็บหมวดหมู่พิเศษ (แดง, เขียว, เหลือง)
         let inlineStyle = '';
         if (cat === 'เซ็ตแดง') inlineStyle = `background: ${currentCategory === cat ? '#dc3545' : 'transparent'}; color: ${currentCategory === cat ? '#fff' : '#dc3545'}; border-color: #dc3545;`;
         else if (cat === 'เซ็ตเขียว') inlineStyle = `background: ${currentCategory === cat ? '#28a745' : 'transparent'}; color: ${currentCategory === cat ? '#fff' : '#28a745'}; border-color: #28a745;`;
@@ -279,7 +344,6 @@ window.renderItems = (cat = currentCategory) => {
         
         let yellowWarning = isYellow ? `<div style="font-size:11px; color:#ff9800; text-align:center; margin-top:5px; background:rgba(255,152,0,0.1); padding:3px; border-radius:4px;"><i class="fas fa-exclamation-triangle"></i> ใช้ในมอเท่านั้น</div>` : '';
         
-        // 🟢 เปลี่ยนสีพื้นหลังป้ายหมวดหมู่พิเศษบนการ์ดรูปภาพ
         let tagStyle = isYellow ? 'background:#ff9800; color:#000;' : '';
         if (itemDisplayCat === 'เซ็ตแดง') tagStyle = 'background:#dc3545; color:#fff;';
         else if (itemDisplayCat === 'เซ็ตเขียว') tagStyle = 'background:#28a745; color:#fff;';
@@ -422,7 +486,6 @@ window.openCartModal = () => {
         };
     }
     
-    // 🟢 ตรวจสอบว่าในตะกร้ามี "เซ็ตอุปกรณ์" หรือไม่ เพื่อแสดงช่องกรอกชื่อเพื่อน
     let hasGroupSet = false;
     cart.forEach(c => {
         let itemObj = items.find(i => i.id === c.id);
@@ -592,7 +655,8 @@ window.renderInventory = () => {
     if (!filterDiv) {
         filterDiv = document.createElement('div');
         filterDiv.id = 'adminInventoryFilters';
-        filterDiv.style.cssText = 'display: flex; gap: 8px; margin-bottom: 15px; flex-wrap: wrap; padding-bottom: 10px;';
+        filterDiv.className = 'category-scroll';
+        filterDiv.style.marginBottom = '15px';
         const table = tbody.parentElement;
         table.parentElement.insertBefore(filterDiv, table);
     }
@@ -603,7 +667,6 @@ window.renderInventory = () => {
     let filterHtml = `<button onclick="filterAdminInventory('all')" style="padding: 6px 14px; font-size: 13px; border-radius: 20px; border: none; cursor: pointer; transition: 0.3s; background: ${adminCurrentCategory === 'all' ? 'var(--theme-primary)' : '#333'}; color: ${adminCurrentCategory === 'all' ? '#000' : '#fff'};">ทั้งหมด</button>`;
 
     uniqueCats.forEach(cat => { 
-        // 🟢 เปลี่ยนสีแท็บหมวดหมู่พิเศษ (แดง, เขียว, เหลือง) ในหน้าแอดมิน
         let btnStyle = `padding: 6px 14px; font-size: 13px; border-radius: 20px; border: none; cursor: pointer; transition: 0.3s; background: ${adminCurrentCategory === cat ? 'var(--theme-primary)' : '#333'}; color: ${adminCurrentCategory === cat ? '#000' : '#fff'};`;
         if (cat === 'เซ็ตแดง') btnStyle = `padding: 6px 14px; font-size: 13px; border-radius: 20px; border: 1px solid #dc3545; cursor: pointer; transition: 0.3s; background: ${adminCurrentCategory === cat ? '#dc3545' : '#333'}; color: ${adminCurrentCategory === cat ? '#fff' : '#dc3545'};`;
         else if (cat === 'เซ็ตเขียว') btnStyle = `padding: 6px 14px; font-size: 13px; border-radius: 20px; border: 1px solid #28a745; cursor: pointer; transition: 0.3s; background: ${adminCurrentCategory === cat ? '#28a745' : '#333'}; color: ${adminCurrentCategory === cat ? '#fff' : '#28a745'};`;
@@ -615,6 +678,7 @@ window.renderInventory = () => {
     filterHtml += `<button onclick="filterAdminInventory('ป้ายเหลือง')" style="padding: 6px 14px; font-size: 13px; border-radius: 20px; border: 1px solid #ff9800; cursor: pointer; transition: 0.3s; background: ${adminCurrentCategory === 'ป้ายเหลือง' ? '#ff9800' : '#333'}; color: ${adminCurrentCategory === 'ป้ายเหลือง' ? '#000' : '#ff9800'};"><i class="fas fa-exclamation-triangle"></i> ป้ายเหลือง</button>`;
     
     filterDiv.innerHTML = filterHtml;
+    enableDragToScroll(filterDiv); // 🟢 เปิดระบบคลิกลากให้หน้า Admin ด้วย
 
     let htmlOut = '';
     
@@ -673,7 +737,6 @@ window.toggleCondition = async (id, n) => {
 window.deleteItem = async (id) => { if((await Swal.fire({title:'ลบ?',icon:'warning',showCancelButton:true})).isConfirmed) { await deleteDoc(doc(db, "items", id)); } }
 
 window.addNewItem = async () => {
-    // 🟢 เพิ่มตัวเลือก เซ็ตแดง เขียว เหลือง เข้าไปในลิสต์ให้เลือกง่ายๆ
     const presetSets = ['เซ็ตแดง', 'เซ็ตเขียว', 'เซ็ตเหลือง'];
     const uniqueCats = [...new Set([...items.map(i => getDisplayCategory(i.category)), ...presetSets])].filter(c => c && c !== 'ป้ายเหลือง');
     const datalistOptions = uniqueCats.map(c => `<option value="${c}">`).join('');
@@ -856,7 +919,6 @@ function initApp() {
         if(window.checkAuth()) { 
             window.listenToData(); window.updateCartCount();
             
-            // 🟢 สร้างช่องกรอกรายชื่อเพื่อนร่วมกลุ่มในหน้าต่างรถเข็น
             const borrowerInput = document.getElementById('cartBorrowerName');
             if (borrowerInput && !document.getElementById('cartGroupMembersContainer')) {
                 const container = document.createElement('div');
@@ -892,7 +954,6 @@ function initApp() {
                     if(borrowDateMs > maxDateMs) return Swal.fire('วันที่ผิด', 'จองล่วงหน้าได้ไม่เกิน 15 วัน', 'error');
                     if(returnDateMs < borrowDateMs) return Swal.fire('วันที่ผิด', 'วันคืนของต้องไม่ก่อนวันทำการจอง', 'error');
 
-                    // 🟢 ดึงข้อมูลรายชื่อเพื่อนร่วมกลุ่มมาต่อท้ายเหตุผลการยืม
                     const groupMemInput = document.getElementById('cartGroupMembers');
                     const groupMem = (groupMemInput && groupMemInput.parentElement.style.display !== 'none') ? groupMemInput.value.trim() : "";
                     let finalReason = r || "-";
@@ -910,7 +971,6 @@ function initApp() {
                             status: "pending", timestamp: new Date() 
                         });
                         
-                        // อัปเดตข้อความเเจ้งเตือนในไลน์ให้มีชื่อกลุ่มด้วย
                         let lineItemStr = itms;
                         if (groupMem) lineItemStr += `\n👥 สมาชิกกลุ่ม: ${groupMem}`;
 
