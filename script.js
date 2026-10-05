@@ -1,8 +1,8 @@
 /* =========================================
-   script.js - MMD BORROW SYSTEM (MEGA VERSION + IMGBB API + COLOR SETS & GROUP MEMBERS + HORIZONTAL SCROLL + DRAG TO SCROLL FIXED)
+   script.js - MMD BORROW SYSTEM (MEGA VERSION + IMGBB API + COLOR SETS & GROUP MEMBERS + HORIZONTAL SCROLL + DRAG TO SCROLL FIXED + ALPHABETICAL SORTING)
    ========================================= */
 
-// 🟢 เพิ่มคำสั่งจัดหน้าจอ และ ล็อกความกว้างไม่ให้ทะลุจอในหน้า Admin
+// 🟢 คำสั่งจัดหน้าจอ และ ล็อกความกว้างไม่ให้ทะลุจอ
 if (!document.getElementById('dynamic-ui-css')) {
     const style = document.createElement('style');
     style.id = 'dynamic-ui-css';
@@ -19,7 +19,7 @@ if (!document.getElementById('dynamic-ui-css')) {
             scroll-behavior: smooth !important; 
             -webkit-overflow-scrolling: touch !important;
             cursor: grab !important; 
-            max-width: 100% !important; /* ล็อกไม่ให้ล้นออกนอกจอ */
+            max-width: 100% !important; 
             box-sizing: border-box !important;
         }
         .category-scroll:active {
@@ -265,8 +265,19 @@ window.renderCategories = () => {
     enableDragToScroll(filterContainer); 
 
     const normalizedCats = new Set(items.map(i => getDisplayCategory(i.category)));
-    const uniqueCats = [...normalizedCats].filter(c => c && c !== 'ป้ายเหลือง'); 
+    let uniqueCats = [...normalizedCats].filter(c => c && c !== 'ป้ายเหลือง'); 
     
+    // 🟢 ระบบจัดเรียงหมวดหมู่ (แยกหมวดหมู่ปกติ กับ หมวดหมู่เซ็ต)
+    let normalCats = uniqueCats.filter(c => !c.startsWith('เซ็ต'));
+    let specialCats = uniqueCats.filter(c => c.startsWith('เซ็ต'));
+
+    // 🟢 เรียงตามตัวอักษรภาษาไทย
+    normalCats.sort((a, b) => a.localeCompare(b, 'th'));
+    specialCats.sort((a, b) => a.localeCompare(b, 'th'));
+
+    // 🟢 รวมร่างกัน โดยให้ หมวดหมู่ปกติ อยู่ก่อน หมวดหมู่เซ็ตสี
+    uniqueCats = [...normalCats, ...specialCats];
+
     let html = `<button class="${currentCategory === 'all' ? 'active' : ''}" onclick="filterItems('all')">ทั้งหมด</button>`;
     
     uniqueCats.forEach(cat => { 
@@ -274,6 +285,7 @@ window.renderCategories = () => {
         if (cat === 'เซ็ตแดง') inlineStyle = `background: ${currentCategory === cat ? '#dc3545' : 'transparent'}; color: ${currentCategory === cat ? '#fff' : '#dc3545'}; border-color: #dc3545;`;
         else if (cat === 'เซ็ตเขียว') inlineStyle = `background: ${currentCategory === cat ? '#28a745' : 'transparent'}; color: ${currentCategory === cat ? '#fff' : '#28a745'}; border-color: #28a745;`;
         else if (cat === 'เซ็ตเหลือง') inlineStyle = `background: ${currentCategory === cat ? '#ffc107' : 'transparent'}; color: ${currentCategory === cat ? '#000' : '#ffc107'}; border-color: #ffc107;`;
+        else if (cat.startsWith('เซ็ต')) inlineStyle = `background: ${currentCategory === cat ? '#8a2be2' : 'transparent'}; color: ${currentCategory === cat ? '#fff' : '#8a2be2'}; border-color: #8a2be2;`; // เผื่ออนาคตมีเซ็ตสีอื่นๆ
         
         html += `<button class="${currentCategory === cat ? 'active' : ''}" onclick="filterItems('${cat}')" style="${inlineStyle}">${cat}</button>`; 
     });
@@ -664,7 +676,14 @@ window.renderInventory = () => {
     }
 
     const normalizedCats = new Set(items.map(i => getDisplayCategory(i.category)));
-    const uniqueCats = [...normalizedCats].filter(c => c && c !== 'ป้ายเหลือง'); 
+    let uniqueCats = [...normalizedCats].filter(c => c && c !== 'ป้ายเหลือง'); 
+
+    // 🟢 ระบบจัดเรียงหมวดหมู่ (สำหรับหน้า Admin)
+    let normalCats = uniqueCats.filter(c => !c.startsWith('เซ็ต'));
+    let specialCats = uniqueCats.filter(c => c.startsWith('เซ็ต'));
+    normalCats.sort((a, b) => a.localeCompare(b, 'th'));
+    specialCats.sort((a, b) => a.localeCompare(b, 'th'));
+    uniqueCats = [...normalCats, ...specialCats];
 
     let filterHtml = `<button onclick="filterAdminInventory('all')" style="padding: 6px 14px; font-size: 13px; border-radius: 20px; border: none; cursor: pointer; transition: 0.3s; background: ${adminCurrentCategory === 'all' ? 'var(--theme-primary)' : '#333'}; color: ${adminCurrentCategory === 'all' ? '#000' : '#fff'};">ทั้งหมด</button>`;
 
@@ -673,6 +692,7 @@ window.renderInventory = () => {
         if (cat === 'เซ็ตแดง') btnStyle = `padding: 6px 14px; font-size: 13px; border-radius: 20px; border: 1px solid #dc3545; cursor: pointer; transition: 0.3s; background: ${adminCurrentCategory === cat ? '#dc3545' : '#333'}; color: ${adminCurrentCategory === cat ? '#fff' : '#dc3545'};`;
         else if (cat === 'เซ็ตเขียว') btnStyle = `padding: 6px 14px; font-size: 13px; border-radius: 20px; border: 1px solid #28a745; cursor: pointer; transition: 0.3s; background: ${adminCurrentCategory === cat ? '#28a745' : '#333'}; color: ${adminCurrentCategory === cat ? '#fff' : '#28a745'};`;
         else if (cat === 'เซ็ตเหลือง') btnStyle = `padding: 6px 14px; font-size: 13px; border-radius: 20px; border: 1px solid #ffc107; cursor: pointer; transition: 0.3s; background: ${adminCurrentCategory === cat ? '#ffc107' : '#333'}; color: ${adminCurrentCategory === cat ? '#000' : '#ffc107'};`;
+        else if (cat.startsWith('เซ็ต')) btnStyle = `padding: 6px 14px; font-size: 13px; border-radius: 20px; border: 1px solid #8a2be2; cursor: pointer; transition: 0.3s; background: ${adminCurrentCategory === cat ? '#8a2be2' : '#333'}; color: ${adminCurrentCategory === cat ? '#fff' : '#8a2be2'};`;
 
         filterHtml += `<button onclick="filterAdminInventory('${cat}')" style="${btnStyle}">${cat}</button>`; 
     });
