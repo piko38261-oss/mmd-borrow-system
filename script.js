@@ -1,8 +1,8 @@
 /* =========================================
-   script.js - MMD BORROW SYSTEM (MEGA VERSION + IMGBB API + COLOR SETS & GROUP MEMBERS + HORIZONTAL SCROLL + DRAG TO SCROLL)
+   script.js - MMD BORROW SYSTEM (MEGA VERSION + IMGBB API + COLOR SETS & GROUP MEMBERS + HORIZONTAL SCROLL + DRAG TO SCROLL FIXED)
    ========================================= */
 
-// 🟢 เพิ่มคำสั่งจัดหน้าจอ และ ป้องกันการคลุมดำข้อความ
+// 🟢 เพิ่มคำสั่งจัดหน้าจอ และ ล็อกความกว้างไม่ให้ทะลุจอในหน้า Admin
 if (!document.getElementById('dynamic-ui-css')) {
     const style = document.createElement('style');
     style.id = 'dynamic-ui-css';
@@ -18,16 +18,18 @@ if (!document.getElementById('dynamic-ui-css')) {
             -ms-overflow-style: none !important; 
             scroll-behavior: smooth !important; 
             -webkit-overflow-scrolling: touch !important;
-            cursor: grab !important; /* เปลี่ยนเคอร์เซอร์เป็นรูปมือ */
+            cursor: grab !important; 
+            max-width: 100% !important; /* ล็อกไม่ให้ล้นออกนอกจอ */
+            box-sizing: border-box !important;
         }
         .category-scroll:active {
-            cursor: grabbing !important; /* เปลี่ยนเป็นรูปมือกำตอนคลิกลาก */
+            cursor: grabbing !important; 
         }
         .category-scroll::-webkit-scrollbar { display: none; }
         .category-scroll button { 
             white-space: nowrap !important; 
             flex-shrink: 0 !important; 
-            user-select: none !important; /* ป้องกันการคลุมดำข้อความ */
+            user-select: none !important; 
             -webkit-user-select: none !important;
             pointer-events: auto;
         }
@@ -57,9 +59,9 @@ function enableDragToScroll(slider) {
     });
     slider.addEventListener('mousemove', (e) => {
         if (!isDown) return;
-        e.preventDefault(); // ป้องกันการคลุมดำและพฤติกรรมแปลกๆ
+        e.preventDefault(); 
         const x = e.pageX - slider.offsetLeft;
-        const walk = (x - startX) * 2; // ปรับความเร็วการลากตรงนี้ (คูณ 2 คือเร็วขึ้นนิดนึง)
+        const walk = (x - startX) * 2; 
         slider.scrollLeft = scrollLeft - walk;
     });
 }
@@ -260,7 +262,7 @@ window.renderCategories = () => {
     if (!filterContainer) return;
     
     filterContainer.classList.add('category-scroll');
-    enableDragToScroll(filterContainer); // 🟢 เปิดระบบคลิกลาก
+    enableDragToScroll(filterContainer); 
 
     const normalizedCats = new Set(items.map(i => getDisplayCategory(i.category)));
     const uniqueCats = [...normalizedCats].filter(c => c && c !== 'ป้ายเหลือง'); 
@@ -678,7 +680,7 @@ window.renderInventory = () => {
     filterHtml += `<button onclick="filterAdminInventory('ป้ายเหลือง')" style="padding: 6px 14px; font-size: 13px; border-radius: 20px; border: 1px solid #ff9800; cursor: pointer; transition: 0.3s; background: ${adminCurrentCategory === 'ป้ายเหลือง' ? '#ff9800' : '#333'}; color: ${adminCurrentCategory === 'ป้ายเหลือง' ? '#000' : '#ff9800'};"><i class="fas fa-exclamation-triangle"></i> ป้ายเหลือง</button>`;
     
     filterDiv.innerHTML = filterHtml;
-    enableDragToScroll(filterDiv); // 🟢 เปิดระบบคลิกลากให้หน้า Admin ด้วย
+    enableDragToScroll(filterDiv); 
 
     let htmlOut = '';
     
