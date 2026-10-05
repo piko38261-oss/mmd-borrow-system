@@ -1,5 +1,5 @@
 /* =========================================
-   script.js - MMD BORROW SYSTEM (MEGA VERSION + DYNAMIC CATEGORIES + AUTO CLEAN + STOCK SYSTEM + YELLOW TAG CHECKBOX + GOOGLE LOGIN)
+   script.js - MMD BORROW SYSTEM (MEGA VERSION + DYNAMIC CATEGORIES + AUTO CLEAN + STOCK SYSTEM + YELLOW TAG CHECKBOX + GOOGLE LOGIN + ADMIN FILTERS)
    ========================================= */
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
@@ -39,6 +39,7 @@ let currentPickupId = null, currentReturnId = null;
 let currentPage = 1; const itemsPerPage = 8; let searchQuery = "";
 let borrowChartInstance = null, conditionChartInstance = null;
 let currentCategory = 'all';
+let adminCurrentCategory = 'all'; // 🟢 เพิ่มตัวแปรสำหรับจำค่าหมวดหมู่หน้า Admin
 
 function getDisplayCategory(cat) {
     if(!cat) return "ไม่ระบุ";
@@ -176,7 +177,6 @@ window.renderCategories = () => {
     const normalizedCats = new Set(items.map(i => getDisplayCategory(i.category)));
     const uniqueCats = [...normalizedCats].filter(c => c && c !== 'ป้ายเหลือง'); 
     
-    // เปลี่ยนชื่อแท็บแรกกลับเป็น "ทั้งหมด" เพื่อความคุ้นเคย
     let html = `<button class="${currentCategory === 'all' ? 'active' : ''}" onclick="filterItems('all')">ทั้งหมด</button>`;
     
     uniqueCats.forEach(cat => { 
@@ -194,7 +194,6 @@ window.filterItems = (cat) => {
     window.renderItems(cat); 
 }
 
-// 🟢 อัปเดตลอจิก: โชว์ของป้ายเหลืองในหน้าปกติด้วย
 window.renderItems = (cat = currentCategory) => { 
     currentCategory = cat; 
     const grid = document.getElementById('itemGrid'); if(!grid) return; 
@@ -210,9 +209,8 @@ window.renderItems = (cat = currentCategory) => {
         const itemDisplayCat = getDisplayCategory(item.category);
         const isYellow = item.isYellowTag === true;
         
-        // ลอจิกการกรองแสดงผล:
-        if (currentCategory === 'ป้ายเหลือง' && !isYellow) return; // ถ้ากดแท็บป้ายเหลือง โชว์เฉพาะป้ายเหลือง
-        if (currentCategory !== 'all' && currentCategory !== 'ป้ายเหลือง' && itemDisplayCat !== currentCategory) return; // ถ้ากดแท็บหมวดหมู่อื่นๆ (รวมถึงแท็บ "ทั้งหมด") ให้โชว์ของทุกชิ้นในหมวดหมู่ที่ตรงกัน
+        if (currentCategory === 'ป้ายเหลือง' && !isYellow) return; 
+        if (currentCategory !== 'all' && currentCategory !== 'ป้ายเหลือง' && itemDisplayCat !== currentCategory) return; 
         
         let totalStock = item.stock !== undefined && item.stock !== "" ? parseInt(item.stock) : 1; 
         let borrowedQty = 0;
@@ -251,7 +249,6 @@ window.renderItems = (cat = currentCategory) => {
             if (finalAvailable <= 0) { btnClass = 'btn-disabled'; btnAction = ''; btnText = 'สิทธิ์เต็ม'; }
         }
         
-        // 🟢 ยังคงมีป้ายแจ้งเตือนสีส้มเด่นๆ ให้เห็นอยู่ แม้จะอยู่ในหมวดหมู่ปกติ
         let yellowWarning = isYellow ? `<div style="font-size:11px; color:#ff9800; text-align:center; margin-top:5px; background:rgba(255,152,0,0.1); padding:3px; border-radius:4px;"><i class="fas fa-exclamation-triangle"></i> ใช้ในมอเท่านั้น</div>` : '';
         let tagStyle = isYellow ? 'background:#ff9800; color:#000;' : '';
 
@@ -530,12 +527,54 @@ window.updateStatus = async (id, s) => {
 
 window.deleteRequest = async (id) => { if((await Swal.fire({title:'ลบ?',icon:'warning',showCancelButton:true})).isConfirmed) { await deleteDoc(doc(db, "requests", id)); Swal.fire('ลบแล้ว','','success'); } }
 
+// 🟢 เพิ่มฟังก์ชันสำหรับการคลิกเปลี่ยนหมวดหมู่ในหน้า Admin โดยเฉพาะ
+window.filterAdminInventory = (cat) => {
+    adminCurrentCategory = cat;
+    window.renderInventory();
+}
+
+// 🟢 อัปเดต: ให้สร้างปุ่มหมวดหมู่เหนือตาราง Admin และกรองข้อมูลตามหมวดหมู่
 window.renderInventory = () => { 
     const tbody = document.getElementById('inventoryTableBody'); if(!tbody) return; 
+
+    // --- ส่วนที่ 1: สร้างแถบเมนูหมวดหมู่อัตโนมัติ (แทรกเหนือตาราง) ---
+    let filterDiv = document.getElementById('adminInventoryFilters');
+    if (!filterDiv) {
+        filterDiv = document.createElement('div');
+        filterDiv.id = 'adminInventoryFilters';
+        // ตกแต่งให้เรียงตัวสวยงาม
+        filterDiv.style.cssText = 'display: flex; gap: 8px; margin-bottom: 15px; flex-wrap: wrap; padding-bottom: 10px;';
+        const table = tbody.parentElement;
+        table.parentElement.insertBefore(filterDiv, table);
+    }
+
+    const normalizedCats = new Set(items.map(i => getDisplayCategory(i.category)));
+    const uniqueCats = [...normalizedCats].filter(c => c && c !== 'ป้ายเหลือง'); 
+
+    // สร้างปุ่ม "ทั้งหมด"
+    let filterHtml = `<button onclick="filterAdminInventory('all')" style="padding: 6px 14px; font-size: 13px; border-radius: 20px; border: none; cursor: pointer; transition: 0.3s; background: ${adminCurrentCategory === 'all' ? 'var(--theme-primary)' : '#333'}; color: ${adminCurrentCategory === 'all' ? '#000' : '#fff'};">ทั้งหมด</button>`;
+
+    // สร้างปุ่มตามหมวดหมู่ที่มีในระบบ
+    uniqueCats.forEach(cat => { 
+        filterHtml += `<button onclick="filterAdminInventory('${cat}')" style="padding: 6px 14px; font-size: 13px; border-radius: 20px; border: none; cursor: pointer; transition: 0.3s; background: ${adminCurrentCategory === cat ? 'var(--theme-primary)' : '#333'}; color: ${adminCurrentCategory === cat ? '#000' : '#fff'};">${cat}</button>`; 
+    });
+
+    // สร้างปุ่ม "ป้ายเหลือง" ไว้ท้ายสุด
+    filterHtml += `<button onclick="filterAdminInventory('ป้ายเหลือง')" style="padding: 6px 14px; font-size: 13px; border-radius: 20px; border: 1px solid #ff9800; cursor: pointer; transition: 0.3s; background: ${adminCurrentCategory === 'ป้ายเหลือง' ? '#ff9800' : '#333'}; color: ${adminCurrentCategory === 'ป้ายเหลือง' ? '#000' : '#ff9800'};"><i class="fas fa-exclamation-triangle"></i> ป้ายเหลือง</button>`;
+    
+    filterDiv.innerHTML = filterHtml;
+
+    // --- ส่วนที่ 2: วนลูปแสดงผลอุปกรณ์ตามหมวดหมู่ที่เลือก ---
     let htmlOut = '';
     
     items.forEach(i => { 
         const itemDisplayCat = getDisplayCategory(i.category);
+        const isYellow = i.isYellowTag === true;
+
+        // ลอจิกการกรอง (ทำงานเหมือนหน้าของ User)
+        if (adminCurrentCategory === 'ป้ายเหลือง' && !isYellow) return; 
+        if (adminCurrentCategory !== 'all' && adminCurrentCategory !== 'ป้ายเหลือง' && itemDisplayCat !== adminCurrentCategory) return;
+
         let totalStock = i.stock !== undefined && i.stock !== "" ? parseInt(i.stock) : 1;
         let borrowedQty = 0;
         
@@ -568,7 +607,9 @@ window.renderInventory = () => {
         let yellowLabel = i.isYellowTag ? `<br><span style="background:#ff9800; color:#000; font-size:10px; padding:2px 6px; border-radius:10px; font-weight:bold;">ป้ายเหลือง</span>` : '';
         htmlOut += `<tr><td><img src="${i.image}" width="40" style="border-radius:4px;"></td><td style="color:white">${i.name}${yellowLabel}</td><td>${itemDisplayCat}</td><td>${st}</td><td>${condBtn}</td><td>${actionBtns}</td></tr>`; 
     }); 
-    tbody.innerHTML = htmlOut;
+
+    // แสดงข้อความหากหมวดหมู่นั้นยังไม่มีอุปกรณ์
+    tbody.innerHTML = htmlOut || `<tr><td colspan="6" style="text-align:center; padding: 20px; color:#888;">ไม่พบอุปกรณ์ในหมวดหมู่นี้</td></tr>`;
 }
 
 window.toggleCondition = async (id, n) => { 
@@ -606,7 +647,7 @@ window.addNewItem = async () => {
                 </div>
                 <div><label style="color:#aaa; display:block; margin-bottom:5px;">ระดับความยาก</label><select id="swal-difficulty" class="swal2-input" style="width: 100%; margin: 0; box-sizing: border-box;"><option value="ระดับง่ายมาก (Beginner)">🟢 ง่ายมาก</option><option value="ระดับปานกลาง (Medium)">🟡 ปานกลาง</option><option value="ระดับค่อนข้างยาก (Advanced)">🟠 ค่อนข้างยาก</option><option value="ระดับมืออาชีพ (Pro)">🔴 มืออาชีพ</option></select></div>
                 <div><label style="color:#aaa; display:block; margin-bottom:5px;">อัปโหลดรูปภาพอุปกรณ์</label><input type="file" id="swal-image-file" accept="image/*" style="width: 100%; color: #fff; background: #222; padding: 12px; border-radius: 5px; border: 1px solid #444; box-sizing: border-box;"></div>
-                <div><label style="color:#aaa; display:block; margin-bottom:5px;">อ้างอิงความยากจาก</label><input id="swal-ref" class="swal2-input" placeholder="เช่น คู่มือผู้ใช้, DPreview" style="width: 100%; margin: 0; box-sizing: border-box;"></div>
+                <div><label style="color:#aaa; display:block; margin-bottom:5px;">อ้างอิงข้อมูล</label><input id="swal-ref" class="swal2-input" placeholder="เช่น คู่มือผู้ใช้, DPreview" style="width: 100%; margin: 0; box-sizing: border-box;"></div>
                 <div><label style="color:#aaa; display:block; margin-bottom:5px;">รายละเอียด / คำแนะนำเพิ่มเติม</label><textarea id="swal-desc" class="swal2-textarea" style="width: 100%; margin: 0; box-sizing: border-box; height: 80px;" placeholder="คำอธิบายสเปค หรือ ข้อควรระวัง..."></textarea></div>
             </div>`,
         showCancelButton: true, confirmButtonText: '<i class="fas fa-save"></i> บันทึกอุปกรณ์', confirmButtonColor: '#28a745', background: '#1a1a1a', color: '#fff',
@@ -637,7 +678,7 @@ window.editItem = async function(id) {
     const datalistOptions = uniqueCats.map(c => `<option value="${c}">`).join('');
 
     const { value: formValues } = await Swal.fire({
-        title: '✏️ แก้ไขข้อมูลอุปกรณ์', width: 600,
+        title: '✏️️ แก้ไขข้อมูลอุปกรณ์', width: 600,
         html: `<div style="text-align: left; font-size: 14px; display: flex; flex-direction: column; gap: 12px;">
                 <div><label style="color:#aaa; display:block; margin-bottom:5px;">ชื่ออุปกรณ์</label><input id="swal-edit-name" class="swal2-input" value="${item.name}" style="width: 100%; margin: 0; box-sizing: border-box;"></div>
                 <div style="display: flex; gap: 10px;">
@@ -656,7 +697,7 @@ window.editItem = async function(id) {
                 </div>
                 <div><label style="color:#aaa; display:block; margin-bottom:5px;">ระดับความยาก</label><select id="swal-edit-difficulty" class="swal2-input" style="width: 100%; margin: 0; box-sizing: border-box;"><option value="ระดับง่ายมาก (Beginner)" ${diff.includes('ง่าย') ? 'selected' : ''}>🟢 ง่ายมาก</option><option value="ระดับปานกลาง (Medium)" ${diff.includes('ปานกลาง') ? 'selected' : ''}>🟡 ปานกลาง</option><option value="ระดับค่อนข้างยาก (Advanced)" ${diff.includes('ค่อนข้างยาก') ? 'selected' : ''}>🟠 ค่อนข้างยาก</option><option value="ระดับมืออาชีพ (Pro)" ${diff.includes('มืออาชีพ') ? 'selected' : ''}>🔴 มืออาชีพ</option></select></div>
                 <div><label style="color:#aaa; display:block; margin-bottom:5px;">เปลี่ยนรูปภาพ (ถ้าไม่เปลี่ยน ไม่ต้องเลือกไฟล์)</label><input type="file" id="swal-edit-image-file" accept="image/*" style="width: 100%; color: #fff; background: #222; padding: 12px; border-radius: 5px; border: 1px solid #444; box-sizing: border-box;"></div>
-                <div><label style="color:#aaa; display:block; margin-bottom:5px;">อ้างอิงความยากจาก</label><input id="swal-edit-ref" class="swal2-input" value="${ref}" style="width: 100%; margin: 0; box-sizing: border-box;"></div>
+                <div><label style="color:#aaa; display:block; margin-bottom:5px;">อ้างอิงข้อมูล</label><input id="swal-edit-ref" class="swal2-input" value="${ref}" style="width: 100%; margin: 0; box-sizing: border-box;"></div>
                 <div><label style="color:#aaa; display:block; margin-bottom:5px;">รายละเอียด / คำแนะนำเพิ่มเติม</label><textarea id="swal-edit-desc" class="swal2-textarea" style="width: 100%; margin: 0; box-sizing: border-box; height: 80px;">${desc}</textarea></div>
             </div>`,
         showCancelButton: true, confirmButtonText: '<i class="fas fa-save"></i> บันทึกการแก้ไข', confirmButtonColor: '#ffc107', background: '#1a1a1a', color: '#fff',
