@@ -1,5 +1,5 @@
 /* =========================================
-   script.js - MMD BORROW SYSTEM (MEGA VERSION + DYNAMIC CATEGORIES + AUTO CLEAN + STOCK SYSTEM + YELLOW TAG CHECKBOX + GOOGLE LOGIN + ADMIN FILTERS)
+   script.js - MMD BORROW SYSTEM (MEGA VERSION + DYNAMIC CATEGORIES + YELLOW TAG + ADMIN FILTERS + IMGBB API + COLOR SETS & GROUP MEMBERS)
    ========================================= */
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
@@ -39,7 +39,29 @@ let currentPickupId = null, currentReturnId = null;
 let currentPage = 1; const itemsPerPage = 8; let searchQuery = "";
 let borrowChartInstance = null, conditionChartInstance = null;
 let currentCategory = 'all';
-let adminCurrentCategory = 'all'; // 🟢 เพิ่มตัวแปรสำหรับจำค่าหมวดหมู่หน้า Admin
+let adminCurrentCategory = 'all'; 
+
+async function uploadToImgBB(base64Data) {
+    const apiKey = '6b400d48dc08e690c88a8b32f3cef56a';
+    const formData = new FormData();
+    formData.append('image', base64Data);
+    
+    try {
+        const response = await fetch(`https://api.imgbb.com/1/upload?key=${apiKey}`, {
+            method: 'POST',
+            body: formData
+        });
+        const data = await response.json();
+        if (data.success) {
+            return data.data.url; 
+        } else {
+            throw new Error('อัปโหลดรูปภาพล้มเหลว');
+        }
+    } catch (error) {
+        console.error("ImgBB Upload Error:", error);
+        throw error;
+    }
+}
 
 function getDisplayCategory(cat) {
     if(!cat) return "ไม่ระบุ";
@@ -180,7 +202,13 @@ window.renderCategories = () => {
     let html = `<button class="${currentCategory === 'all' ? 'active' : ''}" onclick="filterItems('all')">ทั้งหมด</button>`;
     
     uniqueCats.forEach(cat => { 
-        html += `<button class="${currentCategory === cat ? 'active' : ''}" onclick="filterItems('${cat}')">${cat}</button>`; 
+        // 🟢 เปลี่ยนสีแท็บหมวดหมู่พิเศษ (แดง, เขียว, เหลือง)
+        let inlineStyle = '';
+        if (cat === 'เซ็ตแดง') inlineStyle = `background: ${currentCategory === cat ? '#dc3545' : 'transparent'}; color: ${currentCategory === cat ? '#fff' : '#dc3545'}; border-color: #dc3545;`;
+        else if (cat === 'เซ็ตเขียว') inlineStyle = `background: ${currentCategory === cat ? '#28a745' : 'transparent'}; color: ${currentCategory === cat ? '#fff' : '#28a745'}; border-color: #28a745;`;
+        else if (cat === 'เซ็ตเหลือง') inlineStyle = `background: ${currentCategory === cat ? '#ffc107' : 'transparent'}; color: ${currentCategory === cat ? '#000' : '#ffc107'}; border-color: #ffc107;`;
+        
+        html += `<button class="${currentCategory === cat ? 'active' : ''}" onclick="filterItems('${cat}')" style="${inlineStyle}">${cat}</button>`; 
     });
     
     html += `<button class="${currentCategory === 'ป้ายเหลือง' ? 'active' : ''}" onclick="filterItems('ป้ายเหลือง')" style="${currentCategory === 'ป้ายเหลือง' ? 'background:#ff9800; color:#000;' : 'color:#ff9800; border-color:#ff9800;'}"><i class="fas fa-exclamation-triangle"></i> ป้ายเหลือง</button>`;
@@ -250,7 +278,12 @@ window.renderItems = (cat = currentCategory) => {
         }
         
         let yellowWarning = isYellow ? `<div style="font-size:11px; color:#ff9800; text-align:center; margin-top:5px; background:rgba(255,152,0,0.1); padding:3px; border-radius:4px;"><i class="fas fa-exclamation-triangle"></i> ใช้ในมอเท่านั้น</div>` : '';
+        
+        // 🟢 เปลี่ยนสีพื้นหลังป้ายหมวดหมู่พิเศษบนการ์ดรูปภาพ
         let tagStyle = isYellow ? 'background:#ff9800; color:#000;' : '';
+        if (itemDisplayCat === 'เซ็ตแดง') tagStyle = 'background:#dc3545; color:#fff;';
+        else if (itemDisplayCat === 'เซ็ตเขียว') tagStyle = 'background:#28a745; color:#fff;';
+        else if (itemDisplayCat === 'เซ็ตเหลือง') tagStyle = 'background:#ffc107; color:#000;';
 
         htmlOut += `<div class="card"><div class="card-img" onclick="window.openItemDetail('${item.id}')" style="cursor:pointer;"><img src="${item.image}"><div class="status-badge ${statusCSS}">${badgeText}</div></div><div class="card-body"><h4>${item.name}</h4><span class="category-tag" style="${tagStyle}">${itemDisplayCat.toUpperCase()}</span>${yellowWarning}<div style="display:flex; gap:5px; margin-top:auto;"><button onclick="window.openItemDetail('${item.id}')" style="flex:1; padding:10px; border-radius:6px; background:#444; color:white; border:none; cursor:pointer;"><i class="fas fa-info-circle"></i></button><button class="${btnClass}" onclick="${btnAction}" style="flex:3; margin-top:0;">${btnText}</button></div></div></div>`;
     });
@@ -295,12 +328,17 @@ window.openItemDetail = function(id) {
     let yellowAlert = isYellow
         ? `<div style="margin-top: 8px; padding: 10px; background: rgba(255, 152, 0, 0.15); border-left: 4px solid #ff9800; font-size: 13px; color: #ffcc80; border-radius: 0 4px 4px 0;"><b><i class="fas fa-exclamation-triangle"></i> กฎการยืม:</b> อุปกรณ์ป้ายเหลือง ไม่อนุญาตให้นำไปใช้นอกสถานที่ (ใช้เฉพาะในมหาวิทยาลัยเท่านั้น)</div>` 
         : '';
+        
+    let tagStyle = isYellow ? 'background:#ff9800; color:#000;' : '#333;';
+    if (itemDisplayCat === 'เซ็ตแดง') tagStyle = 'background:#dc3545; color:#fff;';
+    else if (itemDisplayCat === 'เซ็ตเขียว') tagStyle = 'background:#28a745; color:#fff;';
+    else if (itemDisplayCat === 'เซ็ตเหลือง') tagStyle = 'background:#ffc107; color:#000;';
 
     document.getElementById('itemDetailBody').innerHTML = `
         <div style="display:flex; flex-direction:column; background:#1a1a1a;">
             <div style="height: 250px; background: #000; display:flex; justify-content:center; align-items:center;"><img src="${item.image}" style="max-width:100%; max-height:100%; object-fit:contain;"></div>
             <div style="padding: 20px;">
-                <span class="category-tag" style="background:${isYellow ? '#ff9800; color:#000;' : '#333;'}">${itemDisplayCat.toUpperCase()}</span>
+                <span class="category-tag" style="${tagStyle}">${itemDisplayCat.toUpperCase()}</span>
                 <h2 style="margin: 5px 0 15px; color:var(--theme-primary);">${item.name}</h2>
                 <div style="background: #111; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #333; font-size: 14px;">
                     <div style="display:flex; justify-content:space-between; margin-bottom: ${(damageHtml || yellowAlert) ? '10px' : '0'}; ${(damageHtml || yellowAlert) ? '' : 'border-bottom: 1px dashed #444; padding-bottom: 10px;'}">
@@ -382,6 +420,21 @@ window.openCartModal = () => {
             rInput.min = dInput.value; 
             if (rInput.value && rInput.value < dInput.value) rInput.value = dInput.value; 
         };
+    }
+    
+    // 🟢 ตรวจสอบว่าในตะกร้ามี "เซ็ตอุปกรณ์" หรือไม่ เพื่อแสดงช่องกรอกชื่อเพื่อน
+    let hasGroupSet = false;
+    cart.forEach(c => {
+        let itemObj = items.find(i => i.id === c.id);
+        if(itemObj && (itemObj.category === 'เซ็ตแดง' || itemObj.category === 'เซ็ตเขียว' || itemObj.category === 'เซ็ตเหลือง')) {
+            hasGroupSet = true;
+        }
+    });
+    
+    const groupContainer = document.getElementById('cartGroupMembersContainer');
+    if(groupContainer) {
+        groupContainer.style.display = hasGroupSet ? 'block' : 'none';
+        document.getElementById('cartGroupMembers').value = '';
     }
     
     document.getElementById('cartItemsList').innerHTML = cart.map((i, idx) => `<div style="display:flex; justify-content:space-between; color:white; padding:8px 0; border-bottom:1px solid #444;"><span>${idx+1}. ${i.name} (x${i.qty})</span><button type="button" onclick="removeFromCart('${i.id}')" style="background:none; border:none; color:#dc3545; cursor:pointer;"><i class="fas fa-trash"></i></button></div>`).join('');
@@ -527,22 +580,18 @@ window.updateStatus = async (id, s) => {
 
 window.deleteRequest = async (id) => { if((await Swal.fire({title:'ลบ?',icon:'warning',showCancelButton:true})).isConfirmed) { await deleteDoc(doc(db, "requests", id)); Swal.fire('ลบแล้ว','','success'); } }
 
-// 🟢 เพิ่มฟังก์ชันสำหรับการคลิกเปลี่ยนหมวดหมู่ในหน้า Admin โดยเฉพาะ
 window.filterAdminInventory = (cat) => {
     adminCurrentCategory = cat;
     window.renderInventory();
 }
 
-// 🟢 อัปเดต: ให้สร้างปุ่มหมวดหมู่เหนือตาราง Admin และกรองข้อมูลตามหมวดหมู่
 window.renderInventory = () => { 
     const tbody = document.getElementById('inventoryTableBody'); if(!tbody) return; 
 
-    // --- ส่วนที่ 1: สร้างแถบเมนูหมวดหมู่อัตโนมัติ (แทรกเหนือตาราง) ---
     let filterDiv = document.getElementById('adminInventoryFilters');
     if (!filterDiv) {
         filterDiv = document.createElement('div');
         filterDiv.id = 'adminInventoryFilters';
-        // ตกแต่งให้เรียงตัวสวยงาม
         filterDiv.style.cssText = 'display: flex; gap: 8px; margin-bottom: 15px; flex-wrap: wrap; padding-bottom: 10px;';
         const table = tbody.parentElement;
         table.parentElement.insertBefore(filterDiv, table);
@@ -551,27 +600,28 @@ window.renderInventory = () => {
     const normalizedCats = new Set(items.map(i => getDisplayCategory(i.category)));
     const uniqueCats = [...normalizedCats].filter(c => c && c !== 'ป้ายเหลือง'); 
 
-    // สร้างปุ่ม "ทั้งหมด"
     let filterHtml = `<button onclick="filterAdminInventory('all')" style="padding: 6px 14px; font-size: 13px; border-radius: 20px; border: none; cursor: pointer; transition: 0.3s; background: ${adminCurrentCategory === 'all' ? 'var(--theme-primary)' : '#333'}; color: ${adminCurrentCategory === 'all' ? '#000' : '#fff'};">ทั้งหมด</button>`;
 
-    // สร้างปุ่มตามหมวดหมู่ที่มีในระบบ
     uniqueCats.forEach(cat => { 
-        filterHtml += `<button onclick="filterAdminInventory('${cat}')" style="padding: 6px 14px; font-size: 13px; border-radius: 20px; border: none; cursor: pointer; transition: 0.3s; background: ${adminCurrentCategory === cat ? 'var(--theme-primary)' : '#333'}; color: ${adminCurrentCategory === cat ? '#000' : '#fff'};">${cat}</button>`; 
+        // 🟢 เปลี่ยนสีแท็บหมวดหมู่พิเศษ (แดง, เขียว, เหลือง) ในหน้าแอดมิน
+        let btnStyle = `padding: 6px 14px; font-size: 13px; border-radius: 20px; border: none; cursor: pointer; transition: 0.3s; background: ${adminCurrentCategory === cat ? 'var(--theme-primary)' : '#333'}; color: ${adminCurrentCategory === cat ? '#000' : '#fff'};`;
+        if (cat === 'เซ็ตแดง') btnStyle = `padding: 6px 14px; font-size: 13px; border-radius: 20px; border: 1px solid #dc3545; cursor: pointer; transition: 0.3s; background: ${adminCurrentCategory === cat ? '#dc3545' : '#333'}; color: ${adminCurrentCategory === cat ? '#fff' : '#dc3545'};`;
+        else if (cat === 'เซ็ตเขียว') btnStyle = `padding: 6px 14px; font-size: 13px; border-radius: 20px; border: 1px solid #28a745; cursor: pointer; transition: 0.3s; background: ${adminCurrentCategory === cat ? '#28a745' : '#333'}; color: ${adminCurrentCategory === cat ? '#fff' : '#28a745'};`;
+        else if (cat === 'เซ็ตเหลือง') btnStyle = `padding: 6px 14px; font-size: 13px; border-radius: 20px; border: 1px solid #ffc107; cursor: pointer; transition: 0.3s; background: ${adminCurrentCategory === cat ? '#ffc107' : '#333'}; color: ${adminCurrentCategory === cat ? '#000' : '#ffc107'};`;
+
+        filterHtml += `<button onclick="filterAdminInventory('${cat}')" style="${btnStyle}">${cat}</button>`; 
     });
 
-    // สร้างปุ่ม "ป้ายเหลือง" ไว้ท้ายสุด
     filterHtml += `<button onclick="filterAdminInventory('ป้ายเหลือง')" style="padding: 6px 14px; font-size: 13px; border-radius: 20px; border: 1px solid #ff9800; cursor: pointer; transition: 0.3s; background: ${adminCurrentCategory === 'ป้ายเหลือง' ? '#ff9800' : '#333'}; color: ${adminCurrentCategory === 'ป้ายเหลือง' ? '#000' : '#ff9800'};"><i class="fas fa-exclamation-triangle"></i> ป้ายเหลือง</button>`;
     
     filterDiv.innerHTML = filterHtml;
 
-    // --- ส่วนที่ 2: วนลูปแสดงผลอุปกรณ์ตามหมวดหมู่ที่เลือก ---
     let htmlOut = '';
     
     items.forEach(i => { 
         const itemDisplayCat = getDisplayCategory(i.category);
         const isYellow = i.isYellowTag === true;
 
-        // ลอจิกการกรอง (ทำงานเหมือนหน้าของ User)
         if (adminCurrentCategory === 'ป้ายเหลือง' && !isYellow) return; 
         if (adminCurrentCategory !== 'all' && adminCurrentCategory !== 'ป้ายเหลือง' && itemDisplayCat !== adminCurrentCategory) return;
 
@@ -608,7 +658,6 @@ window.renderInventory = () => {
         htmlOut += `<tr><td><img src="${i.image}" width="40" style="border-radius:4px;"></td><td style="color:white">${i.name}${yellowLabel}</td><td>${itemDisplayCat}</td><td>${st}</td><td>${condBtn}</td><td>${actionBtns}</td></tr>`; 
     }); 
 
-    // แสดงข้อความหากหมวดหมู่นั้นยังไม่มีอุปกรณ์
     tbody.innerHTML = htmlOut || `<tr><td colspan="6" style="text-align:center; padding: 20px; color:#888;">ไม่พบอุปกรณ์ในหมวดหมู่นี้</td></tr>`;
 }
 
@@ -624,7 +673,9 @@ window.toggleCondition = async (id, n) => {
 window.deleteItem = async (id) => { if((await Swal.fire({title:'ลบ?',icon:'warning',showCancelButton:true})).isConfirmed) { await deleteDoc(doc(db, "items", id)); } }
 
 window.addNewItem = async () => {
-    const uniqueCats = [...new Set(items.map(i => getDisplayCategory(i.category)))].filter(c => c && c !== 'ป้ายเหลือง');
+    // 🟢 เพิ่มตัวเลือก เซ็ตแดง เขียว เหลือง เข้าไปในลิสต์ให้เลือกง่ายๆ
+    const presetSets = ['เซ็ตแดง', 'เซ็ตเขียว', 'เซ็ตเหลือง'];
+    const uniqueCats = [...new Set([...items.map(i => getDisplayCategory(i.category)), ...presetSets])].filter(c => c && c !== 'ป้ายเหลือง');
     const datalistOptions = uniqueCats.map(c => `<option value="${c}">`).join('');
 
     const { value: formValues } = await Swal.fire({
@@ -633,7 +684,7 @@ window.addNewItem = async () => {
                 <div><label style="color:#aaa; display:block; margin-bottom:5px;">ชื่ออุปกรณ์</label><input id="swal-name" class="swal2-input" placeholder="เช่น SONY A7M4" style="width: 100%; margin: 0; box-sizing: border-box;"></div>
                 <div style="display: flex; gap: 10px;">
                     <div style="flex: 2;">
-                        <label style="color:#aaa; display:block; margin-bottom:5px;">หมวดหมู่ (พิมพ์ชื่อชนิดใหม่ได้เลย)</label>
+                        <label style="color:#aaa; display:block; margin-bottom:5px;">หมวดหมู่ (พิมพ์ เซ็ตแดง, เซ็ตเขียว, หรือ เซ็ตเหลือง)</label>
                         <input id="swal-category" list="category-options" class="swal2-input" placeholder="เลือกหรือพิมพ์ชนิดใหม่..." style="width: 100%; margin: 0; box-sizing: border-box;">
                         <datalist id="category-options">${datalistOptions}</datalist>
                     </div>
@@ -655,17 +706,29 @@ window.addNewItem = async () => {
             const name = document.getElementById('swal-name').value; const category = document.getElementById('swal-category').value.trim();
             if(!name) { Swal.showValidationMessage('กรุณากรอกชื่ออุปกรณ์ด้วยครับ'); return false; }
             if(!category) { Swal.showValidationMessage('กรุณาระบุหมวดหมู่ด้วยครับ'); return false; }
-            const fileInput = document.getElementById('swal-image-file'); let base64Image = "https://placehold.co/400x300?text=No+Image"; 
-            if (fileInput.files.length > 0) { try { Swal.showLoading(); base64Image = await resizeImage(fileInput.files[0]); } catch (error) { Swal.showValidationMessage('เกิดข้อผิดพลาดในการประมวลผลรูปภาพ'); return false; } }
+            const fileInput = document.getElementById('swal-image-file'); 
+            let finalImageUrl = "https://placehold.co/400x300?text=No+Image"; 
+            
+            if (fileInput.files.length > 0) { 
+                try { 
+                    Swal.showLoading(); 
+                    const base64Full = await resizeImage(fileInput.files[0]); 
+                    const base64Data = base64Full.split(',')[1]; 
+                    finalImageUrl = await uploadToImgBB(base64Data);
+                } catch (error) { 
+                    Swal.showValidationMessage('เกิดข้อผิดพลาดในการประมวลผลหรืออัปโหลดรูปภาพ'); return false; 
+                } 
+            }
+            
             return { 
-                name: name, category: category, stock: parseInt(document.getElementById('swal-stock').value) || 1, image: base64Image, 
+                name: name, category: category, stock: parseInt(document.getElementById('swal-stock').value) || 1, image: finalImageUrl, 
                 difficulty: document.getElementById('swal-difficulty').value, reference: document.getElementById('swal-ref').value || "อ้างอิงข้อมูลพื้นฐาน", 
                 description: document.getElementById('swal-desc').value || "-", status: "available", condition: "good",
                 isYellowTag: document.getElementById('swal-yellow-tag').checked
             }
         }
     });
-    if (formValues) { Swal.fire({ title: 'กำลังอัปโหลดขึ้นระบบ...', allowOutsideClick: false, didOpen: () => Swal.showLoading(), background: '#1a1a1a', color: '#fff'}); try { await addDoc(collection(db, "items"), formValues); Swal.fire({ icon: 'success', title: 'เพิ่มอุปกรณ์สำเร็จ!', timer: 1500, background: '#1a1a1a', color: '#fff', showConfirmButton:false }); } catch(e) { Swal.fire('Error', e.message, 'error'); } }
+    if (formValues) { Swal.fire({ title: 'กำลังบันทึกลงระบบ...', allowOutsideClick: false, didOpen: () => Swal.showLoading(), background: '#1a1a1a', color: '#fff'}); try { await addDoc(collection(db, "items"), formValues); Swal.fire({ icon: 'success', title: 'เพิ่มอุปกรณ์สำเร็จ!', timer: 1500, background: '#1a1a1a', color: '#fff', showConfirmButton:false }); } catch(e) { Swal.fire('Error', e.message, 'error'); } }
 }
 
 window.editItem = async function(id) {
@@ -674,16 +737,17 @@ window.editItem = async function(id) {
     
     const currentCatDisplay = (item.category === 'ป้ายเหลือง' || item.category === 'yellow') ? "" : getDisplayCategory(item.category);
     
-    const uniqueCats = [...new Set(items.map(i => getDisplayCategory(i.category)))].filter(c => c && c !== 'ป้ายเหลือง'); 
+    const presetSets = ['เซ็ตแดง', 'เซ็ตเขียว', 'เซ็ตเหลือง'];
+    const uniqueCats = [...new Set([...items.map(i => getDisplayCategory(i.category)), ...presetSets])].filter(c => c && c !== 'ป้ายเหลือง');
     const datalistOptions = uniqueCats.map(c => `<option value="${c}">`).join('');
 
     const { value: formValues } = await Swal.fire({
-        title: '✏️️ แก้ไขข้อมูลอุปกรณ์', width: 600,
+        title: '✏️ แก้ไขข้อมูลอุปกรณ์', width: 600,
         html: `<div style="text-align: left; font-size: 14px; display: flex; flex-direction: column; gap: 12px;">
                 <div><label style="color:#aaa; display:block; margin-bottom:5px;">ชื่ออุปกรณ์</label><input id="swal-edit-name" class="swal2-input" value="${item.name}" style="width: 100%; margin: 0; box-sizing: border-box;"></div>
                 <div style="display: flex; gap: 10px;">
                     <div style="flex: 2;">
-                        <label style="color:#aaa; display:block; margin-bottom:5px;">หมวดหมู่ (พิมพ์ชื่อชนิดใหม่ได้เลย)</label>
+                        <label style="color:#aaa; display:block; margin-bottom:5px;">หมวดหมู่ (พิมพ์ เซ็ตแดง, เซ็ตเขียว, หรือ เซ็ตเหลือง)</label>
                         <input id="swal-edit-category" list="category-options" class="swal2-input" value="${currentCatDisplay}" style="width: 100%; margin: 0; box-sizing: border-box;">
                         <datalist id="category-options">${datalistOptions}</datalist>
                     </div>
@@ -704,10 +768,21 @@ window.editItem = async function(id) {
         preConfirm: async () => {
             const name = document.getElementById('swal-edit-name').value; const category = document.getElementById('swal-edit-category').value.trim();
             if (!name) { Swal.showValidationMessage('กรุณากรอกชื่ออุปกรณ์ด้วยครับ'); return false; } if (!category) { Swal.showValidationMessage('กรุณาระบุหมวดหมู่ด้วยครับ'); return false; }
-            const fileInput = document.getElementById('swal-edit-image-file'); let base64Image = item.image;
-            if (fileInput.files.length > 0) { try { Swal.showLoading(); base64Image = await resizeImage(fileInput.files[0]); } catch (error) { Swal.showValidationMessage('เกิดข้อผิดพลาดในการประมวลผลรูปภาพ'); return false; } }
+            const fileInput = document.getElementById('swal-edit-image-file'); 
+            let finalImageUrl = item.image; 
+            
+            if (fileInput.files.length > 0) { 
+                try { 
+                    Swal.showLoading(); 
+                    const base64Full = await resizeImage(fileInput.files[0]); 
+                    const base64Data = base64Full.split(',')[1];
+                    finalImageUrl = await uploadToImgBB(base64Data);
+                } catch (error) { 
+                    Swal.showValidationMessage('เกิดข้อผิดพลาดในการอัปโหลดรูปภาพ'); return false; 
+                } 
+            }
             return { 
-                name: name, category: category, stock: parseInt(document.getElementById('swal-edit-stock').value) || 1, image: base64Image, 
+                name: name, category: category, stock: parseInt(document.getElementById('swal-edit-stock').value) || 1, image: finalImageUrl, 
                 difficulty: document.getElementById('swal-edit-difficulty').value, reference: document.getElementById('swal-edit-ref').value, 
                 description: document.getElementById('swal-edit-desc').value,
                 isYellowTag: document.getElementById('swal-edit-yellow-tag').checked
@@ -780,6 +855,22 @@ function initApp() {
     else if(document.getElementById('itemGrid')) {
         if(window.checkAuth()) { 
             window.listenToData(); window.updateCartCount();
+            
+            // 🟢 สร้างช่องกรอกรายชื่อเพื่อนร่วมกลุ่มในหน้าต่างรถเข็น
+            const borrowerInput = document.getElementById('cartBorrowerName');
+            if (borrowerInput && !document.getElementById('cartGroupMembersContainer')) {
+                const container = document.createElement('div');
+                container.id = 'cartGroupMembersContainer';
+                container.style.display = 'none';
+                container.style.marginTop = '15px';
+                container.style.marginBottom = '10px';
+                container.innerHTML = `
+                    <label style="color:#0dcaf0; display:block; margin-bottom:5px; font-weight:bold; font-size:14px;"><i class="fas fa-users"></i> รายชื่อสมาชิกในกลุ่ม (สำหรับการยืมแบบเซ็ต)</label>
+                    <textarea id="cartGroupMembers" class="swal2-textarea" style="width:100%; margin:0; box-sizing:border-box; height:60px; font-size:14px; background:#222; color:#fff; border:1px solid #0dcaf0; border-radius:5px; padding:10px;" placeholder="ระบุ ชื่อ-สกุล/รหัสนักศึกษา ของเพื่อนในกลุ่ม..."></textarea>
+                `;
+                borrowerInput.parentNode.insertBefore(container, borrowerInput.nextSibling);
+            }
+
             if(document.getElementById('cartForm')) {
                 document.getElementById('cartForm').onsubmit = async (e) => {
                     e.preventDefault(); 
@@ -801,17 +892,35 @@ function initApp() {
                     if(borrowDateMs > maxDateMs) return Swal.fire('วันที่ผิด', 'จองล่วงหน้าได้ไม่เกิน 15 วัน', 'error');
                     if(returnDateMs < borrowDateMs) return Swal.fire('วันที่ผิด', 'วันคืนของต้องไม่ก่อนวันทำการจอง', 'error');
 
+                    // 🟢 ดึงข้อมูลรายชื่อเพื่อนร่วมกลุ่มมาต่อท้ายเหตุผลการยืม
+                    const groupMemInput = document.getElementById('cartGroupMembers');
+                    const groupMem = (groupMemInput && groupMemInput.parentElement.style.display !== 'none') ? groupMemInput.value.trim() : "";
+                    let finalReason = r || "-";
+                    if (groupMem) {
+                        finalReason += `\n[สมาชิกกลุ่ม: ${groupMem}]`;
+                    }
+
                     try {
                         btn.disabled = true; const itms = cart.map(i => `${i.name} (${i.qty} ชิ้น)`).join(', ');
-                        await addDoc(collection(db, "requests"), { user: currentUser.name||currentUser.username, userId: currentUser.id, item: itms, date: d, returnDate: retD, returnTimeLimit: retT, reason: r||"-", status: "pending", timestamp: new Date() });
+                        await addDoc(collection(db, "requests"), { 
+                            user: currentUser.name || currentUser.username, 
+                            userId: currentUser.id, 
+                            item: itms, date: d, returnDate: retD, returnTimeLimit: retT, 
+                            reason: finalReason, 
+                            status: "pending", timestamp: new Date() 
+                        });
                         
+                        // อัปเดตข้อความเเจ้งเตือนในไลน์ให้มีชื่อกลุ่มด้วย
+                        let lineItemStr = itms;
+                        if (groupMem) lineItemStr += `\n👥 สมาชิกกลุ่ม: ${groupMem}`;
+
                         fetch(LINE_API_URL, { 
                             method: 'POST', 
                             mode: 'no-cors', 
                             headers: { 'Content-Type': 'text/plain' }, 
                             body: JSON.stringify({ 
                                 borrowerName: currentUser.name || currentUser.username, 
-                                equipmentName: itms 
+                                equipmentName: lineItemStr 
                             }) 
                         }).catch(e => console.error(e));
                         
@@ -819,8 +928,34 @@ function initApp() {
                     } catch(e) { Swal.fire('Error', e.message, 'error'); } finally { btn.disabled = false; }
                 };
             }
-            const p = document.getElementById('pickupProofInput'); if(p) p.onchange = async (e) => { const file = e.target.files[0]; if(!file) return; Swal.fire({title:'อัปโหลด...', allowOutsideClick:false, didOpen:()=>Swal.showLoading()}); try{ const b = await resizeImage(file); await updateDoc(doc(db, "requests", currentPickupId), { status: "borrowed", proofPhoto: b, pickupTime: new Date() }); Swal.fire({icon:'success',title:'สำเร็จ!',timer:2000,showConfirmButton:false}); e.target.value=''; window.openHistoryModal(); }catch(err){Swal.fire('Error',err.message,'error');} };
-            const ret = document.getElementById('returnProofInput'); if(ret) ret.onchange = async (e) => { const file = e.target.files[0]; if(!file) return; Swal.fire({title:'อัปโหลด...', allowOutsideClick:false, didOpen:()=>Swal.showLoading()}); try{ const b = await resizeImage(file); await updateDoc(doc(db, "requests", currentReturnId), { status: "pending_return", returnProofPhoto: b, returnTime: new Date() }); Swal.fire({icon:'success',title:'สำเร็จ!',timer:2000,showConfirmButton:false}); e.target.value=''; window.openHistoryModal(); }catch(err){Swal.fire('Error',err.message,'error');} };
+            
+            const p = document.getElementById('pickupProofInput'); 
+            if(p) p.onchange = async (e) => { 
+                const file = e.target.files[0]; if(!file) return; 
+                Swal.fire({title:'กำลังอัปโหลดรูปภาพ...', allowOutsideClick:false, didOpen:()=>Swal.showLoading()}); 
+                try{ 
+                    const bFull = await resizeImage(file); 
+                    const bData = bFull.split(',')[1];
+                    const imgUrl = await uploadToImgBB(bData);
+                    await updateDoc(doc(db, "requests", currentPickupId), { status: "borrowed", proofPhoto: imgUrl, pickupTime: new Date() }); 
+                    Swal.fire({icon:'success',title:'สำเร็จ!',timer:2000,showConfirmButton:false}); 
+                    e.target.value=''; window.openHistoryModal(); 
+                }catch(err){Swal.fire('เกิดข้อผิดพลาด', err.message,'error');} 
+            };
+            
+            const ret = document.getElementById('returnProofInput'); 
+            if(ret) ret.onchange = async (e) => { 
+                const file = e.target.files[0]; if(!file) return; 
+                Swal.fire({title:'กำลังอัปโหลดรูปภาพ...', allowOutsideClick:false, didOpen:()=>Swal.showLoading()}); 
+                try{ 
+                    const bFull = await resizeImage(file); 
+                    const bData = bFull.split(',')[1];
+                    const imgUrl = await uploadToImgBB(bData);
+                    await updateDoc(doc(db, "requests", currentReturnId), { status: "pending_return", returnProofPhoto: imgUrl, returnTime: new Date() }); 
+                    Swal.fire({icon:'success',title:'สำเร็จ!',timer:2000,showConfirmButton:false}); 
+                    e.target.value=''; window.openHistoryModal(); 
+                }catch(err){Swal.fire('เกิดข้อผิดพลาด', err.message,'error');} 
+            };
         }
     }
     else if(document.getElementById('section-requests')) { const user = window.checkAuth(); if(user){ if(user.role !== 'admin') { Swal.fire('ปฏิเสธ', 'เฉพาะ Admin', 'error').then(()=>window.location.href='dashboard.html'); } else { window.listenToData(); document.getElementById('section-requests').style.display = 'block'; } } }
