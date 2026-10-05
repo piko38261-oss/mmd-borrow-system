@@ -1,13 +1,11 @@
 /* =========================================
-   script.js - MMD BORROW SYSTEM (MEGA VERSION + DYNAMIC CATEGORIES + AUTO CLEAN + STOCK SYSTEM + CRASH SAFE + GOOGLE LOGIN)
+   script.js - MMD BORROW SYSTEM (MEGA VERSION + DYNAMIC CATEGORIES + AUTO CLEAN + STOCK SYSTEM + YELLOW TAG CHECKBOX + GOOGLE LOGIN)
    ========================================= */
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
 import { getFirestore, collection, addDoc, getDocs, updateDoc, deleteDoc, doc, onSnapshot, query, where } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
-// 🟢 ส่วนที่เพิ่มใหม่ 1/4: Import โมดูลของ Firebase Auth
 import { getAuth, signInWithPopup, GoogleAuthProvider } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
-// Register Service Worker สำหรับ PWA
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
         navigator.serviceWorker.register('sw.js')
@@ -31,8 +29,6 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
-
-// 🟢 ส่วนที่เพิ่มใหม่ 2/4: ประกาศใช้งาน Firebase Auth
 const auth = getAuth(app);
 const provider = new GoogleAuthProvider();
 
@@ -115,34 +111,22 @@ window.login = async function(u, p) {
     } catch (error) { Swal.fire('เกิดข้อผิดพลาด', error.message, 'error'); }
 }
 
-// 🟢 ส่วนที่เพิ่มใหม่ 3/4: ฟังก์ชันจัดการล็อกอินด้วย Google
 window.loginWithGoogle = async function() {
     try {
-        // เรียกหน้าต่าง Popup ของ Google
         const result = await signInWithPopup(auth, provider);
         const user = result.user;
-        
-        // เช็คว่าอีเมลนี้เคยถูกบันทึกในระบบเราหรือยัง
         const userQuery = await getDocs(query(collection(db, "users"), where("email", "==", user.email)));
         let userData;
         
         if (userQuery.empty) {
-            // ไม่เคยมีประวัติ ให้สร้างบัญชีใหม่
-            userData = {
-                username: user.email.split('@')[0], 
-                email: user.email,
-                name: user.displayName, 
-                role: "user" 
-            };
+            userData = { username: user.email.split('@')[0], email: user.email, name: user.displayName, role: "user" };
             const docRef = await addDoc(collection(db, "users"), userData);
             userData.id = docRef.id;
         } else {
-            // มีประวัติอยู่แล้ว โหลดข้อมูลเดิมมาใช้
             userData = userQuery.docs[0].data();
             userData.id = userQuery.docs[0].id;
         }
         
-        // บันทึก Session และพุ่งเข้า Dashboard
         localStorage.setItem('currentUser', JSON.stringify(userData));
         await Swal.fire({ icon: 'success', title: 'เข้าสู่ระบบสำเร็จ!', timer: 1500, showConfirmButton: false });
         window.location.href = 'dashboard.html';
@@ -190,9 +174,17 @@ window.renderCategories = () => {
     const filterContainer = document.querySelector('.filters');
     if (!filterContainer) return;
     const normalizedCats = new Set(items.map(i => getDisplayCategory(i.category)));
-    const uniqueCats = [...normalizedCats].filter(c => c);
+    const uniqueCats = [...normalizedCats].filter(c => c && c !== 'ป้ายเหลือง'); 
+    
+    // เปลี่ยนชื่อแท็บแรกกลับเป็น "ทั้งหมด" เพื่อความคุ้นเคย
     let html = `<button class="${currentCategory === 'all' ? 'active' : ''}" onclick="filterItems('all')">ทั้งหมด</button>`;
-    uniqueCats.forEach(cat => { html += `<button class="${currentCategory === cat ? 'active' : ''}" onclick="filterItems('${cat}')">${cat}</button>`; });
+    
+    uniqueCats.forEach(cat => { 
+        html += `<button class="${currentCategory === cat ? 'active' : ''}" onclick="filterItems('${cat}')">${cat}</button>`; 
+    });
+    
+    html += `<button class="${currentCategory === 'ป้ายเหลือง' ? 'active' : ''}" onclick="filterItems('ป้ายเหลือง')" style="${currentCategory === 'ป้ายเหลือง' ? 'background:#ff9800; color:#000;' : 'color:#ff9800; border-color:#ff9800;'}"><i class="fas fa-exclamation-triangle"></i> ป้ายเหลือง</button>`;
+    
     filterContainer.innerHTML = html;
 }
 
@@ -202,6 +194,7 @@ window.filterItems = (cat) => {
     window.renderItems(cat); 
 }
 
+// 🟢 อัปเดตลอจิก: โชว์ของป้ายเหลืองในหน้าปกติด้วย
 window.renderItems = (cat = currentCategory) => { 
     currentCategory = cat; 
     const grid = document.getElementById('itemGrid'); if(!grid) return; 
@@ -215,7 +208,11 @@ window.renderItems = (cat = currentCategory) => {
     
     items.forEach(item => {
         const itemDisplayCat = getDisplayCategory(item.category);
-        if(currentCategory !== 'all' && itemDisplayCat !== currentCategory) return; 
+        const isYellow = item.isYellowTag === true;
+        
+        // ลอจิกการกรองแสดงผล:
+        if (currentCategory === 'ป้ายเหลือง' && !isYellow) return; // ถ้ากดแท็บป้ายเหลือง โชว์เฉพาะป้ายเหลือง
+        if (currentCategory !== 'all' && currentCategory !== 'ป้ายเหลือง' && itemDisplayCat !== currentCategory) return; // ถ้ากดแท็บหมวดหมู่อื่นๆ (รวมถึงแท็บ "ทั้งหมด") ให้โชว์ของทุกชิ้นในหมวดหมู่ที่ตรงกัน
         
         let totalStock = item.stock !== undefined && item.stock !== "" ? parseInt(item.stock) : 1; 
         let borrowedQty = 0;
@@ -254,7 +251,11 @@ window.renderItems = (cat = currentCategory) => {
             if (finalAvailable <= 0) { btnClass = 'btn-disabled'; btnAction = ''; btnText = 'สิทธิ์เต็ม'; }
         }
         
-        htmlOut += `<div class="card"><div class="card-img" onclick="window.openItemDetail('${item.id}')" style="cursor:pointer;"><img src="${item.image}"><div class="status-badge ${statusCSS}">${badgeText}</div></div><div class="card-body"><h4>${item.name}</h4><span class="category-tag">${itemDisplayCat.toUpperCase()}</span><div style="display:flex; gap:5px; margin-top:auto;"><button onclick="window.openItemDetail('${item.id}')" style="flex:1; padding:10px; border-radius:6px; background:#444; color:white; border:none; cursor:pointer;"><i class="fas fa-info-circle"></i></button><button class="${btnClass}" onclick="${btnAction}" style="flex:3; margin-top:0;">${btnText}</button></div></div></div>`;
+        // 🟢 ยังคงมีป้ายแจ้งเตือนสีส้มเด่นๆ ให้เห็นอยู่ แม้จะอยู่ในหมวดหมู่ปกติ
+        let yellowWarning = isYellow ? `<div style="font-size:11px; color:#ff9800; text-align:center; margin-top:5px; background:rgba(255,152,0,0.1); padding:3px; border-radius:4px;"><i class="fas fa-exclamation-triangle"></i> ใช้ในมอเท่านั้น</div>` : '';
+        let tagStyle = isYellow ? 'background:#ff9800; color:#000;' : '';
+
+        htmlOut += `<div class="card"><div class="card-img" onclick="window.openItemDetail('${item.id}')" style="cursor:pointer;"><img src="${item.image}"><div class="status-badge ${statusCSS}">${badgeText}</div></div><div class="card-body"><h4>${item.name}</h4><span class="category-tag" style="${tagStyle}">${itemDisplayCat.toUpperCase()}</span>${yellowWarning}<div style="display:flex; gap:5px; margin-top:auto;"><button onclick="window.openItemDetail('${item.id}')" style="flex:1; padding:10px; border-radius:6px; background:#444; color:white; border:none; cursor:pointer;"><i class="fas fa-info-circle"></i></button><button class="${btnClass}" onclick="${btnAction}" style="flex:3; margin-top:0;">${btnText}</button></div></div></div>`;
     });
     
     grid.innerHTML = htmlOut || '<div style="grid-column: 1 / -1; text-align: center; color: #888;">ไม่พบอุปกรณ์ในหมวดหมู่นี้</div>';
@@ -266,6 +267,7 @@ window.openItemDetail = function(id) {
     const desc = item.description || "ยังไม่มีข้อมูลเพิ่มเติม...";
     const ref = item.reference || "อ้างอิงข้อมูลพื้นฐาน";
     const itemDisplayCat = getDisplayCategory(item.category);
+    const isYellow = item.isYellowTag === true;
     
     let totalStock = item.stock !== undefined && item.stock !== "" ? parseInt(item.stock) : 1; 
     let borrowedQty = 0;
@@ -293,19 +295,24 @@ window.openItemDetail = function(id) {
         damageHtml = `<div style="margin-top: 8px; padding: 10px; background: rgba(220, 53, 69, 0.15); border-left: 4px solid #dc3545; font-size: 13px; color: #ffcccc; border-radius: 0 4px 4px 0;"><b><i class="fas fa-wrench"></i> อาการชำรุด:</b> ${item.damageReason}</div>`; 
     }
 
+    let yellowAlert = isYellow
+        ? `<div style="margin-top: 8px; padding: 10px; background: rgba(255, 152, 0, 0.15); border-left: 4px solid #ff9800; font-size: 13px; color: #ffcc80; border-radius: 0 4px 4px 0;"><b><i class="fas fa-exclamation-triangle"></i> กฎการยืม:</b> อุปกรณ์ป้ายเหลือง ไม่อนุญาตให้นำไปใช้นอกสถานที่ (ใช้เฉพาะในมหาวิทยาลัยเท่านั้น)</div>` 
+        : '';
+
     document.getElementById('itemDetailBody').innerHTML = `
         <div style="display:flex; flex-direction:column; background:#1a1a1a;">
             <div style="height: 250px; background: #000; display:flex; justify-content:center; align-items:center;"><img src="${item.image}" style="max-width:100%; max-height:100%; object-fit:contain;"></div>
             <div style="padding: 20px;">
-                <span class="category-tag" style="background:#333;">${itemDisplayCat.toUpperCase()}</span>
+                <span class="category-tag" style="background:${isYellow ? '#ff9800; color:#000;' : '#333;'}">${itemDisplayCat.toUpperCase()}</span>
                 <h2 style="margin: 5px 0 15px; color:var(--theme-primary);">${item.name}</h2>
                 <div style="background: #111; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #333; font-size: 14px;">
-                    <div style="display:flex; justify-content:space-between; margin-bottom: ${damageHtml ? '10px' : '0'}; ${damageHtml ? '' : 'border-bottom: 1px dashed #444; padding-bottom: 10px;'}">
+                    <div style="display:flex; justify-content:space-between; margin-bottom: ${(damageHtml || yellowAlert) ? '10px' : '0'}; ${(damageHtml || yellowAlert) ? '' : 'border-bottom: 1px dashed #444; padding-bottom: 10px;'}">
                         <span style="color:#aaa;">สภาพ:</span>
                         <strong style="color:${item.condition === 'damaged' ? 'var(--danger)' : 'var(--success)'}">${item.condition === 'damaged' ? 'ชำรุด / ส่งซ่อม' : 'ใช้งานได้ปกติ'}</strong>
                     </div>
                     ${damageHtml}
-                    <div style="display:flex; justify-content:space-between; margin-top: 10px; border-top: ${damageHtml ? '1px dashed #444' : 'none'}; padding-top: ${damageHtml ? '10px' : '0'};">
+                    ${yellowAlert}
+                    <div style="display:flex; justify-content:space-between; margin-top: 10px; border-top: ${(damageHtml || yellowAlert) ? '1px dashed #444' : 'none'}; padding-top: ${(damageHtml || yellowAlert) ? '10px' : '0'};">
                         <span style="color:#aaa;">ระดับใช้งาน:</span><strong style="color:var(--warning);">${diff}</strong>
                     </div>
                 </div>
@@ -558,7 +565,8 @@ window.renderInventory = () => {
             
         let actionBtns = `<div style="display:flex; gap:5px;"><button onclick="editItem('${i.id}')" style="background:#ffc107; color:#000; border:none; padding:6px 12px; border-radius:4px; font-size:12px; font-weight:bold; cursor:pointer;" title="แก้ไขข้อมูลอุปกรณ์"><i class="fas fa-edit"></i> แก้ไข</button><button onclick="deleteItem('${i.id}')" style="background:#dc3545; color:#fff; border:none; padding:6px 12px; border-radius:4px; font-size:12px; font-weight:bold; cursor:pointer;" title="ลบอุปกรณ์"><i class="fas fa-trash"></i></button></div>`;
             
-        htmlOut += `<tr><td><img src="${i.image}" width="40" style="border-radius:4px;"></td><td style="color:white">${i.name}</td><td>${itemDisplayCat}</td><td>${st}</td><td>${condBtn}</td><td>${actionBtns}</td></tr>`; 
+        let yellowLabel = i.isYellowTag ? `<br><span style="background:#ff9800; color:#000; font-size:10px; padding:2px 6px; border-radius:10px; font-weight:bold;">ป้ายเหลือง</span>` : '';
+        htmlOut += `<tr><td><img src="${i.image}" width="40" style="border-radius:4px;"></td><td style="color:white">${i.name}${yellowLabel}</td><td>${itemDisplayCat}</td><td>${st}</td><td>${condBtn}</td><td>${actionBtns}</td></tr>`; 
     }); 
     tbody.innerHTML = htmlOut;
 }
@@ -575,12 +583,32 @@ window.toggleCondition = async (id, n) => {
 window.deleteItem = async (id) => { if((await Swal.fire({title:'ลบ?',icon:'warning',showCancelButton:true})).isConfirmed) { await deleteDoc(doc(db, "items", id)); } }
 
 window.addNewItem = async () => {
-    const uniqueCats = [...new Set(items.map(i => getDisplayCategory(i.category)))].filter(c => c);
+    const uniqueCats = [...new Set(items.map(i => getDisplayCategory(i.category)))].filter(c => c && c !== 'ป้ายเหลือง');
     const datalistOptions = uniqueCats.map(c => `<option value="${c}">`).join('');
 
     const { value: formValues } = await Swal.fire({
         title: '📦 เพิ่มอุปกรณ์ใหม่', width: 600,
-        html: `<div style="text-align: left; font-size: 14px; display: flex; flex-direction: column; gap: 12px;"><div><label style="color:#aaa; display:block; margin-bottom:5px;">ชื่ออุปกรณ์</label><input id="swal-name" class="swal2-input" placeholder="เช่น SONY A7M4" style="width: 100%; margin: 0; box-sizing: border-box;"></div><div style="display: flex; gap: 10px;"><div style="flex: 2;"><label style="color:#aaa; display:block; margin-bottom:5px;">หมวดหมู่ (พิมพ์สร้างใหม่ได้เลย)</label><input id="swal-category" list="category-options" class="swal2-input" placeholder="เลือกหรือพิมพ์สร้างใหม่..." style="width: 100%; margin: 0; box-sizing: border-box;"><datalist id="category-options">${datalistOptions}</datalist></div><div style="flex: 1;"><label style="color:#aaa; display:block; margin-bottom:5px;">จำนวนสต็อก</label><input id="swal-stock" type="number" min="1" value="1" class="swal2-input" style="width: 100%; margin: 0; box-sizing: border-box; text-align:center;"></div></div><div><label style="color:#aaa; display:block; margin-bottom:5px;">ระดับความยาก</label><select id="swal-difficulty" class="swal2-input" style="width: 100%; margin: 0; box-sizing: border-box;"><option value="ระดับง่ายมาก (Beginner)">🟢 ง่ายมาก</option><option value="ระดับปานกลาง (Medium)">🟡 ปานกลาง</option><option value="ระดับค่อนข้างยาก (Advanced)">🟠 ค่อนข้างยาก</option><option value="ระดับมืออาชีพ (Pro)">🔴 มืออาชีพ</option></select></div><div><label style="color:#aaa; display:block; margin-bottom:5px;">อัปโหลดรูปภาพอุปกรณ์</label><input type="file" id="swal-image-file" accept="image/*" style="width: 100%; color: #fff; background: #222; padding: 12px; border-radius: 5px; border: 1px solid #444; box-sizing: border-box;"></div><div><label style="color:#aaa; display:block; margin-bottom:5px;">อ้างอิงความยากจาก</label><input id="swal-ref" class="swal2-input" placeholder="เช่น คู่มือผู้ใช้, DPreview" style="width: 100%; margin: 0; box-sizing: border-box;"></div><div><label style="color:#aaa; display:block; margin-bottom:5px;">รายละเอียด / คำแนะนำเพิ่มเติม</label><textarea id="swal-desc" class="swal2-textarea" style="width: 100%; margin: 0; box-sizing: border-box; height: 80px;" placeholder="คำอธิบายสเปค หรือ ข้อควรระวัง..."></textarea></div></div>`,
+        html: `<div style="text-align: left; font-size: 14px; display: flex; flex-direction: column; gap: 12px;">
+                <div><label style="color:#aaa; display:block; margin-bottom:5px;">ชื่ออุปกรณ์</label><input id="swal-name" class="swal2-input" placeholder="เช่น SONY A7M4" style="width: 100%; margin: 0; box-sizing: border-box;"></div>
+                <div style="display: flex; gap: 10px;">
+                    <div style="flex: 2;">
+                        <label style="color:#aaa; display:block; margin-bottom:5px;">หมวดหมู่ (พิมพ์ชื่อชนิดใหม่ได้เลย)</label>
+                        <input id="swal-category" list="category-options" class="swal2-input" placeholder="เลือกหรือพิมพ์ชนิดใหม่..." style="width: 100%; margin: 0; box-sizing: border-box;">
+                        <datalist id="category-options">${datalistOptions}</datalist>
+                    </div>
+                    <div style="flex: 1;"><label style="color:#aaa; display:block; margin-bottom:5px;">จำนวนสต็อก</label><input id="swal-stock" type="number" min="1" value="1" class="swal2-input" style="width: 100%; margin: 0; box-sizing: border-box; text-align:center;"></div>
+                </div>
+                <div>
+                    <label style="color:#ff9800; display:flex; align-items:center; gap:10px; cursor:pointer; background:rgba(255,152,0,0.15); padding:12px; border-radius:5px; border: 1px solid rgba(255,152,0,0.5);">
+                        <input type="checkbox" id="swal-yellow-tag" style="width:20px; height:20px;">
+                        <span><i class="fas fa-exclamation-triangle"></i> ตั้งเป็น <b>"อุปกรณ์ป้ายเหลือง"</b> (ใช้ในมอเท่านั้น)</span>
+                    </label>
+                </div>
+                <div><label style="color:#aaa; display:block; margin-bottom:5px;">ระดับความยาก</label><select id="swal-difficulty" class="swal2-input" style="width: 100%; margin: 0; box-sizing: border-box;"><option value="ระดับง่ายมาก (Beginner)">🟢 ง่ายมาก</option><option value="ระดับปานกลาง (Medium)">🟡 ปานกลาง</option><option value="ระดับค่อนข้างยาก (Advanced)">🟠 ค่อนข้างยาก</option><option value="ระดับมืออาชีพ (Pro)">🔴 มืออาชีพ</option></select></div>
+                <div><label style="color:#aaa; display:block; margin-bottom:5px;">อัปโหลดรูปภาพอุปกรณ์</label><input type="file" id="swal-image-file" accept="image/*" style="width: 100%; color: #fff; background: #222; padding: 12px; border-radius: 5px; border: 1px solid #444; box-sizing: border-box;"></div>
+                <div><label style="color:#aaa; display:block; margin-bottom:5px;">อ้างอิงความยากจาก</label><input id="swal-ref" class="swal2-input" placeholder="เช่น คู่มือผู้ใช้, DPreview" style="width: 100%; margin: 0; box-sizing: border-box;"></div>
+                <div><label style="color:#aaa; display:block; margin-bottom:5px;">รายละเอียด / คำแนะนำเพิ่มเติม</label><textarea id="swal-desc" class="swal2-textarea" style="width: 100%; margin: 0; box-sizing: border-box; height: 80px;" placeholder="คำอธิบายสเปค หรือ ข้อควรระวัง..."></textarea></div>
+            </div>`,
         showCancelButton: true, confirmButtonText: '<i class="fas fa-save"></i> บันทึกอุปกรณ์', confirmButtonColor: '#28a745', background: '#1a1a1a', color: '#fff',
         preConfirm: async () => {
             const name = document.getElementById('swal-name').value; const category = document.getElementById('swal-category').value.trim();
@@ -588,7 +616,12 @@ window.addNewItem = async () => {
             if(!category) { Swal.showValidationMessage('กรุณาระบุหมวดหมู่ด้วยครับ'); return false; }
             const fileInput = document.getElementById('swal-image-file'); let base64Image = "https://placehold.co/400x300?text=No+Image"; 
             if (fileInput.files.length > 0) { try { Swal.showLoading(); base64Image = await resizeImage(fileInput.files[0]); } catch (error) { Swal.showValidationMessage('เกิดข้อผิดพลาดในการประมวลผลรูปภาพ'); return false; } }
-            return { name: name, category: category, stock: parseInt(document.getElementById('swal-stock').value) || 1, image: base64Image, difficulty: document.getElementById('swal-difficulty').value, reference: document.getElementById('swal-ref').value || "อ้างอิงข้อมูลพื้นฐาน", description: document.getElementById('swal-desc').value || "-", status: "available", condition: "good" }
+            return { 
+                name: name, category: category, stock: parseInt(document.getElementById('swal-stock').value) || 1, image: base64Image, 
+                difficulty: document.getElementById('swal-difficulty').value, reference: document.getElementById('swal-ref').value || "อ้างอิงข้อมูลพื้นฐาน", 
+                description: document.getElementById('swal-desc').value || "-", status: "available", condition: "good",
+                isYellowTag: document.getElementById('swal-yellow-tag').checked
+            }
         }
     });
     if (formValues) { Swal.fire({ title: 'กำลังอัปโหลดขึ้นระบบ...', allowOutsideClick: false, didOpen: () => Swal.showLoading(), background: '#1a1a1a', color: '#fff'}); try { await addDoc(collection(db, "items"), formValues); Swal.fire({ icon: 'success', title: 'เพิ่มอุปกรณ์สำเร็จ!', timer: 1500, background: '#1a1a1a', color: '#fff', showConfirmButton:false }); } catch(e) { Swal.fire('Error', e.message, 'error'); } }
@@ -596,19 +629,48 @@ window.addNewItem = async () => {
 
 window.editItem = async function(id) {
     const item = items.find(i => i.id === id); if (!item) return;
-    const diff = item.difficulty || "ระดับปานกลาง (Medium)"; const ref = item.reference || ""; const desc = item.description || ""; const stockVal = item.stock || 1; const currentCatDisplay = getDisplayCategory(item.category);
-    const uniqueCats = [...new Set(items.map(i => getDisplayCategory(i.category)))].filter(c => c); const datalistOptions = uniqueCats.map(c => `<option value="${c}">`).join('');
+    const diff = item.difficulty || "ระดับปานกลาง (Medium)"; const ref = item.reference || ""; const desc = item.description || ""; const stockVal = item.stock || 1; 
+    
+    const currentCatDisplay = (item.category === 'ป้ายเหลือง' || item.category === 'yellow') ? "" : getDisplayCategory(item.category);
+    
+    const uniqueCats = [...new Set(items.map(i => getDisplayCategory(i.category)))].filter(c => c && c !== 'ป้ายเหลือง'); 
+    const datalistOptions = uniqueCats.map(c => `<option value="${c}">`).join('');
 
     const { value: formValues } = await Swal.fire({
         title: '✏️ แก้ไขข้อมูลอุปกรณ์', width: 600,
-        html: `<div style="text-align: left; font-size: 14px; display: flex; flex-direction: column; gap: 12px;"><div><label style="color:#aaa; display:block; margin-bottom:5px;">ชื่ออุปกรณ์</label><input id="swal-edit-name" class="swal2-input" value="${item.name}" style="width: 100%; margin: 0; box-sizing: border-box;"></div><div style="display: flex; gap: 10px;"><div style="flex: 2;"><label style="color:#aaa; display:block; margin-bottom:5px;">หมวดหมู่ (พิมพ์สร้างใหม่ได้เลย)</label><input id="swal-edit-category" list="category-options" class="swal2-input" value="${currentCatDisplay}" style="width: 100%; margin: 0; box-sizing: border-box;"><datalist id="category-options">${datalistOptions}</datalist></div><div style="flex: 1;"><label style="color:#aaa; display:block; margin-bottom:5px;">จำนวนสต็อก</label><input id="swal-edit-stock" type="number" min="1" value="${stockVal}" class="swal2-input" style="width: 100%; margin: 0; box-sizing: border-box; text-align:center;"></div></div><div><label style="color:#aaa; display:block; margin-bottom:5px;">ระดับความยาก</label><select id="swal-edit-difficulty" class="swal2-input" style="width: 100%; margin: 0; box-sizing: border-box;"><option value="ระดับง่ายมาก (Beginner)" ${diff.includes('ง่าย') ? 'selected' : ''}>🟢 ง่ายมาก</option><option value="ระดับปานกลาง (Medium)" ${diff.includes('ปานกลาง') ? 'selected' : ''}>🟡 ปานกลาง</option><option value="ระดับค่อนข้างยาก (Advanced)" ${diff.includes('ค่อนข้างยาก') ? 'selected' : ''}>🟠 ค่อนข้างยาก</option><option value="ระดับมืออาชีพ (Pro)" ${diff.includes('มืออาชีพ') ? 'selected' : ''}>🔴 มืออาชีพ</option></select></div><div><label style="color:#aaa; display:block; margin-bottom:5px;">เปลี่ยนรูปภาพ (ถ้าไม่เปลี่ยน ไม่ต้องเลือกไฟล์)</label><input type="file" id="swal-edit-image-file" accept="image/*" style="width: 100%; color: #fff; background: #222; padding: 12px; border-radius: 5px; border: 1px solid #444; box-sizing: border-box;"></div><div><label style="color:#aaa; display:block; margin-bottom:5px;">อ้างอิงความยากจาก</label><input id="swal-edit-ref" class="swal2-input" value="${ref}" style="width: 100%; margin: 0; box-sizing: border-box;"></div><div><label style="color:#aaa; display:block; margin-bottom:5px;">รายละเอียด / คำแนะนำเพิ่มเติม</label><textarea id="swal-edit-desc" class="swal2-textarea" style="width: 100%; margin: 0; box-sizing: border-box; height: 80px;">${desc}</textarea></div></div>`,
+        html: `<div style="text-align: left; font-size: 14px; display: flex; flex-direction: column; gap: 12px;">
+                <div><label style="color:#aaa; display:block; margin-bottom:5px;">ชื่ออุปกรณ์</label><input id="swal-edit-name" class="swal2-input" value="${item.name}" style="width: 100%; margin: 0; box-sizing: border-box;"></div>
+                <div style="display: flex; gap: 10px;">
+                    <div style="flex: 2;">
+                        <label style="color:#aaa; display:block; margin-bottom:5px;">หมวดหมู่ (พิมพ์ชื่อชนิดใหม่ได้เลย)</label>
+                        <input id="swal-edit-category" list="category-options" class="swal2-input" value="${currentCatDisplay}" style="width: 100%; margin: 0; box-sizing: border-box;">
+                        <datalist id="category-options">${datalistOptions}</datalist>
+                    </div>
+                    <div style="flex: 1;"><label style="color:#aaa; display:block; margin-bottom:5px;">จำนวนสต็อก</label><input id="swal-edit-stock" type="number" min="1" value="${stockVal}" class="swal2-input" style="width: 100%; margin: 0; box-sizing: border-box; text-align:center;"></div>
+                </div>
+                <div>
+                    <label style="color:#ff9800; display:flex; align-items:center; gap:10px; cursor:pointer; background:rgba(255,152,0,0.15); padding:12px; border-radius:5px; border: 1px solid rgba(255,152,0,0.5);">
+                        <input type="checkbox" id="swal-edit-yellow-tag" style="width:20px; height:20px;" ${item.isYellowTag ? 'checked' : ''}>
+                        <span><i class="fas fa-exclamation-triangle"></i> ตั้งเป็น <b>"อุปกรณ์ป้ายเหลือง"</b> (ใช้ในมอเท่านั้น)</span>
+                    </label>
+                </div>
+                <div><label style="color:#aaa; display:block; margin-bottom:5px;">ระดับความยาก</label><select id="swal-edit-difficulty" class="swal2-input" style="width: 100%; margin: 0; box-sizing: border-box;"><option value="ระดับง่ายมาก (Beginner)" ${diff.includes('ง่าย') ? 'selected' : ''}>🟢 ง่ายมาก</option><option value="ระดับปานกลาง (Medium)" ${diff.includes('ปานกลาง') ? 'selected' : ''}>🟡 ปานกลาง</option><option value="ระดับค่อนข้างยาก (Advanced)" ${diff.includes('ค่อนข้างยาก') ? 'selected' : ''}>🟠 ค่อนข้างยาก</option><option value="ระดับมืออาชีพ (Pro)" ${diff.includes('มืออาชีพ') ? 'selected' : ''}>🔴 มืออาชีพ</option></select></div>
+                <div><label style="color:#aaa; display:block; margin-bottom:5px;">เปลี่ยนรูปภาพ (ถ้าไม่เปลี่ยน ไม่ต้องเลือกไฟล์)</label><input type="file" id="swal-edit-image-file" accept="image/*" style="width: 100%; color: #fff; background: #222; padding: 12px; border-radius: 5px; border: 1px solid #444; box-sizing: border-box;"></div>
+                <div><label style="color:#aaa; display:block; margin-bottom:5px;">อ้างอิงความยากจาก</label><input id="swal-edit-ref" class="swal2-input" value="${ref}" style="width: 100%; margin: 0; box-sizing: border-box;"></div>
+                <div><label style="color:#aaa; display:block; margin-bottom:5px;">รายละเอียด / คำแนะนำเพิ่มเติม</label><textarea id="swal-edit-desc" class="swal2-textarea" style="width: 100%; margin: 0; box-sizing: border-box; height: 80px;">${desc}</textarea></div>
+            </div>`,
         showCancelButton: true, confirmButtonText: '<i class="fas fa-save"></i> บันทึกการแก้ไข', confirmButtonColor: '#ffc107', background: '#1a1a1a', color: '#fff',
         preConfirm: async () => {
             const name = document.getElementById('swal-edit-name').value; const category = document.getElementById('swal-edit-category').value.trim();
             if (!name) { Swal.showValidationMessage('กรุณากรอกชื่ออุปกรณ์ด้วยครับ'); return false; } if (!category) { Swal.showValidationMessage('กรุณาระบุหมวดหมู่ด้วยครับ'); return false; }
             const fileInput = document.getElementById('swal-edit-image-file'); let base64Image = item.image;
             if (fileInput.files.length > 0) { try { Swal.showLoading(); base64Image = await resizeImage(fileInput.files[0]); } catch (error) { Swal.showValidationMessage('เกิดข้อผิดพลาดในการประมวลผลรูปภาพ'); return false; } }
-            return { name: name, category: category, stock: parseInt(document.getElementById('swal-edit-stock').value) || 1, image: base64Image, difficulty: document.getElementById('swal-edit-difficulty').value, reference: document.getElementById('swal-edit-ref').value, description: document.getElementById('swal-edit-desc').value };
+            return { 
+                name: name, category: category, stock: parseInt(document.getElementById('swal-edit-stock').value) || 1, image: base64Image, 
+                difficulty: document.getElementById('swal-edit-difficulty').value, reference: document.getElementById('swal-edit-ref').value, 
+                description: document.getElementById('swal-edit-desc').value,
+                isYellowTag: document.getElementById('swal-edit-yellow-tag').checked
+            };
         }
     });
     if (formValues) { Swal.fire({ title: 'กำลังอัปเดตข้อมูล...', allowOutsideClick: false, didOpen: () => Swal.showLoading(), background: '#1a1a1a', color: '#fff'}); try { await updateDoc(doc(db, "items", id), formValues); Swal.fire({ icon: 'success', title: 'แก้ไขข้อมูลสำเร็จ!', timer: 1500, background: '#1a1a1a', color: '#fff', showConfirmButton: false }); } catch (error) { Swal.fire({ icon: 'error', title: 'เกิดข้อผิดพลาด', text: error.message, background: '#1a1a1a', color: '#fff' }); } }
@@ -667,7 +729,6 @@ function initApp() {
         document.getElementById('loginForm').onsubmit = (e) => { e.preventDefault(); window.login(document.getElementById('username').value, document.getElementById('password').value); };
         document.getElementById('registerForm').onsubmit = (e) => { e.preventDefault(); window.register(document.getElementById('regUser').value, document.getElementById('regPass').value, document.getElementById('regName').value); };
         
-        // 🟢 ส่วนที่เพิ่มใหม่ 4/4: สั่งให้ปุ่ม Google ทำงานเมื่อถูกคลิก
         const btnGoogle = document.getElementById('btnGoogleLogin');
         if(btnGoogle) {
             btnGoogle.onclick = window.loginWithGoogle;
