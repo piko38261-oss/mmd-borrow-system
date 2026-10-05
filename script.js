@@ -1,8 +1,8 @@
 /* =========================================
-   script.js - MMD BORROW SYSTEM (MEGA VERSION + IMGBB API + COLOR SETS & GROUP MEMBERS + HORIZONTAL SCROLL + DRAG TO SCROLL FIXED + ALPHABETICAL SORTING & AUTO ITEM GROUPING)
+   script.js - MMD BORROW SYSTEM (MEGA VERSION + IMGBB API + COLOR SETS + DRAG TO SCROLL + SORTING + LEADERBOARD STATS + PREMIUM MODAL UI)
    ========================================= */
 
-// 🟢 คำสั่งจัดหน้าจอ และ ล็อกความกว้างไม่ให้ทะลุจอ
+// 🟢 คำสั่งจัดหน้าจอ, ล็อกความกว้างไม่ให้ทะลุจอ และตกแต่งช่องกรอกข้อมูล (Premium Input)
 if (!document.getElementById('dynamic-ui-css')) {
     const style = document.createElement('style');
     style.id = 'dynamic-ui-css';
@@ -22,22 +22,54 @@ if (!document.getElementById('dynamic-ui-css')) {
             max-width: 100% !important; 
             box-sizing: border-box !important;
         }
-        .category-scroll:active {
-            cursor: grabbing !important; 
-        }
+        .category-scroll:active { cursor: grabbing !important; }
         .category-scroll::-webkit-scrollbar { display: none; }
         .category-scroll button { 
-            white-space: nowrap !important; 
-            flex-shrink: 0 !important; 
-            user-select: none !important; 
-            -webkit-user-select: none !important;
-            pointer-events: auto;
+            white-space: nowrap !important; flex-shrink: 0 !important; 
+            user-select: none !important; -webkit-user-select: none !important; pointer-events: auto;
+        }
+
+        /* 🟢 สไตล์ช่องกรอกข้อมูลให้สวยหรูดูพรีเมียม */
+        .premium-input {
+            width: 100% !important;
+            margin: 0 !important;
+            box-sizing: border-box !important;
+            background-color: #111 !important;
+            color: #fff !important;
+            border: 1px solid #444 !important;
+            border-radius: 8px !important;
+            padding: 12px 15px !important;
+            font-size: 14px !important;
+            transition: all 0.3s ease !important;
+        }
+        .premium-input:focus {
+            border-color: #ff6600 !important;
+            background-color: #1a1a1a !important;
+            box-shadow: 0 0 0 3px rgba(255,102,0,0.2) !important;
+            outline: none !important;
+        }
+        /* 🟢 เปลี่ยนสีลูกศร Datalist ให้เป็นสีขาว/สว่าง */
+        .premium-input::-webkit-calendar-picker-indicator {
+            filter: invert(0.8);
+            cursor: pointer;
+        }
+        .premium-input::-webkit-calendar-picker-indicator:hover { filter: invert(1); }
+        
+        textarea.premium-input { resize: vertical; min-height: 80px; }
+        
+        /* 🟢 เปลี่ยนลูกศรของช่อง Select ปกติ */
+        select.premium-input {
+            cursor: pointer;
+            appearance: none;
+            background-image: url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23AAAAAA%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E");
+            background-repeat: no-repeat;
+            background-position: right 15px top 50%;
+            background-size: 12px auto;
         }
     `;
     document.head.appendChild(style);
 }
 
-// 🟢 ฟังก์ชันทำให้ใช้เมาส์คลิกลากเลื่อนซ้าย-ขวาได้ (Drag to Scroll)
 function enableDragToScroll(slider) {
     if (!slider || slider.dataset.dragEnabled === "true") return;
     slider.dataset.dragEnabled = "true";
@@ -51,12 +83,8 @@ function enableDragToScroll(slider) {
         startX = e.pageX - slider.offsetLeft;
         scrollLeft = slider.scrollLeft;
     });
-    slider.addEventListener('mouseleave', () => {
-        isDown = false;
-    });
-    slider.addEventListener('mouseup', () => {
-        isDown = false;
-    });
+    slider.addEventListener('mouseleave', () => { isDown = false; });
+    slider.addEventListener('mouseup', () => { isDown = false; });
     slider.addEventListener('mousemove', (e) => {
         if (!isDown) return;
         e.preventDefault(); 
@@ -101,7 +129,7 @@ let currentUser = JSON.parse(localStorage.getItem('currentUser')) || null;
 let items = [], borrowRequests = [], users = [], cart = [];
 let currentPickupId = null, currentReturnId = null;
 let currentPage = 1; const itemsPerPage = 8; let searchQuery = "";
-let borrowChartInstance = null, conditionChartInstance = null;
+let borrowChartInstance = null, conditionChartInstance = null, userChartInstance = null; 
 let currentCategory = 'all';
 let adminCurrentCategory = 'all'; 
 
@@ -116,15 +144,8 @@ async function uploadToImgBB(base64Data) {
             body: formData
         });
         const data = await response.json();
-        if (data.success) {
-            return data.data.url; 
-        } else {
-            throw new Error('อัปโหลดรูปภาพล้มเหลว');
-        }
-    } catch (error) {
-        console.error("ImgBB Upload Error:", error);
-        throw error;
-    }
+        if (data.success) { return data.data.url; } else { throw new Error('อัปโหลดรูปภาพล้มเหลว'); }
+    } catch (error) { console.error("ImgBB Upload Error:", error); throw error; }
 }
 
 function getDisplayCategory(cat) {
@@ -309,25 +330,19 @@ window.renderItems = (cat = currentCategory) => {
 
     let htmlOut = '';
 
-    // 🟢 ระบบจัดเรียงอุปกรณ์ ให้หมวดเดียวกันอยู่ด้วยกัน และป้ายเหลืองอยู่ล่างสุด
     let sortedItems = [...items].sort((a, b) => {
         const catA = getDisplayCategory(a.category);
         const catB = getDisplayCategory(b.category);
-        
         const getWeight = (item, cat) => {
-            if (item.isYellowTag) return 3; // น้ำหนักเยอะสุด ไปอยู่ล่างสุด
-            if (cat.startsWith('เซ็ต')) return 2; // หมวดหมู่เซ็ตอยู่รองลงมา
-            return 1; // หมวดหมู่ทั่วไปอยู่บนสุด
+            if (item.isYellowTag) return 3; 
+            if (cat.startsWith('เซ็ต')) return 2; 
+            return 1; 
         };
+        const wA = getWeight(a, catA);
+        const wB = getWeight(b, catB);
         
-        const weightA = getWeight(a, catA);
-        const weightB = getWeight(b, catB);
-        
-        // 1. เรียงตามน้ำหนัก (ทั่วไป -> เซ็ต -> ป้ายเหลือง)
-        if (weightA !== weightB) return weightA - weightB;
-        // 2. ถ้าน้ำหนักเท่ากัน จัดกลุ่มตามชื่อหมวดหมู่ (ก-ฮ)
+        if (wA !== wB) return wA - wB;
         if (catA !== catB) return catA.localeCompare(catB, 'th');
-        // 3. ถ้าอยู่หมวดเดียวกัน เรียงตามชื่ออุปกรณ์ (ก-ฮ)
         return a.name.localeCompare(b.name, 'th');
     });
     
@@ -655,7 +670,7 @@ window.updateStatus = async (id, s) => {
         if (s === 'approved_pickup') statusThai = "✅ อนุมัติแล้ว (สามารถมารับของได้)";
         else if (s === 'rejected') statusThai = "❌ ไม่อนุมัติ (ปฏิเสธการให้ยืม)";
         else if (s === 'returned') statusThai = "📥 แอดมินรับคืนอุปกรณ์เรียบร้อย";
-        else if (s === 'borrowed') statusThai = "⚠️️ ตีกลับ (ให้ตรวจสอบ/ส่งรูปคืนใหม่)";
+        else if (s === 'borrowed') statusThai = "⚠️ ตีกลับ (ให้ตรวจสอบ/ส่งรูปคืนใหม่)";
         else if (s === 'pending') statusThai = "⏳ ยกเลิกการอนุมัติ (กลับไปรอตรวจสอบใหม่)";
         else statusThai = s;
 
@@ -722,7 +737,6 @@ window.renderInventory = () => {
 
     let htmlOut = '';
 
-    // 🟢 ระบบจัดเรียงอุปกรณ์ในตารางแอดมิน ให้เหมือนฝั่ง User เป๊ะๆ
     let sortedItems = [...items].sort((a, b) => {
         const catA = getDisplayCategory(a.category);
         const catB = getDisplayCategory(b.category);
@@ -773,7 +787,7 @@ window.renderInventory = () => {
             ? `<button onclick="toggleCondition('${i.id}', 'good')" style="background:#dc3545; color:#fff; border:none; padding:6px 12px; border-radius:4px; font-size:12px; font-weight:bold; cursor:pointer;">ชำรุด (ส่งซ่อม)</button>` 
             : `<button onclick="toggleCondition('${i.id}', 'damaged')" style="background:#198754; color:#fff; border:none; padding:6px 12px; border-radius:4px; font-size:12px; font-weight:bold; cursor:pointer;">ปกติ (ใช้งานได้)</button>`;
             
-        let actionBtns = `<div style="display:flex; gap:5px;"><button onclick="editItem('${i.id}')" style="background:#ffc107; color:#000; border:none; padding:6px 12px; border-radius:4px; font-size:12px; font-weight:bold; cursor:pointer;" title="แก้ไขข้อมูลอุปกรณ์"><i class="fas fa-edit"></i> แก้ไข</button><button onclick="deleteItem('${i.id}')" style="background:#dc3545; color:#fff; border:none; padding:6px 12px; border-radius:4px; font-size:12px; font-weight:bold; cursor:pointer;" title="ลบอุปกรณ์"><i class="fas fa-trash"></i></button></div>`;
+        let actionBtns = `<div style="display:flex; gap:5px;"><button onclick="editItem('${i.id}')" style="background:#ffc107; color:#000; border:none; padding:6px 12px; border-radius:4px; font-size:12px; font-weight:bold; cursor:pointer;" title="แก้ไขข้อมูลอุปกรณ์"><i class="fas fa-edit"></i> แก้ไข</button><button onclick="deleteItem('${i.id}')" style="background:#dc3545; color:#fff; border:none; padding:6px 12px; border-radius:4px; font-weight:bold; cursor:pointer;" title="ลบอุปกรณ์"><i class="fas fa-trash"></i></button></div>`;
             
         let yellowLabel = i.isYellowTag ? `<br><span style="background:#ff9800; color:#000; font-size:10px; padding:2px 6px; border-radius:10px; font-weight:bold;">ป้ายเหลือง</span>` : '';
         htmlOut += `<tr><td><img src="${i.image}" width="40" style="border-radius:4px;"></td><td style="color:white">${i.name}${yellowLabel}</td><td>${itemDisplayCat}</td><td>${st}</td><td>${condBtn}</td><td>${actionBtns}</td></tr>`; 
@@ -796,30 +810,52 @@ window.deleteItem = async (id) => { if((await Swal.fire({title:'ลบ?',icon:'w
 window.addNewItem = async () => {
     const presetSets = ['เซ็ตแดง', 'เซ็ตเขียว', 'เซ็ตเหลือง'];
     const uniqueCats = [...new Set([...items.map(i => getDisplayCategory(i.category)), ...presetSets])].filter(c => c && c !== 'ป้ายเหลือง');
+    
+    // 🟢 เรียงตามตัวอักษร ก-ฮ และใส่ HTML Datalist
+    uniqueCats.sort((a, b) => a.localeCompare(b, 'th'));
     const datalistOptions = uniqueCats.map(c => `<option value="${c}">`).join('');
 
     const { value: formValues } = await Swal.fire({
         title: '📦 เพิ่มอุปกรณ์ใหม่', width: 600,
         html: `<div style="text-align: left; font-size: 14px; display: flex; flex-direction: column; gap: 12px;">
-                <div><label style="color:#aaa; display:block; margin-bottom:5px;">ชื่ออุปกรณ์</label><input id="swal-name" class="swal2-input" placeholder="เช่น SONY A7M4" style="width: 100%; margin: 0; box-sizing: border-box;"></div>
+                <div><label style="color:#aaa; display:block; margin-bottom:5px;">ชื่ออุปกรณ์</label>
+                <input id="swal-name" class="premium-input" placeholder="เช่น SONY A7M4"></div>
+                
                 <div style="display: flex; gap: 10px;">
                     <div style="flex: 2;">
-                        <label style="color:#aaa; display:block; margin-bottom:5px;">หมวดหมู่ (พิมพ์ เซ็ตแดง, เซ็ตเขียว, หรือ เซ็ตเหลือง)</label>
-                        <input id="swal-category" list="category-options" class="swal2-input" placeholder="เลือกหรือพิมพ์ชนิดใหม่..." style="width: 100%; margin: 0; box-sizing: border-box;">
+                        <label style="color:#aaa; display:block; margin-bottom:5px;">หมวดหมู่</label>
+                        <input id="swal-category" list="category-options" class="premium-input" placeholder=" คลิกเลือก หรือ พิมพ์หมวดใหม่...">
                         <datalist id="category-options">${datalistOptions}</datalist>
                     </div>
-                    <div style="flex: 1;"><label style="color:#aaa; display:block; margin-bottom:5px;">จำนวนสต็อก</label><input id="swal-stock" type="number" min="1" value="1" class="swal2-input" style="width: 100%; margin: 0; box-sizing: border-box; text-align:center;"></div>
+                    <div style="flex: 1;">
+                        <label style="color:#aaa; display:block; margin-bottom:5px;">จำนวนสต็อก</label>
+                        <input id="swal-stock" type="number" min="1" value="1" class="premium-input" style="text-align:center;">
+                    </div>
                 </div>
+                
                 <div>
-                    <label style="color:#ff9800; display:flex; align-items:center; gap:10px; cursor:pointer; background:rgba(255,152,0,0.15); padding:12px; border-radius:5px; border: 1px solid rgba(255,152,0,0.5);">
-                        <input type="checkbox" id="swal-yellow-tag" style="width:20px; height:20px;">
+                    <label style="color:#ff9800; display:flex; align-items:center; gap:10px; cursor:pointer; background:rgba(255,152,0,0.15); padding:12px; border-radius:8px; border: 1px solid rgba(255,152,0,0.5); transition: 0.3s;" onmouseover="this.style.background='rgba(255,152,0,0.25)'" onmouseout="this.style.background='rgba(255,152,0,0.15)'">
+                        <input type="checkbox" id="swal-yellow-tag" style="width:20px; height:20px; cursor:pointer;">
                         <span><i class="fas fa-exclamation-triangle"></i> ตั้งเป็น <b>"อุปกรณ์ป้ายเหลือง"</b> (ใช้ในมอเท่านั้น)</span>
                     </label>
                 </div>
-                <div><label style="color:#aaa; display:block; margin-bottom:5px;">ระดับความยาก</label><select id="swal-difficulty" class="swal2-input" style="width: 100%; margin: 0; box-sizing: border-box;"><option value="ระดับง่ายมาก (Beginner)">🟢 ง่ายมาก</option><option value="ระดับปานกลาง (Medium)">🟡 ปานกลาง</option><option value="ระดับค่อนข้างยาก (Advanced)">🟠 ค่อนข้างยาก</option><option value="ระดับมืออาชีพ (Pro)">🔴 มืออาชีพ</option></select></div>
-                <div><label style="color:#aaa; display:block; margin-bottom:5px;">อัปโหลดรูปภาพอุปกรณ์</label><input type="file" id="swal-image-file" accept="image/*" style="width: 100%; color: #fff; background: #222; padding: 12px; border-radius: 5px; border: 1px solid #444; box-sizing: border-box;"></div>
-                <div><label style="color:#aaa; display:block; margin-bottom:5px;">อ้างอิงข้อมูล</label><input id="swal-ref" class="swal2-input" placeholder="เช่น คู่มือผู้ใช้, DPreview" style="width: 100%; margin: 0; box-sizing: border-box;"></div>
-                <div><label style="color:#aaa; display:block; margin-bottom:5px;">รายละเอียด / คำแนะนำเพิ่มเติม</label><textarea id="swal-desc" class="swal2-textarea" style="width: 100%; margin: 0; box-sizing: border-box; height: 80px;" placeholder="คำอธิบายสเปค หรือ ข้อควรระวัง..."></textarea></div>
+                
+                <div><label style="color:#aaa; display:block; margin-bottom:5px;">ระดับความยาก</label>
+                <select id="swal-difficulty" class="premium-input">
+                    <option value="ระดับง่ายมาก (Beginner)">🟢 ง่ายมาก</option>
+                    <option value="ระดับปานกลาง (Medium)">🟡 ปานกลาง</option>
+                    <option value="ระดับค่อนข้างยาก (Advanced)">🟠 ค่อนข้างยาก</option>
+                    <option value="ระดับมืออาชีพ (Pro)">🔴 มืออาชีพ</option>
+                </select></div>
+                
+                <div><label style="color:#aaa; display:block; margin-bottom:5px;">อัปโหลดรูปภาพอุปกรณ์</label>
+                <input type="file" id="swal-image-file" accept="image/*" class="premium-input" style="padding: 9px 15px !important; cursor:pointer;"></div>
+                
+                <div><label style="color:#aaa; display:block; margin-bottom:5px;">อ้างอิงข้อมูล</label>
+                <input id="swal-ref" class="premium-input" placeholder="เช่น คู่มือผู้ใช้, DPreview"></div>
+                
+                <div><label style="color:#aaa; display:block; margin-bottom:5px;">รายละเอียด / คำแนะนำเพิ่มเติม</label>
+                <textarea id="swal-desc" class="premium-input" placeholder="คำอธิบายสเปค หรือ ข้อควรระวัง..."></textarea></div>
             </div>`,
         showCancelButton: true, confirmButtonText: '<i class="fas fa-save"></i> บันทึกอุปกรณ์', confirmButtonColor: '#28a745', background: '#1a1a1a', color: '#fff',
         preConfirm: async () => {
@@ -854,35 +890,56 @@ window.addNewItem = async () => {
 window.editItem = async function(id) {
     const item = items.find(i => i.id === id); if (!item) return;
     const diff = item.difficulty || "ระดับปานกลาง (Medium)"; const ref = item.reference || ""; const desc = item.description || ""; const stockVal = item.stock || 1; 
-    
     const currentCatDisplay = (item.category === 'ป้ายเหลือง' || item.category === 'yellow') ? "" : getDisplayCategory(item.category);
     
     const presetSets = ['เซ็ตแดง', 'เซ็ตเขียว', 'เซ็ตเหลือง'];
     const uniqueCats = [...new Set([...items.map(i => getDisplayCategory(i.category)), ...presetSets])].filter(c => c && c !== 'ป้ายเหลือง');
+    
+    // 🟢 เรียงตามตัวอักษร ก-ฮ และใส่ HTML Datalist
+    uniqueCats.sort((a, b) => a.localeCompare(b, 'th'));
     const datalistOptions = uniqueCats.map(c => `<option value="${c}">`).join('');
 
     const { value: formValues } = await Swal.fire({
         title: '✏️ แก้ไขข้อมูลอุปกรณ์', width: 600,
         html: `<div style="text-align: left; font-size: 14px; display: flex; flex-direction: column; gap: 12px;">
-                <div><label style="color:#aaa; display:block; margin-bottom:5px;">ชื่ออุปกรณ์</label><input id="swal-edit-name" class="swal2-input" value="${item.name}" style="width: 100%; margin: 0; box-sizing: border-box;"></div>
+                <div><label style="color:#aaa; display:block; margin-bottom:5px;">ชื่ออุปกรณ์</label>
+                <input id="swal-edit-name" class="premium-input" value="${item.name}"></div>
+                
                 <div style="display: flex; gap: 10px;">
                     <div style="flex: 2;">
-                        <label style="color:#aaa; display:block; margin-bottom:5px;">หมวดหมู่ (พิมพ์ เซ็ตแดง, เซ็ตเขียว, หรือ เซ็ตเหลือง)</label>
-                        <input id="swal-edit-category" list="category-options" class="swal2-input" value="${currentCatDisplay}" style="width: 100%; margin: 0; box-sizing: border-box;">
+                        <label style="color:#aaa; display:block; margin-bottom:5px;">หมวดหมู่</label>
+                        <input id="swal-edit-category" list="category-options" class="premium-input" value="${currentCatDisplay}" placeholder=" คลิกเลือก หรือ พิมพ์หมวดใหม่...">
                         <datalist id="category-options">${datalistOptions}</datalist>
                     </div>
-                    <div style="flex: 1;"><label style="color:#aaa; display:block; margin-bottom:5px;">จำนวนสต็อก</label><input id="swal-edit-stock" type="number" min="1" value="${stockVal}" class="swal2-input" style="width: 100%; margin: 0; box-sizing: border-box; text-align:center;"></div>
+                    <div style="flex: 1;">
+                        <label style="color:#aaa; display:block; margin-bottom:5px;">จำนวนสต็อก</label>
+                        <input id="swal-edit-stock" type="number" min="1" value="${stockVal}" class="premium-input" style="text-align:center;">
+                    </div>
                 </div>
+                
                 <div>
-                    <label style="color:#ff9800; display:flex; align-items:center; gap:10px; cursor:pointer; background:rgba(255,152,0,0.15); padding:12px; border-radius:5px; border: 1px solid rgba(255,152,0,0.5);">
-                        <input type="checkbox" id="swal-edit-yellow-tag" style="width:20px; height:20px;" ${item.isYellowTag ? 'checked' : ''}>
+                    <label style="color:#ff9800; display:flex; align-items:center; gap:10px; cursor:pointer; background:rgba(255,152,0,0.15); padding:12px; border-radius:8px; border: 1px solid rgba(255,152,0,0.5); transition: 0.3s;" onmouseover="this.style.background='rgba(255,152,0,0.25)'" onmouseout="this.style.background='rgba(255,152,0,0.15)'">
+                        <input type="checkbox" id="swal-edit-yellow-tag" style="width:20px; height:20px; cursor:pointer;" ${item.isYellowTag ? 'checked' : ''}>
                         <span><i class="fas fa-exclamation-triangle"></i> ตั้งเป็น <b>"อุปกรณ์ป้ายเหลือง"</b> (ใช้ในมอเท่านั้น)</span>
                     </label>
                 </div>
-                <div><label style="color:#aaa; display:block; margin-bottom:5px;">ระดับความยาก</label><select id="swal-edit-difficulty" class="swal2-input" style="width: 100%; margin: 0; box-sizing: border-box;"><option value="ระดับง่ายมาก (Beginner)" ${diff.includes('ง่าย') ? 'selected' : ''}>🟢 ง่ายมาก</option><option value="ระดับปานกลาง (Medium)" ${diff.includes('ปานกลาง') ? 'selected' : ''}>🟡 ปานกลาง</option><option value="ระดับค่อนข้างยาก (Advanced)" ${diff.includes('ค่อนข้างยาก') ? 'selected' : ''}>🟠 ค่อนข้างยาก</option><option value="ระดับมืออาชีพ (Pro)" ${diff.includes('มืออาชีพ') ? 'selected' : ''}>🔴 มืออาชีพ</option></select></div>
-                <div><label style="color:#aaa; display:block; margin-bottom:5px;">เปลี่ยนรูปภาพ (ถ้าไม่เปลี่ยน ไม่ต้องเลือกไฟล์)</label><input type="file" id="swal-edit-image-file" accept="image/*" style="width: 100%; color: #fff; background: #222; padding: 12px; border-radius: 5px; border: 1px solid #444; box-sizing: border-box;"></div>
-                <div><label style="color:#aaa; display:block; margin-bottom:5px;">อ้างอิงข้อมูล</label><input id="swal-edit-ref" class="swal2-input" value="${ref}" style="width: 100%; margin: 0; box-sizing: border-box;"></div>
-                <div><label style="color:#aaa; display:block; margin-bottom:5px;">รายละเอียด / คำแนะนำเพิ่มเติม</label><textarea id="swal-edit-desc" class="swal2-textarea" style="width: 100%; margin: 0; box-sizing: border-box; height: 80px;">${desc}</textarea></div>
+                
+                <div><label style="color:#aaa; display:block; margin-bottom:5px;">ระดับความยาก</label>
+                <select id="swal-edit-difficulty" class="premium-input">
+                    <option value="ระดับง่ายมาก (Beginner)" ${diff.includes('ง่าย') ? 'selected' : ''}>🟢 ง่ายมาก</option>
+                    <option value="ระดับปานกลาง (Medium)" ${diff.includes('ปานกลาง') ? 'selected' : ''}>🟡 ปานกลาง</option>
+                    <option value="ระดับค่อนข้างยาก (Advanced)" ${diff.includes('ค่อนข้างยาก') ? 'selected' : ''}>🟠 ค่อนข้างยาก</option>
+                    <option value="ระดับมืออาชีพ (Pro)" ${diff.includes('มืออาชีพ') ? 'selected' : ''}>🔴 มืออาชีพ</option>
+                </select></div>
+                
+                <div><label style="color:#aaa; display:block; margin-bottom:5px;">เปลี่ยนรูปภาพ (ถ้าไม่เปลี่ยน ไม่ต้องเลือกไฟล์)</label>
+                <input type="file" id="swal-edit-image-file" accept="image/*" class="premium-input" style="padding: 9px 15px !important; cursor:pointer;"></div>
+                
+                <div><label style="color:#aaa; display:block; margin-bottom:5px;">อ้างอิงข้อมูล</label>
+                <input id="swal-edit-ref" class="premium-input" value="${ref}"></div>
+                
+                <div><label style="color:#aaa; display:block; margin-bottom:5px;">รายละเอียด / คำแนะนำเพิ่มเติม</label>
+                <textarea id="swal-edit-desc" class="premium-input">${desc}</textarea></div>
             </div>`,
         showCancelButton: true, confirmButtonText: '<i class="fas fa-save"></i> บันทึกการแก้ไข', confirmButtonColor: '#ffc107', background: '#1a1a1a', color: '#fff',
         preConfirm: async () => {
@@ -918,14 +975,104 @@ window.updateDashboardStats = () => {
     const statTotalItems = document.getElementById('stat-total-items'); if (statTotalItems) statTotalItems.innerText = items.length; 
 }
 
+window.showAllBorrowersModal = function() {
+    let htmlContent = `
+        <div style="max-height: 60vh; overflow-y: auto; text-align: left; border-radius: 8px; border: 1px solid #333;">
+            <table style="width: 100%; border-collapse: collapse; color: #fff; font-size: 14px;">
+                <thead style="position: sticky; top: 0; background: #222; z-index: 10; box-shadow: 0 2px 5px rgba(0,0,0,0.5);">
+                    <tr>
+                        <th style="padding: 12px; border-bottom: 2px solid #444; text-align: center; width: 15%;">อันดับ</th>
+                        <th style="padding: 12px; border-bottom: 2px solid #444; width: 35%;">ชื่อนักศึกษา</th>
+                        <th style="padding: 12px; border-bottom: 2px solid #444; text-align: center; width: 15%;">จำนวนที่ยืม (ครั้ง)</th>
+                        <th style="padding: 12px; border-bottom: 2px solid #444; width: 35%;">ประวัติอุปกรณ์ที่ยืม</th>
+                    </tr>
+                </thead>
+                <tbody>
+    `;
+
+    window.sortedUsersData.forEach((u, index) => {
+        let rankColor = index === 0 ? '#ffd700' : index === 1 ? '#c0c0c0' : index === 2 ? '#cd7f32' : '#aaa';
+        let rankIcon = index === 0 ? '🥇 ' : index === 1 ? '🥈 ' : index === 2 ? '🥉 ' : '';
+        htmlContent += `
+            <tr style="border-bottom: 1px solid #333; background: ${index % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.02)'}; transition: 0.2s;">
+                <td style="padding: 12px; font-weight: bold; color: ${rankColor}; text-align: center; font-size: 16px;">${rankIcon}#${index + 1}</td>
+                <td style="padding: 12px; font-weight: bold;">${u.name}</td>
+                <td style="padding: 12px; text-align: center; font-weight: bold; color: var(--theme-primary); font-size: 16px;">${u.count}</td>
+                <td style="padding: 12px; font-size: 12px; color: #bbb; line-height: 1.5;">${u.itemsText || '-'}</td>
+            </tr>
+        `;
+    });
+
+    htmlContent += `</tbody></table></div>`;
+
+    Swal.fire({
+        title: '🏆 จัดอันดับผู้ยืมทั้งหมด (Leaderboard)',
+        html: htmlContent,
+        width: 800,
+        background: '#1a1a1a',
+        color: '#fff',
+        confirmButtonColor: '#ff6600',
+        confirmButtonText: 'ปิดหน้าต่าง'
+    });
+}
+
 window.renderStats = () => {
     let freq = {}; 
+    let userStats = {}; 
+    
     borrowRequests.filter(r => r.status !== 'rejected').forEach(req => { 
         let reqItemStr = String(req.item || ""); 
-        let m; let r = /([^,]+)\s*\((\d+)\s*ชิ้น\)/g; let f=false; 
-        while((m=r.exec(reqItemStr))!==null){ f=true; freq[m[1].trim()] = (freq[m[1].trim()]||0)+parseInt(m[2]); } 
+        let m; let rRegex = /([^,]+)\s*\((\d+)\s*ชิ้น\)/g; let f=false; 
+        while((m=rRegex.exec(reqItemStr))!==null){ f=true; freq[m[1].trim()] = (freq[m[1].trim()]||0)+parseInt(m[2]); } 
         if(!f && reqItemStr) reqItemStr.split(',').forEach(it=>{ freq[it.trim()]=(freq[it.trim()]||0)+1; }); 
+        
+        let uName = req.user || "ไม่ทราบชื่อ";
+        if (!userStats[uName]) { userStats[uName] = { count: 0, items: {} }; }
+        userStats[uName].count += 1;
+        
+        let mUser; let rUserRegex = /([^,]+)\s*\((\d+)\s*ชิ้น\)/g; let fUser=false;
+        while((mUser = rUserRegex.exec(reqItemStr)) !== null) {
+            fUser = true; 
+            let itemName = mUser[1].trim(); 
+            let qty = parseInt(mUser[2]);
+            userStats[uName].items[itemName] = (userStats[uName].items[itemName] || 0) + qty;
+        }
+        if(!fUser && reqItemStr) {
+            reqItemStr.split(',').forEach(it => {
+                let itemName = it.trim();
+                if (itemName) {
+                    userStats[uName].items[itemName] = (userStats[uName].items[itemName] || 0) + 1;
+                }
+            });
+        }
     });
+    
+    window.sortedUsersData = Object.keys(userStats).map(k => {
+        let sortedItems = Object.keys(userStats[k].items).sort((a,b) => userStats[k].items[b] - userStats[k].items[a]);
+        let itemStrs = sortedItems.map(ik => `${ik} (x${userStats[k].items[ik]})`);
+        return { name: k, count: userStats[k].count, itemsText: itemStrs.join(', ') };
+    }).sort((a, b) => b.count - a.count);
+
+    let top5Users = window.sortedUsersData.slice(0, 5);
+    
+    let statsSection = document.getElementById('section-stats');
+    if (statsSection && !document.getElementById('userChartContainer')) {
+        let userChartContainer = document.createElement('div');
+        userChartContainer.id = 'userChartContainer';
+        userChartContainer.style.cssText = 'margin-top: 30px; background: #1a1a1a; padding: 25px; border-radius: 12px; border: 1px solid #333; box-shadow: 0 4px 10px rgba(0,0,0,0.3);';
+        userChartContainer.innerHTML = `
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px;">
+                <h3 style="margin:0; color:#fff; font-size:16px;">🏆 5 อันดับนักศึกษาที่ยืมอุปกรณ์บ่อยที่สุด</h3>
+                <button onclick="window.showAllBorrowersModal()" style="background:var(--theme-primary); color:#000; border:none; padding:8px 15px; border-radius:6px; cursor:pointer; font-weight:bold; font-size:13px; transition: 0.3s;">
+                    <i class="fas fa-list-ol"></i> ดูรายชื่อจัดอันดับทั้งหมด
+                </button>
+            </div>
+            <div style="position: relative; height: 300px; width: 100%;">
+                <canvas id="userBorrowChart"></canvas>
+            </div>
+        `;
+        statsSection.appendChild(userChartContainer);
+    }
     
     let s = Object.keys(freq).map(k => ({n:k, c:freq[k]})).sort((a,b)=>b.c-a.c).slice(0,10);
     const ctxB = document.getElementById('borrowChart'); 
@@ -933,10 +1080,54 @@ window.renderStats = () => {
         if(borrowChartInstance) borrowChartInstance.destroy(); 
         borrowChartInstance = new Chart(ctxB, { type:'bar', data: {labels: s.map(i=>i.n), datasets:[{label:'จำนวนการยืม (ครั้ง)', data:s.map(i=>i.c), backgroundColor:'#ff6600'}]}, options:{plugins:{legend:{display:false}}, scales:{y:{beginAtZero: true, ticks:{color:'#aaa', stepSize:1}},x:{ticks:{color:'#aaa'}}}} }); 
     }
+    
     const ctxP = document.getElementById('conditionChart'); 
     if(ctxP) { 
         if(conditionChartInstance) conditionChartInstance.destroy(); 
         conditionChartInstance = new Chart(ctxP, { type:'doughnut', data: {labels:['ปกติ','ชำรุด/ซ่อม'], datasets:[{data:[items.filter(i=>i.condition!=='damaged').length, items.filter(i=>i.condition==='damaged').length], backgroundColor:['#198754','#dc3545'], borderWidth:0}]}, options:{plugins:{legend:{labels:{color:'#fff'}}}} }); 
+    }
+    
+    const ctxU = document.getElementById('userBorrowChart');
+    if (ctxU && top5Users.length > 0) {
+        if (window.userChartInstance) window.userChartInstance.destroy();
+        window.userChartInstance = new Chart(ctxU, {
+            type: 'bar',
+            data: {
+                labels: top5Users.map(u => u.name.length > 20 ? u.name.substring(0,20)+'...' : u.name),
+                datasets: [{
+                    label: 'จำนวนครั้งที่ทำรายการยืม',
+                    data: top5Users.map(u => u.count),
+                    backgroundColor: '#0dcaf0',
+                    borderRadius: 4
+                }]
+            },
+            options: {
+                indexAxis: 'y', 
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            afterLabel: function(context) {
+                                let userObj = top5Users[context.dataIndex];
+                                let itemsList = userObj.itemsText.split(', ');
+                                let tooltipText = ['--- ประวัติอุปกรณ์ที่ยืมบ่อย ---'];
+                                itemsList.forEach((item, idx) => {
+                                    if(idx < 5) tooltipText.push('- ' + item);
+                                });
+                                if(itemsList.length > 5) tooltipText.push('...และอื่นๆ (ดูเพิ่มเติมในปุ่มดูรายชื่อทั้งหมด)');
+                                return tooltipText;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: { beginAtZero: true, ticks: { color: '#aaa', stepSize: 1 } },
+                    y: { ticks: { color: '#fff', font: { size: 13 } } }
+                }
+            }
+        });
     }
 }
 
@@ -985,7 +1176,7 @@ function initApp() {
                 container.style.marginBottom = '10px';
                 container.innerHTML = `
                     <label style="color:#0dcaf0; display:block; margin-bottom:5px; font-weight:bold; font-size:14px;"><i class="fas fa-users"></i> รายชื่อสมาชิกในกลุ่ม (สำหรับการยืมแบบเซ็ต)</label>
-                    <textarea id="cartGroupMembers" class="swal2-textarea" style="width:100%; margin:0; box-sizing:border-box; height:60px; font-size:14px; background:#222; color:#fff; border:1px solid #0dcaf0; border-radius:5px; padding:10px;" placeholder="ระบุ ชื่อ-สกุล/รหัสนักศึกษา ของเพื่อนในกลุ่ม..."></textarea>
+                    <textarea id="cartGroupMembers" class="premium-input" placeholder="ระบุ ชื่อ-สกุล/รหัสนักศึกษา ของเพื่อนในกลุ่ม..."></textarea>
                 `;
                 borrowerInput.parentNode.insertBefore(container, borrowerInput.nextSibling);
             }
