@@ -1,5 +1,5 @@
 /* =========================================
-   script.js - MMD BORROW SYSTEM (MEGA VERSION + IMGBB API + COLOR SETS & GROUP MEMBERS + HORIZONTAL SCROLL + DRAG TO SCROLL FIXED + ALPHABETICAL SORTING)
+   script.js - MMD BORROW SYSTEM (MEGA VERSION + IMGBB API + COLOR SETS & GROUP MEMBERS + HORIZONTAL SCROLL + DRAG TO SCROLL FIXED + ALPHABETICAL SORTING & AUTO ITEM GROUPING)
    ========================================= */
 
 // 🟢 คำสั่งจัดหน้าจอ และ ล็อกความกว้างไม่ให้ทะลุจอ
@@ -267,15 +267,12 @@ window.renderCategories = () => {
     const normalizedCats = new Set(items.map(i => getDisplayCategory(i.category)));
     let uniqueCats = [...normalizedCats].filter(c => c && c !== 'ป้ายเหลือง'); 
     
-    // 🟢 ระบบจัดเรียงหมวดหมู่ (แยกหมวดหมู่ปกติ กับ หมวดหมู่เซ็ต)
     let normalCats = uniqueCats.filter(c => !c.startsWith('เซ็ต'));
     let specialCats = uniqueCats.filter(c => c.startsWith('เซ็ต'));
 
-    // 🟢 เรียงตามตัวอักษรภาษาไทย
     normalCats.sort((a, b) => a.localeCompare(b, 'th'));
     specialCats.sort((a, b) => a.localeCompare(b, 'th'));
 
-    // 🟢 รวมร่างกัน โดยให้ หมวดหมู่ปกติ อยู่ก่อน หมวดหมู่เซ็ตสี
     uniqueCats = [...normalCats, ...specialCats];
 
     let html = `<button class="${currentCategory === 'all' ? 'active' : ''}" onclick="filterItems('all')">ทั้งหมด</button>`;
@@ -285,7 +282,7 @@ window.renderCategories = () => {
         if (cat === 'เซ็ตแดง') inlineStyle = `background: ${currentCategory === cat ? '#dc3545' : 'transparent'}; color: ${currentCategory === cat ? '#fff' : '#dc3545'}; border-color: #dc3545;`;
         else if (cat === 'เซ็ตเขียว') inlineStyle = `background: ${currentCategory === cat ? '#28a745' : 'transparent'}; color: ${currentCategory === cat ? '#fff' : '#28a745'}; border-color: #28a745;`;
         else if (cat === 'เซ็ตเหลือง') inlineStyle = `background: ${currentCategory === cat ? '#ffc107' : 'transparent'}; color: ${currentCategory === cat ? '#000' : '#ffc107'}; border-color: #ffc107;`;
-        else if (cat.startsWith('เซ็ต')) inlineStyle = `background: ${currentCategory === cat ? '#8a2be2' : 'transparent'}; color: ${currentCategory === cat ? '#fff' : '#8a2be2'}; border-color: #8a2be2;`; // เผื่ออนาคตมีเซ็ตสีอื่นๆ
+        else if (cat.startsWith('เซ็ต')) inlineStyle = `background: ${currentCategory === cat ? '#8a2be2' : 'transparent'}; color: ${currentCategory === cat ? '#fff' : '#8a2be2'}; border-color: #8a2be2;`; 
         
         html += `<button class="${currentCategory === cat ? 'active' : ''}" onclick="filterItems('${cat}')" style="${inlineStyle}">${cat}</button>`; 
     });
@@ -311,8 +308,30 @@ window.renderItems = (cat = currentCategory) => {
     }
 
     let htmlOut = '';
+
+    // 🟢 ระบบจัดเรียงอุปกรณ์ ให้หมวดเดียวกันอยู่ด้วยกัน และป้ายเหลืองอยู่ล่างสุด
+    let sortedItems = [...items].sort((a, b) => {
+        const catA = getDisplayCategory(a.category);
+        const catB = getDisplayCategory(b.category);
+        
+        const getWeight = (item, cat) => {
+            if (item.isYellowTag) return 3; // น้ำหนักเยอะสุด ไปอยู่ล่างสุด
+            if (cat.startsWith('เซ็ต')) return 2; // หมวดหมู่เซ็ตอยู่รองลงมา
+            return 1; // หมวดหมู่ทั่วไปอยู่บนสุด
+        };
+        
+        const weightA = getWeight(a, catA);
+        const weightB = getWeight(b, catB);
+        
+        // 1. เรียงตามน้ำหนัก (ทั่วไป -> เซ็ต -> ป้ายเหลือง)
+        if (weightA !== weightB) return weightA - weightB;
+        // 2. ถ้าน้ำหนักเท่ากัน จัดกลุ่มตามชื่อหมวดหมู่ (ก-ฮ)
+        if (catA !== catB) return catA.localeCompare(catB, 'th');
+        // 3. ถ้าอยู่หมวดเดียวกัน เรียงตามชื่ออุปกรณ์ (ก-ฮ)
+        return a.name.localeCompare(b.name, 'th');
+    });
     
-    items.forEach(item => {
+    sortedItems.forEach(item => {
         const itemDisplayCat = getDisplayCategory(item.category);
         const isYellow = item.isYellowTag === true;
         
@@ -636,7 +655,7 @@ window.updateStatus = async (id, s) => {
         if (s === 'approved_pickup') statusThai = "✅ อนุมัติแล้ว (สามารถมารับของได้)";
         else if (s === 'rejected') statusThai = "❌ ไม่อนุมัติ (ปฏิเสธการให้ยืม)";
         else if (s === 'returned') statusThai = "📥 แอดมินรับคืนอุปกรณ์เรียบร้อย";
-        else if (s === 'borrowed') statusThai = "⚠️ ตีกลับ (ให้ตรวจสอบ/ส่งรูปคืนใหม่)";
+        else if (s === 'borrowed') statusThai = "⚠️️ ตีกลับ (ให้ตรวจสอบ/ส่งรูปคืนใหม่)";
         else if (s === 'pending') statusThai = "⏳ ยกเลิกการอนุมัติ (กลับไปรอตรวจสอบใหม่)";
         else statusThai = s;
 
@@ -678,7 +697,6 @@ window.renderInventory = () => {
     const normalizedCats = new Set(items.map(i => getDisplayCategory(i.category)));
     let uniqueCats = [...normalizedCats].filter(c => c && c !== 'ป้ายเหลือง'); 
 
-    // 🟢 ระบบจัดเรียงหมวดหมู่ (สำหรับหน้า Admin)
     let normalCats = uniqueCats.filter(c => !c.startsWith('เซ็ต'));
     let specialCats = uniqueCats.filter(c => c.startsWith('เซ็ต'));
     normalCats.sort((a, b) => a.localeCompare(b, 'th'));
@@ -703,8 +721,25 @@ window.renderInventory = () => {
     enableDragToScroll(filterDiv); 
 
     let htmlOut = '';
+
+    // 🟢 ระบบจัดเรียงอุปกรณ์ในตารางแอดมิน ให้เหมือนฝั่ง User เป๊ะๆ
+    let sortedItems = [...items].sort((a, b) => {
+        const catA = getDisplayCategory(a.category);
+        const catB = getDisplayCategory(b.category);
+        const getWeight = (item, cat) => {
+            if (item.isYellowTag) return 3; 
+            if (cat.startsWith('เซ็ต')) return 2; 
+            return 1; 
+        };
+        const wA = getWeight(a, catA);
+        const wB = getWeight(b, catB);
+        
+        if (wA !== wB) return wA - wB;
+        if (catA !== catB) return catA.localeCompare(catB, 'th');
+        return a.name.localeCompare(b.name, 'th');
+    });
     
-    items.forEach(i => { 
+    sortedItems.forEach(i => { 
         const itemDisplayCat = getDisplayCategory(i.category);
         const isYellow = i.isYellowTag === true;
 
