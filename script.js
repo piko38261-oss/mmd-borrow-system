@@ -1,5 +1,5 @@
 /* =========================================
-   script.js - MMD BORROW SYSTEM (MEGA UPDATE + PREMIUM UI + LEADERBOARD + ADVANCED RETURN INSPECTION + MODERN LIST UI + GLOWING HEADER + SWEETALERT DARK THEME + MOBILE RESPONSIVE)
+   script.js - MMD BORROW SYSTEM (MEGA UPDATE + PREMIUM UI + LEADERBOARD + ADVANCED RETURN INSPECTION + MODERN LIST UI + GLOWING HEADER + SWEETALERT DARK THEME + MOBILE RESPONSIVE + ROLE CONFIRMATION)
    ========================================= */
 
 // 🟢 คำสั่งจัดหน้าจอ, ล็อกความกว้างไม่ให้ทะลุจอ และตกแต่ง UI ใหม่
@@ -143,12 +143,10 @@ if (!document.getElementById('dynamic-ui-css')) {
             header, .navbar, .top-nav, .header-container {
                 padding: 10px 8px !important;
             }
-            /* ลดขนาดฟอนต์ของโลโก้ */
             .navbar-brand, .logo, h1, h2, h3 {
                 font-size: 18px !important;
                 margin-bottom: 5px !important;
             }
-            /* จัดการชื่อผู้ใช้ให้ตัดคำและเล็กลง */
             #userNameDisplay {
                 font-size: 12px !important;
                 white-space: nowrap !important;
@@ -158,7 +156,6 @@ if (!document.getElementById('dynamic-ui-css')) {
                 display: inline-block !important;
                 vertical-align: middle !important;
             }
-            /* ย่อขนาดปุ่มและช่องว่าง */
             #btnAdminManage, 
             button[onclick="openCartModal()"], .cart-btn,
             button[onclick="window.openHistoryModal()"], button[onclick="openHistoryModal()"] {
@@ -169,7 +166,6 @@ if (!document.getElementById('dynamic-ui-css')) {
                 padding: 6px 10px !important;
                 font-size: 11px !important;
             }
-            /* บังคับคอนเทนเนอร์ให้ชิดกันขึ้น */
             header div, .navbar div {
                 gap: 5px !important;
                 margin-bottom: 2px !important;
@@ -370,7 +366,7 @@ window.register = async function(u, p, n) {
     } catch (e) { Swal.fire({ icon: 'error', title: 'เกิดข้อผิดพลาด', text: e.message, background: '#1a1a1a', color: '#fff' }); }
 }
 
-window.logout = () => Swal.fire({ title: 'ออกจากระบบ?', icon: 'question', showCancelButton: true, background: '#1a1a1a', color: '#fff', confirmButtonColor: '#dc3545', confirmButtonText: 'ออกจากระบบ' }).then((res) => { if(res.isConfirmed){ localStorage.removeItem('currentUser'); window.location.href = 'index.html'; }});
+window.logout = () => Swal.fire({ title: 'ออกจากระบบ?', icon: 'question', showCancelButton: true, background: '#1a1a1a', color: '#fff', confirmButtonColor: '#dc3545', confirmButtonText: 'ออกจากระบบ', customClass: { popup: 'swal-popup-dark', confirmButton: 'swal-btn-confirm', cancelButton: 'swal-btn-cancel' } }).then((res) => { if(res.isConfirmed){ localStorage.removeItem('currentUser'); window.location.href = 'index.html'; }});
 
 window.listenToData = function() {
     onSnapshot(collection(db, "items"), (snap) => { 
@@ -620,7 +616,6 @@ window.addToCart = async function(id, name, stock) {
 
     if (availableToBorrow <= 0) { Swal.fire({ icon: 'error', title: 'สิทธิ์เต็ม!', text: 'คุณเพิ่มอุปกรณ์นี้ลงตะกร้าครบตามจำนวนสต็อกแล้ว', background: '#1a1a1a', color: '#fff' }); return; }
 
-    // 🟢 5. เปลี่ยน Swal Popup แจ้งเตือนให้เข้ากับธีม Dark Mode
     const { value: qty } = await Swal.fire({
         title: '<span style="color:#ff9800;"><i class="fas fa-shopping-basket"></i> ระบุจำนวนยืม</span>',
         html: `<div style="margin-bottom:15px; font-size:16px; font-weight:bold; color:#fff;">${name}</div>
@@ -663,7 +658,17 @@ window.updateCartCount = () => { const b = document.getElementById('cartCountBad
 
 window.openCartModal = () => {
     if(cart.length === 0) return Swal.fire({title: 'ตะกร้าว่าง', icon: 'info', background: '#1a1a1a', color: '#fff'});
-    document.getElementById('cartBorrowerName').value = currentUser.name || currentUser.username;
+    
+    const nameInput = document.getElementById('cartBorrowerName');
+    if(nameInput) {
+        nameInput.value = currentUser.name || currentUser.username;
+        nameInput.readOnly = true; 
+        nameInput.style.backgroundColor = "#222"; 
+        nameInput.style.color = "#888";
+        nameInput.style.cursor = "not-allowed";
+        nameInput.title = "ใช้ชื่อจากบัญชีที่ล็อกอิน (ไม่สามารถแก้ไขได้)";
+    }
+
     const termsBox = document.getElementById('cartTerms'); if (termsBox) termsBox.checked = false;
     const dInput = document.getElementById('cartBorrowDate'); 
     const rInput = document.getElementById('cartReturnDate');
@@ -779,22 +784,22 @@ window.openReturnInspectionModal = async function(reqId) {
             <div style="display: flex; flex-direction: column; gap: 10px; font-size: 14px;">
                 <label style="cursor: pointer; display: flex; align-items: center; gap: 10px; background: rgba(40,167,69,0.1); padding: 8px; border-radius: 6px;">
                     <input type="radio" name="insp_cond_${index}" value="good" checked style="width:16px; height:16px; accent-color: #28a745; margin:0;">
-                    <span style="color: #28a745; font-weight: 600;">✅ สภาพปกติสมบูรณ์</span>
+                    <span style="color: #28a745; font-weight: 600;">สภาพปกติสมบูรณ์</span>
                 </label>
                 <label style="cursor: pointer; display: flex; align-items: center; gap: 10px; background: rgba(255,193,7,0.1); padding: 8px; border-radius: 6px;">
                     <input type="radio" name="insp_cond_${index}" value="minor" style="width:16px; height:16px; accent-color: #ffc107; margin:0;">
-                    <span style="color: #ffc107; font-weight: 600;">⚠️ มีตำหนิเล็กน้อย <small>(ใช้งานต่อได้ / ไม่ต้องส่งซ่อม)</small></span>
+                    <span style="color: #ffc107; font-weight: 600;">มีตำหนิเล็กน้อย <small>(ใช้งานต่อได้ / ไม่ต้องส่งซ่อม)</small></span>
                 </label>
                 <label style="cursor: pointer; display: flex; align-items: center; gap: 10px; background: rgba(220,53,69,0.1); padding: 8px; border-radius: 6px;">
                     <input type="radio" name="insp_cond_${index}" value="damaged" style="width:16px; height:16px; accent-color: #dc3545; margin:0;">
-                    <span style="color: #dc3545; font-weight: 600;">❌ ชำรุด <small>(ระบบจะล็อคสถานะเป็น "ส่งซ่อม" อัตโนมัติ)</small></span>
+                    <span style="color: #dc3545; font-weight: 600;">ชำรุด <small>(ระบบจะล็อคสถานะเป็น "ส่งซ่อม" อัตโนมัติ)</small></span>
                 </label>
             </div>
         </div>
     `).join('');
 
     const { value: formValues } = await Swal.fire({
-        title: '📋 ตรวจสอบสภาพก่อนรับคืน',
+        title: 'ตรวจสอบสภาพก่อนรับคืน',
         html: `
             <div style="text-align: left;">
                 <p style="color: #aaa; font-size: 14px; margin-bottom: 15px;">ผู้ยืม: <b style="color:#fff;">${req.user}</b></p>
@@ -1303,7 +1308,7 @@ window.showAllBorrowersModal = function() {
     htmlContent += `</tbody></table></div>`;
 
     Swal.fire({
-        title: '🏆 จัดอันดับผู้ยืมทั้งหมด (Leaderboard)',
+        title: 'จัดอันดับผู้ยืมทั้งหมด (Leaderboard)',
         html: htmlContent,
         width: 800,
         background: '#1a1a1a',
@@ -1359,7 +1364,7 @@ window.renderStats = () => {
         userChartContainer.style.cssText = 'margin-top: 30px; background: #1a1a1a; padding: 25px; border-radius: 12px; border: 1px solid #333; box-shadow: 0 4px 10px rgba(0,0,0,0.3);';
         userChartContainer.innerHTML = `
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px;">
-                <h3 style="margin:0; color:#fff; font-size:16px;">🏆 5 อันดับนักศึกษาที่ยืมอุปกรณ์บ่อยที่สุด</h3>
+                <h3 style="margin:0; color:#fff; font-size:16px;">5 อันดับนักศึกษาที่ยืมอุปกรณ์บ่อยที่สุด</h3>
                 <button onclick="window.showAllBorrowersModal()" style="background:var(--theme-primary); color:#000; border:none; padding:8px 15px; border-radius:6px; cursor:pointer; font-weight:bold; font-size:13px; transition: 0.3s;">
                     <i class="fas fa-list-ol"></i> ดูรายชื่อจัดอันดับทั้งหมด
                 </button>
@@ -1439,7 +1444,45 @@ window.loadUsersToAdminTable = (q = "") => {
         tb.innerHTML += `<tr><td style="padding:12px;">${u.name||"-"}</td><td style="padding:12px;">${u.username}</td><td style="padding:12px;">${badge}</td><td style="padding:12px;">${btns}</td></tr>`;
     });
 }
-window.changeUserRole = async (id, r) => { await updateDoc(doc(db, "users", id), { role: r === 'admin' ? 'user' : 'admin' }); }
+
+// 🟢 5. เปลี่ยนระบบปุ่มสลับสิทธิ์ให้มี Popup ยืนยัน
+window.changeUserRole = async (id, currentRole) => { 
+    const targetUser = users.find(u => u.id === id);
+    const targetName = targetUser ? (targetUser.name || targetUser.username) : 'ผู้ใช้นี้';
+    const newRole = currentRole === 'admin' ? 'user' : 'admin';
+    const actionText = newRole === 'admin' ? 'แต่งตั้งเป็น Admin' : 'ปรับลดเป็น User';
+    const confirmColor = newRole === 'admin' ? '#28a745' : '#ff9800'; // เขียวถ้าแต่งตั้งแอดมิน, ส้มถ้าปลด
+
+    const result = await Swal.fire({
+        title: 'ยืนยันการเปลี่ยนสิทธิ์',
+        html: `คุณต้องการ<b>${actionText}</b> ให้กับ <br><span style="color:#0dcaf0; font-size:18px;">${targetName}</span> ใช่หรือไม่?`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: confirmColor,
+        cancelButtonColor: '#333',
+        confirmButtonText: 'ยืนยัน',
+        cancelButtonText: 'ยกเลิก',
+        background: '#1a1a1a',
+        color: '#fff',
+        customClass: {
+            popup: 'swal-popup-dark',
+            confirmButton: 'swal-btn-confirm',
+            cancelButton: 'swal-btn-cancel',
+            actions: 'swal-actions-gap'
+        }
+    });
+
+    if (result.isConfirmed) {
+        Swal.fire({ title: 'กำลังอัปเดต...', allowOutsideClick: false, didOpen: () => Swal.showLoading(), background: '#1a1a1a', color: '#fff' });
+        try {
+            await updateDoc(doc(db, "users", id), { role: newRole });
+            Swal.fire({ icon: 'success', title: 'เปลี่ยนสิทธิ์สำเร็จ!', timer: 1500, showConfirmButton: false, background: '#1a1a1a', color: '#fff' });
+        } catch (error) {
+            Swal.fire({ icon: 'error', title: 'เกิดข้อผิดพลาด', text: error.message, background: '#1a1a1a', color: '#fff' });
+        }
+    }
+}
+
 window.deleteUser = async (id) => { if((await Swal.fire({title:'ลบผู้ใช้?',icon:'error',showCancelButton:true, background:'#1a1a1a',color:'#fff'})).isConfirmed){ await deleteDoc(doc(db, "users", id)); } }
 window.exportToCSV = async () => {
     const snap = await getDocs(collection(db, "requests")); let csv = "\uFEFFวันที่,ผู้ยืม,อุปกรณ์,วันที่รับ,สถานะ\n";
