@@ -1,8 +1,8 @@
 /* =========================================
-   script.js - MMD BORROW SYSTEM (MEGA UPDATE + PREMIUM UI + LEADERBOARD + ADVANCED RETURN INSPECTION + MODERN LIST UI + GLOWING HEADER + SWEETALERT DARK THEME)
+   script.js - MMD BORROW SYSTEM (MEGA UPDATE + PREMIUM UI + LEADERBOARD + ADVANCED RETURN INSPECTION + MODERN LIST UI + GLOWING HEADER + SWEETALERT DARK THEME + MOBILE RESPONSIVE)
    ========================================= */
 
-// 🟢 คำสั่งจัดหน้าจอ, ล็อกความกว้างไม่ให้ทะลุจอ และตกแต่ง UI ใหม่ (Modern Tables, Glowing Header, Pulse Effects & SweetAlert)
+// 🟢 คำสั่งจัดหน้าจอ, ล็อกความกว้างไม่ให้ทะลุจอ และตกแต่ง UI ใหม่
 if (!document.getElementById('dynamic-ui-css')) {
     const style = document.createElement('style');
     style.id = 'dynamic-ui-css';
@@ -136,8 +136,45 @@ if (!document.getElementById('dynamic-ui-css')) {
         }
         .swal-btn-cancel:hover { background: #444 !important; border-color: #666 !important; color: #fff !important; }
         
-        /* เปลี่ยนสีโฟกัสช่องกรอกตัวเลขใน Swal */
         input.swal2-input:focus { border-color: #ff6600 !important; box-shadow: 0 0 0 3px rgba(255,102,0,0.2) !important; }
+
+        /* 🟢 4. Mobile Responsive (จัดระเบียบ Header ในมือถือ) */
+        @media screen and (max-width: 768px) {
+            header, .navbar, .top-nav, .header-container {
+                padding: 10px 8px !important;
+            }
+            /* ลดขนาดฟอนต์ของโลโก้ */
+            .navbar-brand, .logo, h1, h2, h3 {
+                font-size: 18px !important;
+                margin-bottom: 5px !important;
+            }
+            /* จัดการชื่อผู้ใช้ให้ตัดคำและเล็กลง */
+            #userNameDisplay {
+                font-size: 12px !important;
+                white-space: nowrap !important;
+                overflow: hidden !important;
+                text-overflow: ellipsis !important;
+                max-width: 140px !important;
+                display: inline-block !important;
+                vertical-align: middle !important;
+            }
+            /* ย่อขนาดปุ่มและช่องว่าง */
+            #btnAdminManage, 
+            button[onclick="openCartModal()"], .cart-btn,
+            button[onclick="window.openHistoryModal()"], button[onclick="openHistoryModal()"] {
+                padding: 6px 10px !important;
+                font-size: 11px !important;
+            }
+            button[onclick="window.logout()"], button[onclick="logout()"] {
+                padding: 6px 10px !important;
+                font-size: 11px !important;
+            }
+            /* บังคับคอนเทนเนอร์ให้ชิดกันขึ้น */
+            header div, .navbar div {
+                gap: 5px !important;
+                margin-bottom: 2px !important;
+            }
+        }
     `;
     document.head.appendChild(style);
 }
@@ -573,7 +610,6 @@ window.openItemDetail = function(id) {
 
 window.closeItemDetail = () => document.getElementById('itemDetailModal').style.display = 'none';
 
-// 🟢 4. อัปเกรดหน้าต่าง Swal ของ "เพิ่มลงตะกร้า" ให้เป็น Dark Theme
 window.addToCart = async function(id, name, stock) {
     const totalStock = parseInt(stock) || 0;
     if (totalStock <= 0) { Swal.fire({ icon: 'error', title: 'ของหมด!', text: 'อุปกรณ์ชิ้นนี้ไม่มีในสต็อกพร้อมให้ยืม', background: '#1a1a1a', color: '#fff' }); return; }
@@ -584,6 +620,7 @@ window.addToCart = async function(id, name, stock) {
 
     if (availableToBorrow <= 0) { Swal.fire({ icon: 'error', title: 'สิทธิ์เต็ม!', text: 'คุณเพิ่มอุปกรณ์นี้ลงตะกร้าครบตามจำนวนสต็อกแล้ว', background: '#1a1a1a', color: '#fff' }); return; }
 
+    // 🟢 5. เปลี่ยน Swal Popup แจ้งเตือนให้เข้ากับธีม Dark Mode
     const { value: qty } = await Swal.fire({
         title: '<span style="color:#ff9800;"><i class="fas fa-shopping-basket"></i> ระบุจำนวนยืม</span>',
         html: `<div style="margin-bottom:15px; font-size:16px; font-weight:bold; color:#fff;">${name}</div>
