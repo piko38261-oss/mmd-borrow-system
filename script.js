@@ -1,71 +1,143 @@
 /* =========================================
-   script.js - MMD BORROW SYSTEM (MEGA VERSION + IMGBB API + COLOR SETS + DRAG TO SCROLL + SORTING + LEADERBOARD STATS + PREMIUM MODAL UI)
+   script.js - MMD BORROW SYSTEM (MEGA UPDATE + PREMIUM UI + LEADERBOARD + ADVANCED RETURN INSPECTION + MODERN LIST UI + GLOWING HEADER + SWEETALERT DARK THEME)
    ========================================= */
 
-// 🟢 คำสั่งจัดหน้าจอ, ล็อกความกว้างไม่ให้ทะลุจอ และตกแต่งช่องกรอกข้อมูล (Premium Input)
+// 🟢 คำสั่งจัดหน้าจอ, ล็อกความกว้างไม่ให้ทะลุจอ และตกแต่ง UI ใหม่ (Modern Tables, Glowing Header, Pulse Effects & SweetAlert)
 if (!document.getElementById('dynamic-ui-css')) {
     const style = document.createElement('style');
     style.id = 'dynamic-ui-css';
     style.innerHTML = `
+        /* 🟢 1. อัปเกรดดีไซน์ Header (Glassmorphism + Neon Border) */
+        header, .navbar, .top-nav, .header-container {
+            background: rgba(15, 15, 15, 0.85) !important;
+            backdrop-filter: blur(20px) !important;
+            -webkit-backdrop-filter: blur(20px) !important;
+            border-bottom: 1px solid rgba(255, 102, 0, 0.25) !important;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8), 0 2px 15px rgba(255, 102, 0, 0.08) !important;
+            position: sticky !important; 
+            top: 0 !important; 
+            z-index: 1000 !important;
+        }
+
+        #userNameDisplay, .logo, .navbar-brand {
+            background: linear-gradient(to right, #ffffff, #ff9800) !important;
+            -webkit-background-clip: text !important;
+            -webkit-text-fill-color: transparent !important;
+            font-weight: 700 !important;
+            letter-spacing: 0.5px;
+            text-shadow: 0 2px 10px rgba(255, 152, 0, 0.2);
+        }
+
+        @keyframes pulseOrange {
+            0% { box-shadow: 0 0 0 0 rgba(255, 102, 0, 0.5); }
+            70% { box-shadow: 0 0 0 10px rgba(255, 102, 0, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(255, 102, 0, 0); }
+        }
+        @keyframes pulseGreen {
+            0% { box-shadow: 0 0 0 0 rgba(40, 167, 69, 0.5); }
+            70% { box-shadow: 0 0 0 10px rgba(40, 167, 69, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(40, 167, 69, 0); }
+        }
+
+        #btnAdminManage {
+            background: linear-gradient(135deg, #ff7b00, #cc4400) !important;
+            color: #fff !important;
+            border: 1px solid rgba(255, 255, 255, 0.1) !important;
+            border-radius: 30px !important;
+            padding: 8px 22px !important;
+            font-weight: bold !important;
+            animation: pulseOrange 2.5s infinite !important;
+            transition: all 0.3s ease !important;
+        }
+        #btnAdminManage:hover { transform: translateY(-2px) scale(1.05); box-shadow: 0 6px 20px rgba(255, 152, 0, 0.6) !important; }
+
+        button[onclick="openCartModal()"], .cart-btn {
+            background: linear-gradient(135deg, #28a745, #198754) !important;
+            color: #fff !important;
+            border: 1px solid rgba(255, 255, 255, 0.1) !important;
+            border-radius: 30px !important;
+            padding: 8px 22px !important;
+            font-weight: bold !important;
+            animation: pulseGreen 2.5s infinite !important;
+            transition: all 0.3s ease !important;
+        }
+        button[onclick="openCartModal()"]:hover, .cart-btn:hover { transform: translateY(-2px) scale(1.05); box-shadow: 0 6px 20px rgba(40, 167, 69, 0.6) !important; }
+
+        button[onclick="window.openHistoryModal()"], button[onclick="openHistoryModal()"] {
+            background: linear-gradient(135deg, #333, #111) !important;
+            color: #fff !important;
+            border: 1px solid #555 !important;
+            border-radius: 30px !important;
+            padding: 8px 22px !important;
+            font-weight: bold !important;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4) !important;
+            transition: all 0.3s ease !important;
+        }
+        button[onclick="window.openHistoryModal()"]:hover, button[onclick="openHistoryModal()"]:hover {
+            border-color: #ff9800 !important;
+            transform: translateY(-2px); 
+            box-shadow: 0 6px 20px rgba(255, 152, 0, 0.3) !important;
+        }
+
+        /* 🟢 2. โค้ดส่วน Scroll และ Inputs ทั่วไป */
         .category-scroll { 
-            display: flex !important; 
-            flex-wrap: nowrap !important; 
-            overflow-x: auto !important; 
-            gap: 10px !important; 
-            padding-bottom: 10px !important; 
-            justify-content: flex-start !important;
-            scrollbar-width: none !important; 
-            -ms-overflow-style: none !important; 
-            scroll-behavior: smooth !important; 
-            -webkit-overflow-scrolling: touch !important;
-            cursor: grab !important; 
-            max-width: 100% !important; 
-            box-sizing: border-box !important;
+            display: flex !important; flex-wrap: nowrap !important; overflow-x: auto !important; gap: 12px !important; padding: 5px 5px 15px 5px !important; justify-content: flex-start !important; scrollbar-width: none !important; -ms-overflow-style: none !important; scroll-behavior: smooth !important; -webkit-overflow-scrolling: touch !important; cursor: grab !important; max-width: 100% !important; box-sizing: border-box !important;
         }
         .category-scroll:active { cursor: grabbing !important; }
         .category-scroll::-webkit-scrollbar { display: none; }
-        .category-scroll button { 
-            white-space: nowrap !important; flex-shrink: 0 !important; 
-            user-select: none !important; -webkit-user-select: none !important; pointer-events: auto;
-        }
+        .category-scroll button { white-space: nowrap !important; flex-shrink: 0 !important; user-select: none !important; -webkit-user-select: none !important; pointer-events: auto; }
 
-        /* 🟢 สไตล์ช่องกรอกข้อมูลให้สวยหรูดูพรีเมียม */
-        .premium-input {
-            width: 100% !important;
-            margin: 0 !important;
-            box-sizing: border-box !important;
-            background-color: #111 !important;
-            color: #fff !important;
-            border: 1px solid #444 !important;
-            border-radius: 8px !important;
-            padding: 12px 15px !important;
-            font-size: 14px !important;
-            transition: all 0.3s ease !important;
-        }
-        .premium-input:focus {
-            border-color: #ff6600 !important;
-            background-color: #1a1a1a !important;
-            box-shadow: 0 0 0 3px rgba(255,102,0,0.2) !important;
-            outline: none !important;
-        }
-        /* 🟢 เปลี่ยนสีลูกศร Datalist ให้เป็นสีขาว/สว่าง */
-        .premium-input::-webkit-calendar-picker-indicator {
-            filter: invert(0.8);
-            cursor: pointer;
-        }
+        .premium-input { width: 100% !important; margin: 0 !important; box-sizing: border-box !important; background-color: #111 !important; color: #fff !important; border: 1px solid #444 !important; border-radius: 8px !important; padding: 12px 15px !important; font-size: 14px !important; transition: all 0.3s ease !important; }
+        .premium-input:focus { border-color: #ff6600 !important; background-color: #1a1a1a !important; box-shadow: 0 0 0 3px rgba(255,102,0,0.2) !important; outline: none !important; }
+        .premium-input::-webkit-calendar-picker-indicator { filter: invert(0.8); cursor: pointer; }
         .premium-input::-webkit-calendar-picker-indicator:hover { filter: invert(1); }
-        
         textarea.premium-input { resize: vertical; min-height: 80px; }
-        
-        /* 🟢 เปลี่ยนลูกศรของช่อง Select ปกติ */
-        select.premium-input {
-            cursor: pointer;
-            appearance: none;
-            background-image: url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23AAAAAA%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E");
-            background-repeat: no-repeat;
-            background-position: right 15px top 50%;
-            background-size: 12px auto;
+        select.premium-input { cursor: pointer; appearance: none; background-image: url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23AAAAAA%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E"); background-repeat: no-repeat; background-position: right 15px top 50%; background-size: 12px auto; }
+
+        .data-table { border-collapse: separate !important; border-spacing: 0 10px !important; border: none !important; }
+        .data-table thead th { background: #151515 !important; position: sticky !important; top: 0 !important; z-index: 20 !important; border: none !important; color: #888 !important; text-transform: uppercase; font-size: 12px; letter-spacing: 1px; padding: 15px !important; box-shadow: 0 5px 10px rgba(0,0,0,0.3); }
+        .data-table tbody tr { background: #1e1e1e !important; box-shadow: 0 2px 6px rgba(0,0,0,0.15) !important; transition: transform 0.2s, box-shadow 0.2s; }
+        .data-table tbody tr:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(255,102,0,0.1) !important; background: #222 !important; }
+        .data-table tbody td { border: none !important; border-top: 1px solid #2d2d2d !important; border-bottom: 1px solid #2d2d2d !important; vertical-align: top; padding: 15px !important; }
+        .data-table tbody td:first-child { border-left: 1px solid #2d2d2d !important; border-radius: 8px 0 0 8px !important; }
+        .data-table tbody td:last-child { border-right: 1px solid #2d2d2d !important; border-radius: 0 8px 8px 0 !important; }
+
+        /* 🟢 3. อัปเกรด SweetAlert2 ให้เป็น Dark/Premium Theme */
+        .swal-popup-dark {
+            border: 1px solid rgba(255, 102, 0, 0.2) !important;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.9), 0 0 20px rgba(255,102,0,0.15) !important;
+            border-radius: 16px !important;
         }
+        .swal-actions-gap { gap: 15px !important; }
+        .swal-btn-confirm {
+            background: linear-gradient(135deg, #ff6600, #e65100) !important;
+            color: #fff !important;
+            border-radius: 30px !important;
+            padding: 10px 30px !important;
+            font-size: 15px !important;
+            font-weight: bold !important;
+            border: none !important;
+            box-shadow: 0 4px 15px rgba(255, 102, 0, 0.4) !important;
+            cursor: pointer;
+            transition: 0.3s ease;
+        }
+        .swal-btn-confirm:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(255, 102, 0, 0.6) !important; }
+        
+        .swal-btn-cancel {
+            background: #333 !important;
+            color: #ddd !important;
+            border-radius: 30px !important;
+            padding: 10px 30px !important;
+            font-size: 15px !important;
+            font-weight: bold !important;
+            border: 1px solid #555 !important;
+            cursor: pointer;
+            transition: 0.3s ease;
+        }
+        .swal-btn-cancel:hover { background: #444 !important; border-color: #666 !important; color: #fff !important; }
+        
+        /* เปลี่ยนสีโฟกัสช่องกรอกตัวเลขใน Swal */
+        input.swal2-input:focus { border-color: #ff6600 !important; box-shadow: 0 0 0 3px rgba(255,102,0,0.2) !important; }
     `;
     document.head.appendChild(style);
 }
@@ -175,20 +247,28 @@ function resizeImage(file) {
     });
 }
 
-async function autoCleanOldRequests(requestsList) {
-    const now = new Date();
-    const thirtyDaysInMs = 30 * 24 * 60 * 60 * 1000;
-    requestsList.forEach(async (r) => {
-        if (r.status === 'returned' || r.status === 'rejected') {
-            let reqDate = null;
-            if (r.timestamp && r.timestamp.toDate) reqDate = r.timestamp.toDate();
-            else if (r.timestamp) reqDate = new Date(r.timestamp);
-            else if (r.date) reqDate = new Date(r.date);
-            if (reqDate && (now - reqDate > thirtyDaysInMs)) {
-                try { await deleteDoc(doc(db, "requests", r.id)); } catch (e) {}
-            }
-        }
-    });
+function formatEquipList(rawStr) {
+    if (!rawStr) return "-";
+    let str = String(rawStr);
+    let itemsPart = str;
+    let groupPart = "";
+    
+    if (str.includes('\n[')) {
+        let parts = str.split('\n[');
+        itemsPart = parts[0];
+        groupPart = '<div style="margin-top: 8px; font-size: 11px; color: #0dcaf0; background: rgba(13, 202, 240, 0.1); padding: 8px 12px; border-radius: 6px; border-left: 3px solid #0dcaf0;"><i class="fas fa-users"></i> [' + parts[1].replace(/\n/g, '<br>') + '</div>';
+    }
+
+    let html = itemsPart.split(',').map(item => {
+        let t = item.trim();
+        if(!t) return '';
+        return `<div style="background: rgba(255,255,255,0.03); padding: 8px 12px; border-radius: 6px; margin-bottom: 5px; font-size: 13px; display: flex; align-items: flex-start; gap: 10px; border-left: 3px solid var(--theme-primary);">
+                    <i class="fas fa-check-circle" style="color: var(--theme-primary); font-size: 14px; margin-top: 2px;"></i> 
+                    <span style="line-height: 1.4; color: #eee;">${t}</span>
+                </div>`;
+    }).join('');
+    
+    return `<div style="display: flex; flex-direction: column; min-width: 200px;">${html}${groupPart}</div>`;
 }
 
 const lightbox = document.createElement('div');
@@ -200,7 +280,7 @@ window.viewPhoto = function(reqId, type = 'pickup') {
     const req = borrowRequests.find(r => r.id === reqId);
     let photoData = (type === 'return') ? req.returnProofPhoto : req.proofPhoto;
     if (req && photoData) { document.getElementById('lightbox-img').src = photoData; document.getElementById('lightbox-modal').style.display = 'flex'; }
-    else { Swal.fire({ icon: 'info', title: 'ไม่พบรูปภาพ', text: 'รายการนี้ยังไม่มีรูปภาพในระบบ' }); }
+    else { Swal.fire({ icon: 'info', title: 'ไม่พบรูปภาพ', text: 'รายการนี้ยังไม่มีรูปภาพในระบบ', background: '#1a1a1a', color: '#fff' }); }
 }
 
 window.checkAuth = function() {
@@ -211,12 +291,12 @@ window.checkAuth = function() {
 }
 
 window.login = async function(u, p) {
-    Swal.fire({ title: 'เข้าสู่ระบบ...', allowOutsideClick: false, didOpen: () => Swal.showLoading()});
+    Swal.fire({ title: 'เข้าสู่ระบบ...', allowOutsideClick: false, didOpen: () => Swal.showLoading(), background: '#1a1a1a', color: '#fff' });
     try {
         const qs = await getDocs(query(collection(db, "users"), where("username", "==", u), where("password", "==", p)));
-        if (!qs.empty) { const d = qs.docs[0].data(); d.id = qs.docs[0].id; localStorage.setItem('currentUser', JSON.stringify(d)); await Swal.fire({ icon: 'success', title: 'สำเร็จ!', timer: 1500, showConfirmButton: false }); window.location.href = 'dashboard.html'; }
-        else { Swal.fire({ icon: 'error', title: 'เข้าสู่ระบบล้มเหลว', text: 'รหัสผ่านไม่ถูกต้อง' }); }
-    } catch (error) { Swal.fire('เกิดข้อผิดพลาด', error.message, 'error'); }
+        if (!qs.empty) { const d = qs.docs[0].data(); d.id = qs.docs[0].id; localStorage.setItem('currentUser', JSON.stringify(d)); await Swal.fire({ icon: 'success', title: 'สำเร็จ!', timer: 1500, showConfirmButton: false, background: '#1a1a1a', color: '#fff' }); window.location.href = 'dashboard.html'; }
+        else { Swal.fire({ icon: 'error', title: 'เข้าสู่ระบบล้มเหลว', text: 'รหัสผ่านไม่ถูกต้อง', background: '#1a1a1a', color: '#fff' }); }
+    } catch (error) { Swal.fire({ icon: 'error', title: 'เกิดข้อผิดพลาด', text: error.message, background: '#1a1a1a', color: '#fff' }); }
 }
 
 window.loginWithGoogle = async function() {
@@ -236,24 +316,24 @@ window.loginWithGoogle = async function() {
         }
         
         localStorage.setItem('currentUser', JSON.stringify(userData));
-        await Swal.fire({ icon: 'success', title: 'เข้าสู่ระบบสำเร็จ!', timer: 1500, showConfirmButton: false });
+        await Swal.fire({ icon: 'success', title: 'เข้าสู่ระบบสำเร็จ!', timer: 1500, showConfirmButton: false, background: '#1a1a1a', color: '#fff' });
         window.location.href = 'dashboard.html';
         
     } catch (error) {
         console.error("Google Login Error:", error);
-        Swal.fire('เกิดข้อผิดพลาด', 'ไม่สามารถเข้าสู่ระบบด้วย Google ได้: ' + error.message, 'error');
+        Swal.fire({ icon: 'error', title: 'เกิดข้อผิดพลาด', text: 'ไม่สามารถเข้าสู่ระบบด้วย Google ได้', background: '#1a1a1a', color: '#fff' });
     }
 }
 
 window.register = async function(u, p, n) {
     try {
-        if (!(await getDocs(query(collection(db, "users"), where("username", "==", u)))).empty) { Swal.fire('ข้อมูลซ้ำ', 'มีผู้ใช้นี้แล้ว', 'warning'); return; }
+        if (!(await getDocs(query(collection(db, "users"), where("username", "==", u)))).empty) { Swal.fire({ icon: 'warning', title: 'ข้อมูลซ้ำ', text: 'มีผู้ใช้นี้แล้ว', background: '#1a1a1a', color: '#fff' }); return; }
         await addDoc(collection(db, "users"), { username: u, password: p, role: "user", name: n });
-        Swal.fire({ icon: 'success', title: 'สมัครสำเร็จ!', timer: 2000, showConfirmButton: false }); if(window.toggleForm) window.toggleForm();
-    } catch (e) { Swal.fire('เกิดข้อผิดพลาด', e.message, 'error'); }
+        Swal.fire({ icon: 'success', title: 'สมัครสำเร็จ!', timer: 2000, showConfirmButton: false, background: '#1a1a1a', color: '#fff' }); if(window.toggleForm) window.toggleForm();
+    } catch (e) { Swal.fire({ icon: 'error', title: 'เกิดข้อผิดพลาด', text: e.message, background: '#1a1a1a', color: '#fff' }); }
 }
 
-window.logout = () => Swal.fire({ title: 'ออกจากระบบ?', icon: 'question', showCancelButton: true }).then((res) => { if(res.isConfirmed){ localStorage.removeItem('currentUser'); window.location.href = 'index.html'; }});
+window.logout = () => Swal.fire({ title: 'ออกจากระบบ?', icon: 'question', showCancelButton: true, background: '#1a1a1a', color: '#fff', confirmButtonColor: '#dc3545', confirmButtonText: 'ออกจากระบบ' }).then((res) => { if(res.isConfirmed){ localStorage.removeItem('currentUser'); window.location.href = 'index.html'; }});
 
 window.listenToData = function() {
     onSnapshot(collection(db, "items"), (snap) => { 
@@ -267,7 +347,6 @@ window.listenToData = function() {
     
     onSnapshot(collection(db, "requests"), (snap) => { 
         borrowRequests = snap.docs.map(doc => ({ id: doc.id, ...doc.data() })); 
-        autoCleanOldRequests(borrowRequests);
         if(document.getElementById('itemGrid')) window.renderItems(); 
         if(document.getElementById('requestTableBody')) window.renderRequests(); 
         if(document.getElementById('inventoryTableBody')) window.renderInventory(); 
@@ -296,19 +375,40 @@ window.renderCategories = () => {
 
     uniqueCats = [...normalCats, ...specialCats];
 
-    let html = `<button class="${currentCategory === 'all' ? 'active' : ''}" onclick="filterItems('all')">ทั้งหมด</button>`;
+    let baseBtnStyle = `padding: 8px 20px; border-radius: 30px; font-weight: 600; font-size: 13px; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); cursor: pointer; border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.03); color: #bbb; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(5px);`;
+
+    let html = `<button onclick="filterItems('all')" style="${baseBtnStyle} ${currentCategory === 'all' ? 'background: linear-gradient(135deg, #ff6600, #e65100); color: #fff; border: none; box-shadow: 0 6px 15px rgba(255, 102, 0, 0.4); transform: translateY(-2px);' : ''}">ทั้งหมด</button>`;
     
     uniqueCats.forEach(cat => { 
-        let inlineStyle = '';
-        if (cat === 'เซ็ตแดง') inlineStyle = `background: ${currentCategory === cat ? '#dc3545' : 'transparent'}; color: ${currentCategory === cat ? '#fff' : '#dc3545'}; border-color: #dc3545;`;
-        else if (cat === 'เซ็ตเขียว') inlineStyle = `background: ${currentCategory === cat ? '#28a745' : 'transparent'}; color: ${currentCategory === cat ? '#fff' : '#28a745'}; border-color: #28a745;`;
-        else if (cat === 'เซ็ตเหลือง') inlineStyle = `background: ${currentCategory === cat ? '#ffc107' : 'transparent'}; color: ${currentCategory === cat ? '#000' : '#ffc107'}; border-color: #ffc107;`;
-        else if (cat.startsWith('เซ็ต')) inlineStyle = `background: ${currentCategory === cat ? '#8a2be2' : 'transparent'}; color: ${currentCategory === cat ? '#fff' : '#8a2be2'}; border-color: #8a2be2;`; 
+        let isActive = currentCategory === cat;
+        let inlineStyle = baseBtnStyle;
         
-        html += `<button class="${currentCategory === cat ? 'active' : ''}" onclick="filterItems('${cat}')" style="${inlineStyle}">${cat}</button>`; 
+        if (cat === 'เซ็ตแดง') {
+            inlineStyle = isActive 
+                ? `padding: 8px 20px; border-radius: 30px; font-weight: 600; font-size: 13px; cursor: pointer; transition: all 0.3s ease; background: linear-gradient(135deg, #ff416c, #ff4b2b); color: #fff; border: none; box-shadow: 0 6px 15px rgba(255, 65, 108, 0.4); transform: translateY(-2px);` 
+                : `padding: 8px 20px; border-radius: 30px; font-weight: 600; font-size: 13px; cursor: pointer; transition: all 0.3s ease; background: rgba(220,53,69,0.05); color: #ff4b2b; border: 1px solid rgba(220,53,69,0.4);`;
+        } else if (cat === 'เซ็ตเขียว') {
+            inlineStyle = isActive 
+                ? `padding: 8px 20px; border-radius: 30px; font-weight: 600; font-size: 13px; cursor: pointer; transition: all 0.3s ease; background: linear-gradient(135deg, #00b09b, #96c93d); color: #fff; border: none; box-shadow: 0 6px 15px rgba(0, 176, 155, 0.4); transform: translateY(-2px);` 
+                : `padding: 8px 20px; border-radius: 30px; font-weight: 600; font-size: 13px; cursor: pointer; transition: all 0.3s ease; background: rgba(40,167,69,0.05); color: #96c93d; border: 1px solid rgba(40,167,69,0.4);`;
+        } else if (cat === 'เซ็ตเหลือง') {
+            inlineStyle = isActive 
+                ? `padding: 8px 20px; border-radius: 30px; font-weight: 600; font-size: 13px; cursor: pointer; transition: all 0.3s ease; background: linear-gradient(135deg, #f7971e, #ffd200); color: #000; border: none; box-shadow: 0 6px 15px rgba(247, 151, 30, 0.4); transform: translateY(-2px);` 
+                : `padding: 8px 20px; border-radius: 30px; font-weight: 600; font-size: 13px; cursor: pointer; transition: all 0.3s ease; background: rgba(255,193,7,0.05); color: #f7971e; border: 1px solid rgba(255,193,7,0.4);`;
+        } else if (cat.startsWith('เซ็ต')) {
+            inlineStyle = isActive 
+                ? `padding: 8px 20px; border-radius: 30px; font-weight: 600; font-size: 13px; cursor: pointer; transition: all 0.3s ease; background: linear-gradient(135deg, #654ea3, #eaafc8); color: #fff; border: none; box-shadow: 0 6px 15px rgba(101, 78, 163, 0.4); transform: translateY(-2px);` 
+                : `padding: 8px 20px; border-radius: 30px; font-weight: 600; font-size: 13px; cursor: pointer; transition: all 0.3s ease; background: rgba(138,43,226,0.05); color: #eaafc8; border: 1px solid rgba(138,43,226,0.4);`;
+        } else {
+             inlineStyle += isActive 
+                ? `background: linear-gradient(135deg, #444, #222) !important; color: #fff !important; border: 1px solid #555 !important; box-shadow: 0 6px 15px rgba(0,0,0,0.5) !important; transform: translateY(-2px) !important;` 
+                : ``;
+        }
+        
+        html += `<button onclick="filterItems('${cat}')" style="${inlineStyle}">${cat}</button>`; 
     });
     
-    html += `<button class="${currentCategory === 'ป้ายเหลือง' ? 'active' : ''}" onclick="filterItems('ป้ายเหลือง')" style="${currentCategory === 'ป้ายเหลือง' ? 'background:#ff9800; color:#000;' : 'color:#ff9800; border-color:#ff9800;'}"><i class="fas fa-exclamation-triangle"></i> ป้ายเหลือง</button>`;
+    html += `<button class="${currentCategory === 'ป้ายเหลือง' ? 'active' : ''}" onclick="filterItems('ป้ายเหลือง')" style="${baseBtnStyle} ${currentCategory === 'ป้ายเหลือง' ? 'background: linear-gradient(135deg, #ff9800, #ffb74d); color: #000; border: none; box-shadow: 0 6px 15px rgba(255, 152, 0, 0.4); transform: translateY(-2px);' : 'color: #ff9800; border: 1px solid rgba(255,152,0,0.4);'}"><i class="fas fa-exclamation-triangle" style="margin-right:5px;"></i> ป้ายเหลือง</button>`;
     
     filterContainer.innerHTML = html;
 }
@@ -473,32 +573,51 @@ window.openItemDetail = function(id) {
 
 window.closeItemDetail = () => document.getElementById('itemDetailModal').style.display = 'none';
 
+// 🟢 4. อัปเกรดหน้าต่าง Swal ของ "เพิ่มลงตะกร้า" ให้เป็น Dark Theme
 window.addToCart = async function(id, name, stock) {
     const totalStock = parseInt(stock) || 0;
-    if (totalStock <= 0) { Swal.fire({ icon: 'error', title: 'ของหมด!', text: 'อุปกรณ์ชิ้นนี้ไม่มีในสต็อกพร้อมให้ยืม' }); return; }
+    if (totalStock <= 0) { Swal.fire({ icon: 'error', title: 'ของหมด!', text: 'อุปกรณ์ชิ้นนี้ไม่มีในสต็อกพร้อมให้ยืม', background: '#1a1a1a', color: '#fff' }); return; }
 
     const existingItem = cart.find(item => item.id === id);
     const currentCartQty = existingItem ? existingItem.qty : 0;
     const availableToBorrow = totalStock - currentCartQty;
 
-    if (availableToBorrow <= 0) { Swal.fire({ icon: 'error', title: 'สิทธิ์เต็ม!', text: 'คุณเพิ่มอุปกรณ์นี้ลงตะกร้าครบตามจำนวนสต็อกแล้ว' }); return; }
+    if (availableToBorrow <= 0) { Swal.fire({ icon: 'error', title: 'สิทธิ์เต็ม!', text: 'คุณเพิ่มอุปกรณ์นี้ลงตะกร้าครบตามจำนวนสต็อกแล้ว', background: '#1a1a1a', color: '#fff' }); return; }
 
     const { value: qty } = await Swal.fire({
-        title: 'จำนวนยืม',
-        html: `<b>${name}</b><br><small style="color: #aaa;">เหลือให้ยืมได้อีก: ${availableToBorrow} ชิ้น</small>`,
+        title: '<span style="color:#ff9800;"><i class="fas fa-shopping-basket"></i> ระบุจำนวนยืม</span>',
+        html: `<div style="margin-bottom:15px; font-size:16px; font-weight:bold; color:#fff;">${name}</div>
+               <div style="background: rgba(255,152,0,0.1); border: 1px solid rgba(255,152,0,0.3); padding: 10px; border-radius: 8px; color: #ffb74d; font-size: 13px;">
+                   <i class="fas fa-box-open"></i> จำนวนคงเหลือในคลัง: <b>${availableToBorrow}</b> ชิ้น
+               </div>`,
         input: 'number',
         inputValue: 1,
-        inputAttributes: { min: 1, max: availableToBorrow },
-        showCancelButton: true, confirmButtonText: 'ตกลง', cancelButtonText: 'ยกเลิก'
+        inputAttributes: { 
+            min: 1, 
+            max: availableToBorrow,
+            style: 'background: #111; color: #fff; border: 1px solid #555; border-radius: 8px; padding: 10px; text-align: center; font-size: 18px; width: 60%; margin: 15px auto;' 
+        },
+        background: '#1a1a1a',
+        color: '#fff',
+        showCancelButton: true, 
+        confirmButtonText: '<i class="fas fa-check"></i> ตกลง', 
+        cancelButtonText: 'ยกเลิก',
+        buttonsStyling: false,
+        customClass: {
+            popup: 'swal-popup-dark',
+            confirmButton: 'swal-btn-confirm',
+            cancelButton: 'swal-btn-cancel',
+            actions: 'swal-actions-gap'
+        }
     });
 
     if (qty) {
         const borrowQty = parseInt(qty);
-        if (borrowQty > availableToBorrow) { Swal.fire({ icon: 'warning', title: 'เกินจำนวนสต็อก!', text: `ยืมเพิ่มได้สูงสุด ${availableToBorrow} ชิ้นเท่านั้น` }); return; }
+        if (borrowQty > availableToBorrow) { Swal.fire({ icon: 'warning', title: 'เกินจำนวนสต็อก!', text: `ยืมเพิ่มได้สูงสุด ${availableToBorrow} ชิ้นเท่านั้น`, background: '#1a1a1a', color: '#fff' }); return; }
         if (borrowQty > 0) {
             if (existingItem) { existingItem.qty += borrowQty; } else { cart.push({ id, name, qty: borrowQty }); }
             window.updateCartCount(); window.renderItems();
-            Swal.fire({ icon: 'success', title: 'เพิ่มลงตะกร้าแล้ว', toast: true, position: 'top-end', showConfirmButton: false, timer: 1500 });
+            Swal.fire({ icon: 'success', title: 'เพิ่มลงตะกร้าแล้ว', toast: true, position: 'top-end', showConfirmButton: false, timer: 1500, background: '#1a1a1a', color: '#fff' });
         }
     }
 }
@@ -506,7 +625,7 @@ window.addToCart = async function(id, name, stock) {
 window.updateCartCount = () => { const b = document.getElementById('cartCountBadge'); if(b) b.innerText = cart.reduce((s, i) => s + i.qty, 0); }
 
 window.openCartModal = () => {
-    if(cart.length === 0) return Swal.fire('ตะกร้าว่าง', '', 'info');
+    if(cart.length === 0) return Swal.fire({title: 'ตะกร้าว่าง', icon: 'info', background: '#1a1a1a', color: '#fff'});
     document.getElementById('cartBorrowerName').value = currentUser.name || currentUser.username;
     const termsBox = document.getElementById('cartTerms'); if (termsBox) termsBox.checked = false;
     const dInput = document.getElementById('cartBorrowDate'); 
@@ -559,7 +678,7 @@ window.openHistoryModal = () => {
     const tbody = document.getElementById('historyTableBody'); if(!tbody) return; tbody.innerHTML = '';
     const myReqs = borrowRequests.filter(r => r.user === (currentUser.name||currentUser.username)).sort((a,b) => (b.timestamp?.seconds||0) - (a.timestamp?.seconds||0));
     
-    if (myReqs.length === 0) { tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;">ไม่มีประวัติ</td></tr>'; }
+    if (myReqs.length === 0) { tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:20px;">ไม่มีประวัติการจอง</td></tr>'; }
     else myReqs.forEach(r => {
         let st='', btn=''; 
         if(r.status === 'pending') st='<span style="color:#ffc107">⏳ รออนุมัติ</span>';
@@ -573,10 +692,14 @@ window.openHistoryModal = () => {
         if (r.status !== 'rejected') { printBtn = `<button onclick="printReceipt('${r.id}')" style="background:#0dcaf0; color:#000; border:none; padding:5px 8px; border-radius:4px; font-size:11px; font-weight:bold; cursor:pointer; width:100%; margin-top:3px;"><i class="fas fa-print"></i> พิมพ์ใบยืม</button>`; }
 
         let retStr = r.returnDate ? `${r.returnDate} ${r.returnTimeLimit ? 'เวลา ' + r.returnTimeLimit + ' น.' : ''}` : '-';
-        let dateHtml = `รับ: ${r.date}<br><span style="color:var(--warning); font-size:12px;">คืน: ${retStr}</span>`;
-        let actionHtml = `<div style="display:flex; flex-direction:column; gap:2px; align-items:center;">${btn}${printBtn}</div>`;
+        let remarkHtml = r.returnRemarks ? `<div style="margin-top: 5px; font-size: 11px; color: #ff9800; background: rgba(255,152,0,0.1); padding: 5px; border-radius: 4px; border-left: 3px solid #ff9800; text-align: left;"><b>📝 หมายเหตุแอดมิน:</b> ${r.returnRemarks}</div>` : '';
+        let dateHtml = `รับ: ${r.date}<br><span style="color:var(--warning); font-size:12px;">คืน: ${retStr}</span>${remarkHtml}`;
+        let actionHtml = `<div style="display:flex; flex-direction:column; gap:5px; align-items:center;">${btn}${printBtn}</div>`;
         if(!btn && !printBtn) actionHtml = '-';
-        tbody.innerHTML += `<tr><td style="padding:10px; border-bottom:1px solid #333">${r.item}</td><td style="padding:10px; border-bottom:1px solid #333">${dateHtml}</td><td style="padding:10px; border-bottom:1px solid #333">${st}</td><td style="padding:10px; border-bottom:1px solid #333">${actionHtml}</td></tr>`;
+        
+        let formattedItems = formatEquipList(r.item);
+
+        tbody.innerHTML += `<tr><td style="padding:15px;">${formattedItems}</td><td style="padding:15px;">${dateHtml}</td><td style="padding:15px;">${st}</td><td style="padding:15px;">${actionHtml}</td></tr>`;
     });
     document.getElementById('historyModal').style.display = 'flex';
 }
@@ -595,6 +718,139 @@ window.switchTab = (t) => {
 }
 
 window.searchRequest = (query) => { searchQuery = query.toLowerCase(); currentPage = 1; window.renderRequests(); }
+
+window.openReturnInspectionModal = async function(reqId) {
+    const req = borrowRequests.find(r => r.id === reqId);
+    if (!req) return;
+
+    let reqItemStr = String(req.item || "");
+    let regex = /([^,]+)\s*\((\d+)\s*ชิ้น\)/g;
+    let parsedItems = [];
+    let match;
+    while ((match = regex.exec(reqItemStr)) !== null) {
+        parsedItems.push({ name: match[1].trim(), qty: parseInt(match[2]) });
+    }
+    if (parsedItems.length === 0 && reqItemStr) {
+        reqItemStr.split(',').forEach(it => parsedItems.push({ name: it.trim(), qty: 1 }));
+    }
+
+    let itemsHtml = parsedItems.map((item, index) => `
+        <div style="background: #222; padding: 15px; border-radius: 8px; border: 1px solid #444; width: 100%; box-sizing: border-box;">
+            <div style="color: var(--theme-primary); font-weight: bold; margin-bottom: 12px; font-size: 15px; white-space: normal;">
+                ${index + 1}. ${item.name} <span style="color:#aaa; font-size:13px;">(จำนวน ${item.qty} ชิ้น)</span>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 10px; font-size: 14px;">
+                <label style="cursor: pointer; display: flex; align-items: center; gap: 10px; background: rgba(40,167,69,0.1); padding: 8px; border-radius: 6px;">
+                    <input type="radio" name="insp_cond_${index}" value="good" checked style="width:16px; height:16px; accent-color: #28a745; margin:0;">
+                    <span style="color: #28a745; font-weight: 600;">✅ สภาพปกติสมบูรณ์</span>
+                </label>
+                <label style="cursor: pointer; display: flex; align-items: center; gap: 10px; background: rgba(255,193,7,0.1); padding: 8px; border-radius: 6px;">
+                    <input type="radio" name="insp_cond_${index}" value="minor" style="width:16px; height:16px; accent-color: #ffc107; margin:0;">
+                    <span style="color: #ffc107; font-weight: 600;">⚠️ มีตำหนิเล็กน้อย <small>(ใช้งานต่อได้ / ไม่ต้องส่งซ่อม)</small></span>
+                </label>
+                <label style="cursor: pointer; display: flex; align-items: center; gap: 10px; background: rgba(220,53,69,0.1); padding: 8px; border-radius: 6px;">
+                    <input type="radio" name="insp_cond_${index}" value="damaged" style="width:16px; height:16px; accent-color: #dc3545; margin:0;">
+                    <span style="color: #dc3545; font-weight: 600;">❌ ชำรุด <small>(ระบบจะล็อคสถานะเป็น "ส่งซ่อม" อัตโนมัติ)</small></span>
+                </label>
+            </div>
+        </div>
+    `).join('');
+
+    const { value: formValues } = await Swal.fire({
+        title: '📋 ตรวจสอบสภาพก่อนรับคืน',
+        html: `
+            <div style="text-align: left;">
+                <p style="color: #aaa; font-size: 14px; margin-bottom: 15px;">ผู้ยืม: <b style="color:#fff;">${req.user}</b></p>
+                <div style="max-height: 280px; overflow-y: auto; overflow-x: hidden; margin-bottom: 15px; padding-right: 5px; display: flex; flex-direction: column; gap: 10px;">
+                    ${itemsHtml}
+                </div>
+                <label style="color:#aaa; display:block; margin-bottom:5px; font-size:14px;">📝 ระบุรายละเอียดตำหนิ/ความเสียหาย (ถ้ามี)</label>
+                <textarea id="insp-remarks" class="premium-input" placeholder="เช่น รอยขีดข่วนบริเวณหน้าเลนส์, ขาตั้งน็อตหลวม..." style="height: 80px;"></textarea>
+            </div>
+        `,
+        width: 600,
+        background: '#1a1a1a',
+        color: '#fff',
+        showCancelButton: true,
+        confirmButtonText: '<i class="fas fa-check-circle"></i> บันทึก & รับคืนเข้าคลัง',
+        confirmButtonColor: '#28a745',
+        cancelButtonText: 'ยกเลิก',
+        preConfirm: () => {
+            let inspectionResults = [];
+            let hasDamaged = false;
+            let hasMinor = false;
+            parsedItems.forEach((item, index) => {
+                let radios = document.getElementsByName(`insp_cond_${index}`);
+                let cond = 'good';
+                for(let r of radios) { if(r.checked) cond = r.value; }
+                
+                if(cond === 'damaged') hasDamaged = true;
+                if(cond === 'minor') hasMinor = true;
+                
+                inspectionResults.push({ name: item.name, qty: item.qty, condition: cond });
+            });
+            let remarks = document.getElementById('insp-remarks').value.trim();
+            return { inspectionResults, remarks, hasDamaged, hasMinor };
+        }
+    });
+
+    if (formValues) {
+        Swal.fire({ title: 'กำลังบันทึกข้อมูล...', allowOutsideClick: false, didOpen: () => Swal.showLoading(), background: '#1a1a1a', color: '#fff'});
+        try {
+            let adminName = currentUser.name || currentUser.username;
+            let lineMsgText = "📥 แอดมินตรวจรับคืนอุปกรณ์เรียบร้อย";
+
+            if (formValues.hasDamaged) {
+                lineMsgText += `\n🚨 พบอุปกรณ์ชำรุด/ส่งซ่อม!`;
+            } else if (formValues.hasMinor) {
+                lineMsgText += `\n⚠️ พบอุปกรณ์มีตำหนิเล็กน้อย`;
+            }
+
+            if (formValues.remarks) {
+                lineMsgText += `\n📝 หมายเหตุ: ${formValues.remarks}`;
+            }
+
+            await updateDoc(doc(db, "requests", reqId), {
+                status: 'returned',
+                returnRemarks: formValues.remarks,
+                inspectionDetails: formValues.inspectionResults,
+                inspectedBy: adminName,
+                inspectedAt: new Date()
+            });
+
+            if (formValues.hasDamaged) {
+                for (let res of formValues.inspectionResults) {
+                    if (res.condition === 'damaged') {
+                        let realItem = items.find(i => i.name === res.name);
+                        if (realItem) {
+                            await updateDoc(doc(db, "items", realItem.id), {
+                                condition: 'damaged',
+                                damageReason: `[ชำรุดจากการยืมของ ${req.user}] ${formValues.remarks}`
+                            });
+                        }
+                    }
+                }
+            }
+
+            fetch(LINE_API_URL, {
+                method: 'POST',
+                mode: 'no-cors',
+                headers: { 'Content-Type': 'text/plain' },
+                body: JSON.stringify({ 
+                    action: "update_status", 
+                    borrowerName: req.user, 
+                    equipmentName: req.item,
+                    statusText: lineMsgText,
+                    adminName: adminName 
+                })
+            }).catch(e => console.error(e));
+
+            Swal.fire({ icon: 'success', title: 'รับคืนสำเร็จ!', text: 'บันทึกประวัติการตรวจเรียบร้อย', timer: 2500, background: '#1a1a1a', color: '#fff', showConfirmButton: false });
+        } catch (error) {
+            Swal.fire({ icon: 'error', title: 'เกิดข้อผิดพลาด', text: error.message, background: '#1a1a1a', color: '#fff' });
+        }
+    }
+}
 
 window.renderRequests = () => {
     const tbody = document.getElementById('requestTableBody'); if(!tbody) return; 
@@ -621,10 +877,10 @@ window.renderRequests = () => {
             btns = `<button onclick="updateStatus('${r.id}','pending')" style="background:#ffc107; color:#000; border:none; padding:6px 12px; border-radius:4px; font-weight:bold; cursor:pointer;"><i class="fas fa-undo"></i> ยกเลิก</button>`; 
         } else if(r.status === 'borrowed') { 
             badge = '<span class="badge" style="background:#198754; color:white;">ถูกยืม</span>'; 
-            btns = `<button onclick="updateStatus('${r.id}','returned')" style="background:#6c757d; color:#fff; border:none; padding:6px 12px; border-radius:4px; font-weight:bold; cursor:pointer;">รับคืน(ข้ามรูป)</button>`; 
+            btns = `<button onclick="openReturnInspectionModal('${r.id}')" style="background:#6c757d; color:#fff; border:none; padding:6px 12px; border-radius:4px; font-weight:bold; cursor:pointer;"><i class="fas fa-clipboard-check"></i> รับคืน(ข้ามรูป)</button>`; 
         } else if (r.status === 'pending_return') { 
             badge = '<span class="badge" style="background:#ff9800; color:#fff;">รอตรวจคืน</span>'; 
-            btns = `<button onclick="updateStatus('${r.id}','returned')" style="background:#28a745; color:#fff; border:none; padding:6px 12px; border-radius:4px; font-weight:bold; cursor:pointer; margin-right:5px;">ยืนยัน</button> 
+            btns = `<button onclick="openReturnInspectionModal('${r.id}')" style="background:#28a745; color:#fff; border:none; padding:6px 12px; border-radius:4px; font-weight:bold; cursor:pointer; margin-right:5px;"><i class="fas fa-clipboard-check"></i> ตรวจรับคืน</button> 
                     <button onclick="updateStatus('${r.id}','borrowed')" style="background:#dc3545; color:#fff; border:none; padding:6px 12px; border-radius:4px; font-weight:bold; cursor:pointer;">ตีกลับ</button>`; 
         } else { 
             let statusText = r.status === 'returned' ? 'คืนแล้ว' : 'ปฏิเสธ'; let statusColor = r.status === 'returned' ? '#6c757d' : '#dc3545';
@@ -634,12 +890,18 @@ window.renderRequests = () => {
         
         let printBtn = `<button onclick="printReceipt('${r.id}')" style="background:#0dcaf0; color:#000; border:none; padding:6px 12px; border-radius:4px; font-weight:bold; cursor:pointer; margin-top:5px; width:100%;"><i class="fas fa-print"></i> พิมพ์ใบยืม</button>`;
         let retStr = r.returnDate ? `${r.returnDate} ${r.returnTimeLimit ? 'เวลา ' + r.returnTimeLimit + ' น.' : ''}` : '-';
-        let dateHtml = `รับ: ${r.date}<br><span style="color:var(--warning); font-size:12px;">คืน: ${retStr}</span>`;
+        
+        let adminRemarkHtml = r.returnRemarks ? `<div style="margin-top: 8px; font-size: 12px; color: #ff9800; background: rgba(255,152,0,0.15); padding: 8px 10px; border-radius: 6px; border-left: 4px solid #ff9800; word-break: break-word; white-space: pre-wrap; display: block; max-width: 100%; box-sizing: border-box; line-height: 1.5; text-align: left;"><b>📝 หมายเหตุ:</b> ${r.returnRemarks}</div>` : '';
+        let dateHtml = `รับ: ${r.date}<br><span style="color:var(--warning); font-size:12px;">คืน: ${retStr}</span>${adminRemarkHtml}`;
+        
         if (r.status === 'borrowed' && r.returnDate) {
             const today = new Date().toISOString().split('T')[0];
             if (r.returnDate < today) dateHtml += `<br><span class="overdue-alert"><i class="fas fa-exclamation-triangle"></i> เลยกำหนดคืน!</span>`;
         }
-        htmlOut += `<tr><td>${r.user}</td><td>${r.item}</td><td>${dateHtml}</td><td>${badge}</td><td>${photoDisplay}</td><td><div style="display:flex; flex-direction:column; gap:5px;">${btns}${printBtn}</div></td></tr>`;
+        
+        let formattedItems = formatEquipList(r.item);
+
+        htmlOut += `<tr><td>${r.user}</td><td>${formattedItems}</td><td>${dateHtml}</td><td>${badge}</td><td>${photoDisplay}</td><td><div style="display:flex; flex-direction:column; gap:5px;">${btns}${printBtn}</div></td></tr>`;
     });
     tbody.innerHTML = htmlOut;
     if(window.renderPagination) window.renderPagination(reqs.length, pages);
@@ -689,7 +951,7 @@ window.updateStatus = async (id, s) => {
     }
 }
 
-window.deleteRequest = async (id) => { if((await Swal.fire({title:'ลบ?',icon:'warning',showCancelButton:true})).isConfirmed) { await deleteDoc(doc(db, "requests", id)); Swal.fire('ลบแล้ว','','success'); } }
+window.deleteRequest = async (id) => { if((await Swal.fire({title:'ลบ?',icon:'warning',showCancelButton:true, background: '#1a1a1a', color: '#fff'})).isConfirmed) { await deleteDoc(doc(db, "requests", id)); Swal.fire({title:'ลบแล้ว',icon:'success', background: '#1a1a1a', color: '#fff'}); } }
 
 window.filterAdminInventory = (cat) => {
     adminCurrentCategory = cat;
@@ -805,13 +1067,12 @@ window.toggleCondition = async (id, n) => {
     }
 }
 
-window.deleteItem = async (id) => { if((await Swal.fire({title:'ลบ?',icon:'warning',showCancelButton:true})).isConfirmed) { await deleteDoc(doc(db, "items", id)); } }
+window.deleteItem = async (id) => { if((await Swal.fire({title:'ลบ?',icon:'warning',showCancelButton:true, background: '#1a1a1a', color: '#fff'})).isConfirmed) { await deleteDoc(doc(db, "items", id)); } }
 
 window.addNewItem = async () => {
     const presetSets = ['เซ็ตแดง', 'เซ็ตเขียว', 'เซ็ตเหลือง'];
     const uniqueCats = [...new Set([...items.map(i => getDisplayCategory(i.category)), ...presetSets])].filter(c => c && c !== 'ป้ายเหลือง');
     
-    // 🟢 เรียงตามตัวอักษร ก-ฮ และใส่ HTML Datalist
     uniqueCats.sort((a, b) => a.localeCompare(b, 'th'));
     const datalistOptions = uniqueCats.map(c => `<option value="${c}">`).join('');
 
@@ -884,7 +1145,7 @@ window.addNewItem = async () => {
             }
         }
     });
-    if (formValues) { Swal.fire({ title: 'กำลังบันทึกลงระบบ...', allowOutsideClick: false, didOpen: () => Swal.showLoading(), background: '#1a1a1a', color: '#fff'}); try { await addDoc(collection(db, "items"), formValues); Swal.fire({ icon: 'success', title: 'เพิ่มอุปกรณ์สำเร็จ!', timer: 1500, background: '#1a1a1a', color: '#fff', showConfirmButton:false }); } catch(e) { Swal.fire('Error', e.message, 'error'); } }
+    if (formValues) { Swal.fire({ title: 'กำลังบันทึกลงระบบ...', allowOutsideClick: false, didOpen: () => Swal.showLoading(), background: '#1a1a1a', color: '#fff'}); try { await addDoc(collection(db, "items"), formValues); Swal.fire({ icon: 'success', title: 'เพิ่มอุปกรณ์สำเร็จ!', timer: 1500, background: '#1a1a1a', color: '#fff', showConfirmButton:false }); } catch(e) { Swal.fire({icon:'error', title:'Error', text:e.message, background:'#1a1a1a', color:'#fff'}); } }
 }
 
 window.editItem = async function(id) {
@@ -895,7 +1156,6 @@ window.editItem = async function(id) {
     const presetSets = ['เซ็ตแดง', 'เซ็ตเขียว', 'เซ็ตเหลือง'];
     const uniqueCats = [...new Set([...items.map(i => getDisplayCategory(i.category)), ...presetSets])].filter(c => c && c !== 'ป้ายเหลือง');
     
-    // 🟢 เรียงตามตัวอักษร ก-ฮ และใส่ HTML Datalist
     uniqueCats.sort((a, b) => a.localeCompare(b, 'th'));
     const datalistOptions = uniqueCats.map(c => `<option value="${c}">`).join('');
 
@@ -992,10 +1252,10 @@ window.showAllBorrowersModal = function() {
 
     window.sortedUsersData.forEach((u, index) => {
         let rankColor = index === 0 ? '#ffd700' : index === 1 ? '#c0c0c0' : index === 2 ? '#cd7f32' : '#aaa';
-        let rankIcon = index === 0 ? '🥇 ' : index === 1 ? '🥈 ' : index === 2 ? '🥉 ' : '';
+        let rankIcon = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : '';
         htmlContent += `
             <tr style="border-bottom: 1px solid #333; background: ${index % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.02)'}; transition: 0.2s;">
-                <td style="padding: 12px; font-weight: bold; color: ${rankColor}; text-align: center; font-size: 16px;">${rankIcon}#${index + 1}</td>
+                <td style="padding: 12px; font-weight: bold; color: ${rankColor}; text-align: center; font-size: 16px;">${rankIcon} #${index + 1}</td>
                 <td style="padding: 12px; font-weight: bold;">${u.name}</td>
                 <td style="padding: 12px; text-align: center; font-weight: bold; color: var(--theme-primary); font-size: 16px;">${u.count}</td>
                 <td style="padding: 12px; font-size: 12px; color: #bbb; line-height: 1.5;">${u.itemsText || '-'}</td>
@@ -1198,9 +1458,9 @@ function initApp() {
                     maxDateMs.setDate(new Date().getDate() + 15);
                     maxDateMs.setHours(0,0,0,0);
 
-                    if(borrowDateMs < todayMs) return Swal.fire('วันที่ผิด', 'ห้ามจองย้อนหลังเด็ดขาด', 'error');
-                    if(borrowDateMs > maxDateMs) return Swal.fire('วันที่ผิด', 'จองล่วงหน้าได้ไม่เกิน 15 วัน', 'error');
-                    if(returnDateMs < borrowDateMs) return Swal.fire('วันที่ผิด', 'วันคืนของต้องไม่ก่อนวันทำการจอง', 'error');
+                    if(borrowDateMs < todayMs) return Swal.fire({icon: 'error', title: 'วันที่ผิด', text: 'ห้ามจองย้อนหลังเด็ดขาด', background: '#1a1a1a', color: '#fff'});
+                    if(borrowDateMs > maxDateMs) return Swal.fire({icon: 'error', title: 'วันที่ผิด', text: 'จองล่วงหน้าได้ไม่เกิน 15 วัน', background: '#1a1a1a', color: '#fff'});
+                    if(returnDateMs < borrowDateMs) return Swal.fire({icon: 'error', title: 'วันที่ผิด', text: 'วันคืนของต้องไม่ก่อนวันทำการจอง', background: '#1a1a1a', color: '#fff'});
 
                     const groupMemInput = document.getElementById('cartGroupMembers');
                     const groupMem = (groupMemInput && groupMemInput.parentElement.style.display !== 'none') ? groupMemInput.value.trim() : "";
@@ -1232,40 +1492,40 @@ function initApp() {
                             }) 
                         }).catch(e => console.error(e));
                         
-                        Swal.fire({ icon: 'success', title: 'จองสำเร็จ!', timer: 2500, showConfirmButton: false }); cart = []; window.updateCartCount(); window.renderItems(); window.closeCartModal();
-                    } catch(e) { Swal.fire('Error', e.message, 'error'); } finally { btn.disabled = false; }
+                        Swal.fire({ icon: 'success', title: 'จองสำเร็จ!', timer: 2500, showConfirmButton: false, background: '#1a1a1a', color: '#fff' }); cart = []; window.updateCartCount(); window.renderItems(); window.closeCartModal();
+                    } catch(e) { Swal.fire({icon:'error', title:'Error', text:e.message, background:'#1a1a1a', color:'#fff'}); } finally { btn.disabled = false; }
                 };
             }
             
             const p = document.getElementById('pickupProofInput'); 
             if(p) p.onchange = async (e) => { 
                 const file = e.target.files[0]; if(!file) return; 
-                Swal.fire({title:'กำลังอัปโหลดรูปภาพ...', allowOutsideClick:false, didOpen:()=>Swal.showLoading()}); 
+                Swal.fire({title:'กำลังอัปโหลดรูปภาพ...', allowOutsideClick:false, didOpen:()=>Swal.showLoading(), background: '#1a1a1a', color: '#fff'}); 
                 try{ 
                     const bFull = await resizeImage(file); 
                     const bData = bFull.split(',')[1];
                     const imgUrl = await uploadToImgBB(bData);
                     await updateDoc(doc(db, "requests", currentPickupId), { status: "borrowed", proofPhoto: imgUrl, pickupTime: new Date() }); 
-                    Swal.fire({icon:'success',title:'สำเร็จ!',timer:2000,showConfirmButton:false}); 
+                    Swal.fire({icon:'success',title:'สำเร็จ!',timer:2000,showConfirmButton:false, background: '#1a1a1a', color: '#fff'}); 
                     e.target.value=''; window.openHistoryModal(); 
-                }catch(err){Swal.fire('เกิดข้อผิดพลาด', err.message,'error');} 
+                }catch(err){Swal.fire({icon:'error', title:'เกิดข้อผิดพลาด', text:err.message, background: '#1a1a1a', color: '#fff'});} 
             };
             
             const ret = document.getElementById('returnProofInput'); 
             if(ret) ret.onchange = async (e) => { 
                 const file = e.target.files[0]; if(!file) return; 
-                Swal.fire({title:'กำลังอัปโหลดรูปภาพ...', allowOutsideClick:false, didOpen:()=>Swal.showLoading()}); 
+                Swal.fire({title:'กำลังอัปโหลดรูปภาพ...', allowOutsideClick:false, didOpen:()=>Swal.showLoading(), background: '#1a1a1a', color: '#fff'}); 
                 try{ 
                     const bFull = await resizeImage(file); 
                     const bData = bFull.split(',')[1];
                     const imgUrl = await uploadToImgBB(bData);
                     await updateDoc(doc(db, "requests", currentReturnId), { status: "pending_return", returnProofPhoto: imgUrl, returnTime: new Date() }); 
-                    Swal.fire({icon:'success',title:'สำเร็จ!',timer:2000,showConfirmButton:false}); 
+                    Swal.fire({icon:'success',title:'สำเร็จ!',timer:2000,showConfirmButton:false, background: '#1a1a1a', color: '#fff'}); 
                     e.target.value=''; window.openHistoryModal(); 
-                }catch(err){Swal.fire('เกิดข้อผิดพลาด', err.message,'error');} 
+                }catch(err){Swal.fire({icon:'error', title:'เกิดข้อผิดพลาด', text:err.message, background: '#1a1a1a', color: '#fff'});} 
             };
         }
     }
-    else if(document.getElementById('section-requests')) { const user = window.checkAuth(); if(user){ if(user.role !== 'admin') { Swal.fire('ปฏิเสธ', 'เฉพาะ Admin', 'error').then(()=>window.location.href='dashboard.html'); } else { window.listenToData(); document.getElementById('section-requests').style.display = 'block'; } } }
+    else if(document.getElementById('section-requests')) { const user = window.checkAuth(); if(user){ if(user.role !== 'admin') { Swal.fire({icon:'error', title:'ปฏิเสธ', text:'เฉพาะ Admin', background:'#1a1a1a', color:'#fff'}).then(()=>window.location.href='dashboard.html'); } else { window.listenToData(); document.getElementById('section-requests').style.display = 'block'; } } }
 }
 initApp();
